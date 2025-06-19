@@ -1,0 +1,103 @@
+# =============================================================================
+# -- Project-Specific Files --
+# =============================================================================
+
+.env
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
+# =============================================================================
+# -- Python & Virtual Environments --
+# =============================================================================
+
+# Byte-compiled / optimized / C extensions
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+pytestdebug.log
+
+# C extensions
+*.so
+
+# Environments (Conda & venv)
+.venv
+venv/
+env/
+.env/
+/env/
+/venv/
+.conda/
+
+
+# =============================================================================
+# -- Editor & IDE Files --
+# =============================================================================
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+
+# =============================================================================
+# -- General & OS-Specific Files --
+# =============================================================================
+
+# OS-generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
