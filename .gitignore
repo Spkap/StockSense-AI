@@ -87,7 +87,7 @@ env/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-
+.Project_description.md
 
 # =============================================================================
 # -- General & OS-Specific Files --
@@ -101,3 +101,4 @@ env/
 .Trashes
 ehthumbs.db
 Thumbs.db
+*.md
