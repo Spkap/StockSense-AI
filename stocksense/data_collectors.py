@@ -1,8 +1,8 @@
 """
-Data collection module for StockSense Agent.
+Data collection module for StockSense ReAct Agent.
 
 This module provides functions to collect stock-related news and price data
-from various sources including NewsAPI and Yahoo Finance.
+from various sources including NewsAPI and Yahoo Finance for the ReAct Agent.
 """
 
 import os
@@ -10,42 +10,23 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 import yfinance as yf
 from newsapi import NewsApiClient
-from dotenv import load_dotenv
-
-
-load_dotenv()
+from .config import get_newsapi_key, ConfigurationError
 
 
 def get_news(ticker: str, days: int = 7) -> List[str]:
-    """
-    Fetch recent news headlines related to a stock ticker.
-    
-    Args:
-        ticker (str): Stock ticker symbol (e.g., 'AAPL', 'NVDA')
-        days (int): Number of days to look back for news (default: 7)
-    
-    Returns:
-        List[str]: List of news headlines/titles
-    """
+    """Fetch recent news headlines related to a stock ticker."""
     try:
-        # Get NewsAPI key from environment variables
-        api_key = os.getenv('NEWSAPI_KEY')
-
-        # Initialize NewsAPI client
+        api_key = get_newsapi_key()
         newsapi = NewsApiClient(api_key=api_key)
         
-        # Calculate date range
         to_date = datetime.now()
         from_date = to_date - timedelta(days=days)
         
-        # Format dates for API (YYYY-MM-DD)
         from_date_str = from_date.strftime('%Y-%m-%d')
         to_date_str = to_date.strftime('%Y-%m-%d')
         
         print(f"Fetching news for {ticker} from {from_date_str} to {to_date_str}")
         
-        # Search for news articles
-        # Using 'everything' endpoint for more comprehensive results
         articles = newsapi.get_everything(
             q=ticker,
             language='en',
@@ -67,30 +48,20 @@ def get_news(ticker: str, days: int = 7) -> List[str]:
             print(f"Error from NewsAPI: {articles.get('message', 'Unknown error')}")
             return []
             
+    except ConfigurationError as e:
+        print(f"Configuration error: {str(e)}")
+        return []
     except Exception as e:
         print(f"Error fetching news for {ticker}: {str(e)}")
         return []
 
 
 def get_price_history(ticker: str, period: str = "1mo") -> Optional[object]:
-    """
-    Fetch historical price data for a stock ticker.
-    
-    Args:
-        ticker (str): Stock ticker symbol (e.g., 'AAPL', 'NVDA')
-        period (str): Time period for historical data (default: '1mo')
-                     Valid periods: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
-    
-    Returns:
-        pandas.DataFrame or None: Historical price data with OHLCV columns
-    """
+    """Fetch historical price data for a stock ticker."""
     try:
         print(f"Fetching price history for {ticker} (period: {period})")
         
-        # Create yfinance ticker object
         stock = yf.Ticker(ticker)
-        
-        # Fetch historical data
         history = stock.history(period=period)
         
         if history.empty:
@@ -106,30 +77,24 @@ def get_price_history(ticker: str, period: str = "1mo") -> Optional[object]:
 
 
 if __name__ == '__main__':
-    """
-    Test the data collection functions with AAPL ticker.
-    """
-    print("Testing StockSense Data Collectors")
+    print("Testing StockSense ReAct Agent Data Collectors")
+    print("=" * 50)
     
     test_ticker = "AAPL"
     
-    # Test news collection
     print(f"\n1. Testing news collection for {test_ticker}:")
-
     headlines = get_news(test_ticker, days=7)
     
     if headlines:
         print(f"\nFound {len(headlines)} headlines:")
-        for i, headline in enumerate(headlines[:5], 1):  # Show first 5
+        for i, headline in enumerate(headlines[:5], 1):
             print(f"{i}. {headline}")
         if len(headlines) > 5:
             print(f"... and {len(headlines) - 5} more headlines")
     else:
         print("No headlines found or error occurred")
     
-    # Test price history collection
     print(f"\n\n2. Testing price history collection for {test_ticker}:")
-
     price_data = get_price_history(test_ticker, period="1mo")
     
     if price_data is not None:
@@ -147,5 +112,4 @@ if __name__ == '__main__':
     else:
         print("No price data found or error occurred")
     
-
     print("Testing completed!")
