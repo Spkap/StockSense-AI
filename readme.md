@@ -97,8 +97,8 @@ StockSense-Agent/
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/StockSense-Agent.git
-cd StockSense-Agent
+git clone https://github.com/Spkap/StockSense-AI.git
+cd StockSense-AI
 
 # Setup environment
 python -m venv venv
