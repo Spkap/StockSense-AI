@@ -252,4 +252,4 @@ STOCKSENSE_LOG_LEVEL=INFO
 - Enterprise features (authentication, rate limiting, custom dashboards)
 
 
-** ❤️ Built with modern AI agent architecture for intelligent financial market research**
+**❤️ Built with modern AI agent architecture for intelligent financial market research**
