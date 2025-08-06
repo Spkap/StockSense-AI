@@ -16,8 +16,14 @@ def init_db() -> None:
         
         print(f"Initializing database at: {db_path}")
         
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
+            
+            # Enable WAL mode for better concurrency
+            cursor.execute("PRAGMA journal_mode=WAL")
             
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS analysis_cache (
@@ -34,11 +40,22 @@ def init_db() -> None:
                 ON analysis_cache (ticker, timestamp DESC)
             ''')
             
+            # Verify table was created
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_cache'")
+            table_exists = cursor.fetchone()
+            
+            if not table_exists:
+                raise sqlite3.Error("Failed to create analysis_cache table")
+            
             conn.commit()
             print("Database initialized successfully!")
+            print(f"Database file size: {os.path.getsize(db_path)} bytes")
         
     except sqlite3.Error as e:
         print(f"Error initializing database: {e}")
+        raise
+    except Exception as e:
+        print(f"Unexpected error initializing database: {e}")
         raise
 
 
@@ -49,12 +66,29 @@ def save_analysis(ticker: str, summary: str, sentiment_report: str) -> None:
         project_root = os.path.dirname(current_dir)
         db_path = os.path.join(project_root, 'stocksense.db')
         
+        # Ensure database exists and is properly initialized
+        if not os.path.exists(db_path) or os.path.getsize(db_path) == 0:
+            print(f"Database not found or empty at {db_path}. Initializing...")
+            init_db()
+        
         timestamp = datetime.utcnow().isoformat()
         
-        print(f"Saving analysis for {ticker} to database...")
+        print(f"Saving analysis for {ticker} to database at {db_path}...")
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
+            
+            # Verify table exists before trying to insert
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_cache'")
+            table_exists = cursor.fetchone()
+            
+            if not table_exists:
+                print("analysis_cache table does not exist. Reinitializing database...")
+                conn.close()
+                init_db()
+                # Reconnect after initialization
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
             
             cursor.execute('''
                 INSERT INTO analysis_cache (ticker, analysis_summary, sentiment_report, timestamp)
@@ -65,7 +99,12 @@ def save_analysis(ticker: str, summary: str, sentiment_report: str) -> None:
             print(f"Analysis for {ticker} saved successfully!")
         
     except sqlite3.Error as e:
-        print(f"Error saving analysis for {ticker}: {e}")
+        print(f"Database error saving analysis for {ticker}: {e}")
+        print(f"Database path: {db_path}")
+        print(f"Database exists: {os.path.exists(db_path) if 'db_path' in locals() else 'Unknown'}")
+        raise
+    except Exception as e:
+        print(f"Unexpected error saving analysis for {ticker}: {e}")
         raise
 
 
@@ -76,14 +115,36 @@ def get_latest_analysis(ticker: str) -> Optional[Dict[str, str]]:
         project_root = os.path.dirname(current_dir)
         db_path = os.path.join(project_root, 'stocksense.db')
         
+        print(f"Looking for database at: {db_path}")
+        
         if not os.path.exists(db_path):
-            print("Database not found. Run init_db() first.")
+            print(f"Database file not found at {db_path}. Run init_db() first.")
             return None
+        
+        # Check if file is empty
+        file_size = os.path.getsize(db_path)
+        print(f"Database file size: {file_size} bytes")
+        
+        if file_size == 0:
+            print("Database file is empty. Reinitializing...")
+            init_db()
         
         print(f"Checking cache for {ticker}...")
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
+            
+            # First verify the table exists
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_cache'")
+            table_exists = cursor.fetchone()
+            
+            if not table_exists:
+                print("analysis_cache table does not exist. Reinitializing database...")
+                conn.close()
+                init_db()
+                # Reconnect after initialization
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
             
             cursor.execute('''
                 SELECT id, ticker, analysis_summary, sentiment_report, timestamp
@@ -110,7 +171,12 @@ def get_latest_analysis(ticker: str) -> Optional[Dict[str, str]]:
                 return None
             
     except sqlite3.Error as e:
-        print(f"Error retrieving analysis for {ticker}: {e}")
+        print(f"Database error retrieving analysis for {ticker}: {e}")
+        print(f"Database path: {db_path}")
+        print(f"Database exists: {os.path.exists(db_path) if 'db_path' in locals() else 'Unknown'}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error retrieving analysis for {ticker}: {e}")
         return None
 
 

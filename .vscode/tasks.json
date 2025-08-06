@@ -1,0 +1,13 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run StockSense ReAct Agent",
+      "type": "shell",
+      "command": "cd /Users/sourabhkapure/Developer/Projects/StockSense-Agent && python -m stocksense.main",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

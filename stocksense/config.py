@@ -49,14 +49,16 @@ def get_llm(model: str = "gemini-1.5-flash",
 def get_chat_llm(model: str = "gemini-1.5-flash", 
                 temperature: float = 0.1, 
                 max_output_tokens: int = 1024) -> ChatGoogleGenerativeAI:
-    """Get configured Google Generative AI Chat LLM instance for ReAct agent."""
     api_key = get_google_api_key()
     
     return ChatGoogleGenerativeAI(
         model=model,
         google_api_key=api_key,
         temperature=temperature,
-        max_output_tokens=max_output_tokens
+        max_output_tokens=max_output_tokens,
+        max_retries=3,
+        timeout=30,
+        requests_per_minute=30
     )
 
 

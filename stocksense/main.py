@@ -9,32 +9,19 @@ and retrieve cached results using the ReAct pattern.
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import uvicorn
 from typing import Dict, Any
+from datetime import datetime
 
 from .config import validate_configuration, ConfigurationError
-from .database import init_db, get_latest_analysis
+from .database import init_db, get_latest_analysis, get_all_cached_tickers
 from .react_agent import run_react_analysis
 
-app = FastAPI(
-    title="StockSense ReAct Agent API",
-    description="AI-powered autonomous stock analysis using ReAct pattern",
-    version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     print("Starting StockSense ReAct Agent API...")
     
     try:
@@ -54,6 +41,29 @@ async def startup_event():
         raise
     
     print("StockSense ReAct Agent API ready to serve requests!")
+    
+    yield
+    
+    # Shutdown
+    print("Shutting down StockSense ReAct Agent API...")
+
+
+app = FastAPI(
+    title="StockSense ReAct Agent API",
+    description="AI-powered autonomous stock analysis using ReAct pattern",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -155,6 +165,15 @@ async def analyze_stock(ticker: str) -> Dict[str, Any]:
                     status_code=500,
                     detail="ReAct Agent completed but produced insufficient data"
                 )
+            
+            # Save the analysis results to database
+            try:
+                from .database import save_analysis
+                save_analysis(ticker, summary, sentiment_report)
+                print(f"Analysis results saved to database for {ticker}")
+            except Exception as e:
+                print(f"Warning: Failed to save analysis to database: {str(e)}")
+                # Don't fail the request if database save fails
             
             print(f"ReAct Agent analysis completed successfully for {ticker}")
             
@@ -258,9 +277,6 @@ async def get_cached_tickers() -> Dict[str, Any]:
     try:
         print("Retrieving list of cached tickers...")
         
-        # Import here to avoid circular imports
-        from .database import get_all_cached_tickers
-        
         cached_tickers = get_all_cached_tickers()
         
         print(f"Found {len(cached_tickers)} cached tickers")
@@ -281,7 +297,7 @@ async def get_cached_tickers() -> Dict[str, Any]:
 if __name__ == "__main__":
     print("Starting StockSense ReAct Agent FastAPI development server...")
     uvicorn.run(
-        "main:app",
+        "stocksense.main:app",
         host="0.0.0.0",
         port=8000,
         reload=True,

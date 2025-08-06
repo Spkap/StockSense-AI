@@ -1,352 +1,810 @@
-"""
-StockSense ReAct Agent - Streamlit Frontend Application
-
-This is the main frontend interface for the StockSense ReAct Agent, an AI-powered
-stock market research tool that uses the ReAct pattern for autonomous analysis.
-It provides a user-friendly web interface to analyze stock tickers using 
-dynamic reasoning and tool selection.
-"""
-
 import streamlit as st
 import requests
 import time
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
+import json
+import yfinance as yf
 
-# Configure the Streamlit page
+# Optional imports for enhanced visualizations
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+
+# Configure the Streamlit page with modern styling
 st.set_page_config(
-    page_title="StockSense ReAct Agent",
+    page_title="StockSense AI Agent",
+    page_icon="📈",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://github.com/Spkap/StockSense-AI',
+        'Report a bug': 'https://github.com/Spkap/StockSense-AI/issues',
+        'About': "# StockSense ReAct Agent\nAI-powered autonomous stock analysis using ReAct pattern"
+    }
 )
 
-# Initialize session state for persistent data storage
-if 'analysis_result' not in st.session_state:
-    st.session_state.analysis_result = None
+# Custom CSS for modern, sleek design
+st.markdown("""
+<style>
+    /* Main container styling */
+    .main > div {
+        padding-top: 2rem;
+    }
+    
+    /* Hero section styling */
+    .hero-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        color: white;
+        text-align: center;
+    }
+    
+    /* Card styling */
+    .analysis-card {
+        background: #ffffff;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e1e5e9;
+        margin-bottom: 1rem;
+        color: #333333;
+    }
+    
+    .metric-card {
+        background: linear-gradient(145deg, #ffffff, #f8f9fa);
+        padding: 1rem;
+        border-radius: 10px;
+        text-align: center;
+        border: 1px solid #dee2e6;
+        color: #333333;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Status indicators */
+    .status-online {
+        color: #28a745;
+        font-weight: bold;
+    }
+    
+    .status-offline {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    /* Input styling */
+    .stTextInput input {
+        border-radius: 8px;
+        border: 2px solid #e1e5e9;
+        padding: 0.75rem;
+        font-size: 16px;
+    }
+    
+    .stTextInput input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Button styling */
+    .stButton button {
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    /* Progress bar styling */
+    .stProgress .st-bo {
+        background-color: #667eea;
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: #f8f9fa;
+    }
+    
+    /* Success/Error message styling */
+    .stSuccess {
+        border-radius: 8px;
+    }
+    
+    .stError {
+        border-radius: 8px;
+    }
+    
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Custom animations */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .fade-in {
+        animation: fadeIn 0.6s ease-out;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Initialize session state with better organization
+def initialize_session_state():
+    """Initialize session state variables with default values."""
+    if 'analysis_result' not in st.session_state:
+        st.session_state.analysis_result = None
+    if 'analysis_history' not in st.session_state:
+        st.session_state.analysis_history = []
+    if 'backend_status' not in st.session_state:
+        st.session_state.backend_status = None
+    if 'selected_ticker' not in st.session_state:
+        st.session_state.selected_ticker = ""
+
+initialize_session_state()
 
 # Backend API configuration
 BACKEND_URL = "http://127.0.0.1:8000"
 
-def main():
-    """
-    Main function that creates the Streamlit UI and handles user interactions.
-    """
+# Popular stock tickers for quick selection
+POPULAR_TICKERS = [
+    "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", 
+    "NVDA", "META", "NFLX", "AMD", "INTC"
+]
+
+def check_backend_status() -> bool:
+    """Check if the backend is online and update session state."""
+    try:
+        response = requests.get(f"{BACKEND_URL}/health", timeout=5)
+        status = response.status_code == 200
+        st.session_state.backend_status = status
+        return status
+    except:
+        st.session_state.backend_status = False
+        return False
+
+
+def create_styled_header():
+    """Create a styled header for the app."""
+    st.markdown("""
+    <div style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); 
+                padding: 2rem 1rem; border-radius: 10px; margin-bottom: 2rem;">
+        <h1 style="color: white; text-align: center; margin: 0; 
+                   text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+            📈 StockSense AI Agent
+        </h1>
+        <p style="color: #f0f0f0; text-align: center; margin: 0.5rem 0 0 0; 
+                  font-size: 1.1rem; opacity: 0.9;">
+            AI-Powered Stock Analysis Using Reasoning & Acting
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def display_hero_section():
+    """Display the hero section with modern styling."""
+    create_styled_header()
     
-    st.title("StockSense ReAct Agent")
-    st.markdown("**AI-Powered Autonomous Stock Analysis with Reasoning & Action**")
-    st.markdown("---")
-    
+    # Status indicator
     col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if check_backend_status():
+            st.success("🟢 Backend Connected & Ready", icon="✅")
+        else:
+            st.error("🔴 Backend Connection Failed", icon="❌")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+
+
+def display_ticker_input():
+    """Display enhanced ticker input section with quick selection."""
+    st.markdown("### Select Stock to Analyze")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # Quick selection buttons
+        st.markdown("**Quick Select:**")
+        cols = st.columns(5)
+        for i, ticker in enumerate(POPULAR_TICKERS[:5]):
+            with cols[i]:
+                if st.button(ticker, key=f"quick_{ticker}", use_container_width=True):
+                    st.session_state.selected_ticker = ticker
+        
+        cols = st.columns(5)
+        for i, ticker in enumerate(POPULAR_TICKERS[5:]):
+            with cols[i]:
+                if st.button(ticker, key=f"quick_{ticker}", use_container_width=True):
+                    st.session_state.selected_ticker = ticker
     
     with col2:
-        st.subheader("Analyze a Stock")
-        
-        ticker = st.text_input(
-            "Enter Stock Ticker Symbol:",
-            placeholder="e.g., AAPL, MSFT, GOOGL, TSLA",
-            help="Enter a valid stock ticker symbol (e.g., AAPL for Apple Inc.)"
-        ).upper().strip()
-        
-        st.info("**Using ReAct Agent**: An intelligent agent that reasons about market conditions and dynamically selects the best tools for analysis.")
-        
-        analyze_button = st.button(
-            "Analyze Stock with ReAct Agent",
-            type="primary",
-            use_container_width=True
+        st.markdown("**Or enter manually:**")
+        manual_ticker = st.text_input(
+            "Stock Ticker",
+            value=st.session_state.selected_ticker,
+            placeholder="e.g., AAPL",
+            help="Enter any valid stock ticker symbol",
+            label_visibility="collapsed"
         )
         
-        if analyze_button:
-            if not ticker:
-                st.error("Please enter a stock ticker symbol before analyzing.")
-                st.stop()
+        if manual_ticker != st.session_state.selected_ticker:
+            st.session_state.selected_ticker = manual_ticker.upper().strip()
+    
+    return st.session_state.selected_ticker
+
+
+def validate_ticker(ticker: str) -> tuple[bool, str]:
+    """Validate ticker input and return status and message."""
+    if not ticker:
+        return False, "Please select or enter a stock ticker symbol"
+    
+    if not ticker.replace('.', '').isalpha() or len(ticker) < 1 or len(ticker) > 10:
+        return False, "Please enter a valid ticker (1-10 letters, dots allowed)"
+    
+    return True, ""
+
+
+def trigger_analysis(ticker: str) -> Optional[Dict[str, Any]]:
+    """Trigger analysis with improved error handling and UX."""
+    try:
+        # Check backend status first
+        if not check_backend_status():
+            st.error("🔌 Backend server is offline. Please start the FastAPI server.")
+            return None
+        
+        # Show progress
+        with st.spinner("🤖 ReAct Agent is analyzing..."):
+            response = requests.post(
+                f"{BACKEND_URL}/analyze/{ticker}",
+                timeout=60
+            )
+        
+        if response.status_code == 200:
+            result = response.json()
             
-            if not ticker.isalpha() or len(ticker) < 1 or len(ticker) > 10:
-                st.error("Please enter a valid stock ticker symbol (letters only, 1-10 characters).")
-                st.stop()
+            st.success(f"Analysis for **{ticker}** has been triggered! Fetching results...")
             
-            with st.spinner("Analyzing, please wait..."):
+            with st.expander("Backend Response Details"):
+                st.json(result)
+            
+            st.markdown("---")
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            # Fetch detailed results
+            max_attempts = 10
+            for attempt in range(1, max_attempts + 1):
+                status_text.text(f"Fetching results... (Attempt {attempt}/{max_attempts})")
+                progress_bar.progress(attempt / max_attempts)
+                
                 try:
-                    response = requests.post(
-                        f"{BACKEND_URL}/analyze/{ticker}",
-                        timeout=60
+                    results_response = requests.get(
+                        f"{BACKEND_URL}/results/{ticker}",
+                        timeout=10
                     )
                     
-                    if response.status_code == 200:
-                        result = response.json()
+                    if results_response.status_code == 200:
+                        analysis_data = results_response.json()
+                        status_text.text("Results retrieved successfully!")
+                        progress_bar.progress(1.0)
                         
-                        st.success(f"Analysis for **{ticker}** has been triggered! Fetching results...")
+                        # Store in session state and history
+                        result_obj = {
+                            'ticker': ticker,
+                            'data': analysis_data.get('data', analysis_data),
+                            'timestamp': datetime.now().isoformat(),
+                            'success': True
+                        }
                         
-                        with st.expander("Backend Response Details"):
-                            st.json(result)
+                        st.session_state.analysis_result = result_obj
                         
-                        st.markdown("---")
-                        progress_bar = st.progress(0)
-                        status_text = st.empty()
-                        
-                        max_attempts = 10
-                        analysis_data = None
-                        
-                        for attempt in range(1, max_attempts + 1):
-                            status_text.text(f"Fetching results... (Attempt {attempt}/{max_attempts})")
-                            progress_bar.progress(attempt / max_attempts)
-                            
-                            try:
-                                results_response = requests.get(
-                                    f"{BACKEND_URL}/results/{ticker}",
-                                    timeout=10
-                                )
-                                
-                                if results_response.status_code == 200:
-                                    analysis_data = results_response.json()
-                                    status_text.text("Results retrieved successfully!")
-                                    progress_bar.progress(1.0)
-                                    break
-                                elif results_response.status_code == 404:
-                                    if attempt < max_attempts:
-                                        time.sleep(2)
-                                    continue
-                                else:
-                                    st.error(f"Error fetching results: Status {results_response.status_code}")
-                                    break
-                                    
-                            except requests.exceptions.RequestException as e:
-                                st.error(f"Error fetching results: {str(e)}")
-                                break
+                        # Add to history (keep last 10)
+                        st.session_state.analysis_history.insert(0, result_obj)
+                        if len(st.session_state.analysis_history) > 10:
+                            st.session_state.analysis_history.pop()
                         
                         progress_bar.empty()
                         status_text.empty()
-                        
-                        if analysis_data:
-                            st.session_state.analysis_result = {
-                                'ticker': ticker,
-                                'data': analysis_data.get('data', analysis_data),
-                                'timestamp': datetime.now().isoformat()
-                            }
-                            
-                            st.success(f"Analysis completed and saved for **{ticker}**!")
-                            st.info("Results are now persistent - you can interact with other controls without losing data.")
-                        
-                        else:
-                            st.error("Could not retrieve analysis results. Please try again later.")
-                            st.info("The analysis might still be processing. Please wait a moment and try again.")
-                        
+                        return result_obj
+                    
+                    elif results_response.status_code == 404:
+                        if attempt < max_attempts:
+                            time.sleep(2)
+                            continue
                     else:
-                        st.error(f"Error: Received status code {response.status_code} from backend.")
-                        st.error(f"Response: {response.text}")
+                        st.error(f"❌ Error fetching results: Status {results_response.status_code}")
+                        break
                         
-                except requests.exceptions.Timeout:
-                    st.error("Request timed out. The analysis is taking longer than expected. Please try again.")
-                    
-                except requests.exceptions.ConnectionError:
-                    st.error("Cannot connect to the backend server. Please ensure the FastAPI server is running on http://127.0.0.1:8000")
-                    
                 except requests.exceptions.RequestException as e:
-                    st.error(f"Request failed: {str(e)}")
-                    
-                except Exception as e:
-                    st.error(f"Unexpected error: {str(e)}")
-
-    if st.session_state.analysis_result:
-        st.markdown("---")
-        
-        result_col1, result_col2 = st.columns([3, 1])
-        
-        with result_col1:
-            ticker = st.session_state.analysis_result['ticker']
-            st.header(f"Analysis Results for {ticker}")
-        
-        with result_col2:
-            if st.button("Clear Results", type="secondary", key="clear_results"):
-                st.session_state.analysis_result = None
-                st.rerun()
-        
-        data = st.session_state.analysis_result['data']
-        
-        st.subheader("Analysis Summary")
-        summary = data.get('summary') or data.get('analysis_summary')
-        if summary:
-            st.write(summary)
+                    st.error(f"❌ Network error: {str(e)}")
+                    break
+            
+            progress_bar.empty()
+            status_text.empty()
+            st.error("⏱️ Analysis timed out. Please try again.")
+            return None
+            
         else:
-            st.info("No summary available.")
-        
-        if data.get('agent_type') == 'ReAct':
-            st.subheader("ReAct Agent Information")
+            st.error(f"❌ Analysis failed: Status {response.status_code}")
+            if response.text:
+                st.error(f"Details: {response.text}")
+            return None
             
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric(
-                    label="Reasoning Iterations",
-                    value=data.get('iterations', 0),
-                    help="Number of reasoning cycles the agent performed"
-                )
-            
-            with col2:
-                tools_used = data.get('tools_used', [])
-                st.metric(
-                    label="Tools Used",
-                    value=len(set(tools_used)),
-                    help="Number of different tools the agent selected"
-                )
-            
-            with col3:
-                reasoning_steps = data.get('reasoning_steps', [])
-                st.metric(
-                    label="Reasoning Steps",
-                    value=len(reasoning_steps),
-                    help="Number of reasoning steps performed"
-                )
-            
-            if reasoning_steps:
-                with st.expander("View Reasoning Steps"):
-                    for i, step in enumerate(reasoning_steps, 1):
-                        st.write(f"**Step {i}:** {step}")
-            
-            if tools_used:
-                with st.expander("View Tools Used"):
-                    tool_counts = {}
-                    for tool in tools_used:
-                        tool_counts[tool] = tool_counts.get(tool, 0) + 1
-                    
-                    for tool, count in tool_counts.items():
-                        st.write(f"• **{tool}**: Used {count} time(s)")
-        
-        st.subheader("Detailed Sentiment Report")
-        sentiment_report = data.get('sentiment_report')
-        if sentiment_report:
-            st.markdown(sentiment_report)
-        else:
-            st.info("No sentiment report available.")
-        
-        st.subheader("Data Visualizations")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Price Chart with placeholder data
-            st.markdown("**30-Day Price Trend**")
-            
-            # Generate placeholder price data (random walk) - consistent for same ticker
-            ticker_seed = sum(ord(c) for c in ticker)  # Create consistent seed from ticker
-            np.random.seed(ticker_seed)
-            days = 30
-            dates = pd.date_range(end=datetime.now(), periods=days, freq='D')
-            
-            # Create realistic stock price movement (random walk)
-            initial_price = 100.0 + (ticker_seed % 200)  # Vary initial price by ticker
-            daily_returns = np.random.normal(0.001, 0.02, days)  # Small daily returns with volatility
-            price_multipliers = np.exp(np.cumsum(daily_returns))
-            prices = initial_price * price_multipliers
-            
-            # Create DataFrame for price data
-            price_df = pd.DataFrame({
-                'Price': prices
-            }, index=dates)
-            
-            # Display line chart
-            st.line_chart(price_df)
-            st.caption("30-Day Price Trend (Placeholder Data)")
-        
-        with col2:
-            st.markdown("**News Sentiment Distribution**")
-            
-            np.random.seed(ticker_seed)
-            total_articles = 20 + (ticker_seed % 10)
-            positive = max(1, int(np.random.normal(12, 3)))
-            negative = max(1, int(np.random.normal(5, 2)))
-            neutral = max(1, total_articles - positive - negative)
-            
-            sentiment_data = pd.DataFrame({
-                'Count': [positive, neutral, negative]
-            }, index=['Positive', 'Neutral', 'Negative'])
-            
-            st.bar_chart(sentiment_data)
-            st.caption("News Sentiment Distribution (Placeholder Data)")
-        
-        st.markdown("---")
-        st.markdown("**Key Metrics (Placeholder Data)**")
-        
-        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
-        
-        with metric_col1:
-            st.metric(
-                label="Current Price", 
-                value=f"${prices[-1]:.2f}",
-                delta=f"{((prices[-1] - prices[-2]) / prices[-2] * 100):+.1f}%"
-            )
-        
-        with metric_col2:
-            st.metric(
-                label="30-Day High", 
-                value=f"${prices.max():.2f}",
-                delta=None
-            )
-        
-        with metric_col3:
-            st.metric(
-                label="30-Day Low", 
-                value=f"${prices.min():.2f}",
-                delta=None
-            )
-        
-        with metric_col4:
-            volatility = np.std(daily_returns) * 100
-            st.metric(
-                label="Volatility", 
-                value=f"{volatility:.1f}%",
-                delta=None
-            )
-        
-        # Display timestamps
-        st.markdown("---")
-        analysis_time = data.get('timestamp', 'Unknown')
-        session_time = st.session_state.analysis_result['timestamp']
-        
-        time_col1, time_col2 = st.columns(2)
-        with time_col1:
-            st.caption(f"Analysis completed: {analysis_time}")
-        with time_col2:
-            st.caption(f"Cached in session: {session_time}")
-        
-        with st.expander("Raw Analysis Data"):
-            st.json(st.session_state.analysis_result)
+    except requests.exceptions.Timeout:
+        st.error("⏱️ Request timed out. Analysis may still be processing.")
+        return None
+    except requests.exceptions.ConnectionError:
+        st.error("🔌 Cannot connect to backend. Please ensure the server is running.")
+        return None
+    except Exception as e:
+        st.error(f"❌ Unexpected error: {str(e)}")
+        return None
 
-    with st.sidebar:
-        st.header("About ReAct Agent")
-        st.markdown("""
-        **StockSense ReAct Agent** is an autonomous AI system that:
+
+def display_analysis_summary(data: Dict[str, Any], ticker: str):
+    """Display analysis summary with modern card design and improved spacing."""
+    summary = data.get('summary') or data.get('analysis_summary')
+    
+    if summary:
+        st.markdown(f"""
+        <div class="analysis-card fade-in">
+            <h4 style="color: #667eea; margin-bottom: 1rem; font-size: 1.3rem; border-bottom: 2px solid #e1e5e9; padding-bottom: 0.5rem;">
+                📊 Analysis Summary
+            </h4>
+            <p><strong>Stock:</strong> {ticker}</p>
+            <div>{summary}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("📝 Summary not available")
+
+
+def display_sentiment_analysis(data: Dict[str, Any]):
+    """Display sentiment analysis with enhanced visualization and improved spacing."""
+    sentiment_report_raw = data.get('sentiment_report')
+    sentiment_report_data = None
+    sentiment_report_string = None
+
+    # --- Robust Data Parsing Logic ---
+    if isinstance(sentiment_report_raw, str) and sentiment_report_raw.strip():
+        try:
+            parsed_report = json.loads(sentiment_report_raw)
+            if isinstance(parsed_report, list) and parsed_report:
+                sentiment_report_data = parsed_report
+            else:
+                sentiment_report_string = sentiment_report_raw
+        except json.JSONDecodeError:
+            sentiment_report_string = sentiment_report_raw
+    elif isinstance(sentiment_report_raw, list) and sentiment_report_raw:
+        sentiment_report_data = sentiment_report_raw
+
+    # --- Rendering Logic ---
+    st.markdown("### 📈 Sentiment Analysis")
+
+    if sentiment_report_data or sentiment_report_string:
+        with st.container():
+            st.markdown("""
+                <h4 style="color: #667eea; margin-bottom: 1rem; font-size: 1.3rem; border-bottom: 2px solid #e1e5e9; padding-bottom: 0.5rem;">
+                    📊 Market Sentiment Report
+                </h4>
+            """, unsafe_allow_html=True)
+
+            if sentiment_report_data:
+                st.markdown("<h5>Headline Sentiment Analysis:</h5>", unsafe_allow_html=True)
+                for i, item in enumerate(sentiment_report_data, 1):
+                    headline = item.get('headline', 'N/A')
+                    sentiment = item.get('sentiment', 'N/A')
+                    justification = item.get('justification', 'N/A')
+
+                    st.markdown(f"**{i}. {headline}**")
+                    st.markdown(f"&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;**Sentiment:** {sentiment}", unsafe_allow_html=True)
+                    st.markdown(f"&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;**Justification:** {justification}", unsafe_allow_html=True)
+                    if i < len(sentiment_report_data):
+                        st.markdown("<br>", unsafe_allow_html=True)
+
+            elif sentiment_report_string:
+                st.markdown(f"<div>{sentiment_report_string}</div>", unsafe_allow_html=True)
+    else:
+        st.info("📊 Sentiment analysis not available for this stock.")
+
+
+def display_visualizations(ticker: str):
+    """Display enhanced data visualizations using real market data."""
+    st.markdown("### 📊 Market Insights")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**📈 30-Day Price Trend**")
         
-        - **Reasons**: Analyzes market conditions and data quality
-        - **Acts**: Dynamically selects the best tools for each situation
-        - **Adapts**: Adjusts strategy based on observations
-        - **Learns**: Improves analysis through iterative reasoning
+        # Fetch real price data using Yahoo Finance
+        from stocksense.data_collectors import get_price_history
         
-        **ReAct Pattern Features:**
-        - Adaptive tool selection based on market context
-        - Dynamic reasoning about data quality and completeness
-        - Self-correction when encountering issues
-        - Context-aware analysis that considers market conditions
+        with st.spinner("Fetching real market data..."):
+            price_data = get_price_history(ticker, period="1mo")
         
-        **How to use:**
-        1. Enter a stock ticker symbol (e.g., AAPL)
-        2. Click "Analyze Stock with ReAct Agent"
-        3. Watch the agent reason and act autonomously
-        4. View comprehensive analysis results
-        """)
+        if price_data is not None and not price_data.empty:
+            # Use real price data
+            price_df = pd.DataFrame({'Price': price_data['Close']})
+            st.line_chart(price_df, use_container_width=True)
+            
+            # Real current price with trend indicator
+            current_price = price_data['Close'].iloc[-1]
+            prev_price = price_data['Close'].iloc[-2] if len(price_data) > 1 else current_price
+            change_pct = ((current_price - prev_price) / prev_price) * 100 if prev_price != 0 else 0
+            trend_icon = "📈" if change_pct > 0 else "📉"
+            
+            st.markdown(f"""
+            <div class="metric-card">
+                <h4>{trend_icon} Current Price (Real Data)</h4>
+                <h2>${current_price:.2f}</h2>
+                <p style="color: {'green' if change_pct > 0 else 'red'};">
+                    {change_pct:+.2f}% from previous day
+                </p>
+                <small style="color: #666;">Source: Yahoo Finance</small>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.error(f"❌ Unable to fetch real price data for {ticker}")
+            st.info("Please check if the ticker symbol is valid and try again.")
+    
+    with col2:
+        st.markdown("**📊 Sentiment Distribution**")
         
-        st.markdown("---")
-        st.markdown("**Backend Status:**")
+        # Try to get real sentiment data from recent analysis
+        from stocksense.database import get_latest_analysis
         
         try:
-            health_response = requests.get(f"{BACKEND_URL}/health", timeout=5)
-            if health_response.status_code == 200:
-                st.success("Backend Online")
+            cached_result = get_latest_analysis(ticker)
+            if cached_result and cached_result.get('sentiment_report'):
+                sentiment_data = cached_result['sentiment_report']
+                
+                # Parse sentiment data from text format
+                if isinstance(sentiment_data, str) and sentiment_data.strip():
+                    # Initialize sentiment counters
+                    sentiment_counts = {'Positive': 0, 'Negative': 0, 'Neutral': 0}
+                    
+                    # Convert to lowercase for easier matching
+                    text_lower = sentiment_data.lower()
+                    
+                    # Look for sentiment indicators in the text
+                    # Count occurrences of sentiment words in context
+                    import re
+                    
+                    # Find headline analysis sections
+                    lines = sentiment_data.split('\n')
+                    for line in lines:
+                        line_lower = line.lower()
+                        # Look for explicit sentiment classifications
+                        if 'sentiment:' in line_lower or 'sentiment is' in line_lower:
+                            if 'positive' in line_lower:
+                                sentiment_counts['Positive'] += 1
+                            elif 'negative' in line_lower:
+                                sentiment_counts['Negative'] += 1
+                            elif 'neutral' in line_lower:
+                                sentiment_counts['Neutral'] += 1
+                    
+                    # If no explicit sentiment found, analyze patterns
+                    if sum(sentiment_counts.values()) == 0:
+                        # Count sentiment-related words as fallback
+                        positive_words = ['positive', 'bullish', 'optimistic', 'strong', 'good', 'gains', 'up', 'growth', 'beat', 'exceeds']
+                        negative_words = ['negative', 'bearish', 'pessimistic', 'weak', 'bad', 'losses', 'down', 'decline', 'miss', 'disappoints']
+                        neutral_words = ['neutral', 'mixed', 'stable', 'unchanged', 'moderate']
+                        
+                        # Count words in context (simple approach)
+                        for word in positive_words:
+                            sentiment_counts['Positive'] += text_lower.count(word)
+                        for word in negative_words:
+                            sentiment_counts['Negative'] += text_lower.count(word)
+                        for word in neutral_words:
+                            sentiment_counts['Neutral'] += text_lower.count(word)
+                        
+                        # Normalize counts if they're too high
+                        max_count = max(sentiment_counts.values())
+                        if max_count > 10:
+                            for key in sentiment_counts:
+                                sentiment_counts[key] = min(sentiment_counts[key], 10)
+                    
+                    # Ensure at least some data for visualization
+                    if sum(sentiment_counts.values()) == 0:
+                        sentiment_counts['Neutral'] = 1
+                    
+                    # Create DataFrame for chart
+                    sentiment_df = pd.DataFrame(
+                        list(sentiment_counts.items()),
+                        columns=['Sentiment', 'Count']
+                    )
+                    
+                    # Display colorful bar chart using plotly
+                    if PLOTLY_AVAILABLE:
+                        colors = {
+                            'Positive': '#28a745',
+                            'Negative': '#dc3545', 
+                            'Neutral': '#6c757d'
+                        }
+                        
+                        fig = go.Figure(data=[
+                            go.Bar(
+                                x=sentiment_df['Sentiment'],
+                                y=sentiment_df['Count'],
+                                marker_color=[colors.get(sent, '#6c757d') for sent in sentiment_df['Sentiment']],
+                                text=sentiment_df['Count'],
+                                textposition='auto',
+                            )
+                        ])
+                        
+                        fig.update_layout(
+                            title="Sentiment Distribution",
+                            xaxis_title="Sentiment",
+                            yaxis_title="Count",
+                            showlegend=False,
+                            height=300,
+                            margin=dict(l=20, r=20, t=40, b=20)
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                    else:
+                        # Fallback to simple bar chart if plotly not available
+                        st.bar_chart(sentiment_df.set_index('Sentiment'), use_container_width=True)
+                    
+                    # Display summary card
+                    total_headlines = sum(sentiment_counts.values())
+                    dominant_sentiment = max(sentiment_counts, key=sentiment_counts.get) if total_headlines > 0 else "Neutral"
+                    
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <h4>📊 Sentiment Summary</h4>
+                        <p><strong>Analysis Available:</strong> ✅</p>
+                        <p><strong>Dominant:</strong> {dominant_sentiment}</p>
+                        <small style="color: #666;">From real market data</small>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    # Show placeholder when no valid data
+                    st.info("No sentiment analysis available. Run a new analysis to see sentiment data.")
+                    placeholder_df = pd.DataFrame({
+                        'Sentiment': ['Positive', 'Negative', 'Neutral'],
+                        'Count': [0, 0, 0]
+                    })
+                    st.bar_chart(placeholder_df.set_index('Sentiment'), use_container_width=True)
             else:
-                st.error("Backend Issues")
-        except:
-            st.error("Backend Offline")
+                # Show placeholder chart when no data is available
+                st.info("No recent sentiment analysis available. Run a new analysis to see sentiment data.")
+                placeholder_df = pd.DataFrame({
+                    'Sentiment': ['Positive', 'Negative', 'Neutral'],
+                    'Count': [0, 0, 0]
+                })
+                st.bar_chart(placeholder_df.set_index('Sentiment'), use_container_width=True)
+        except Exception as e:
+            st.warning("Unable to load sentiment data. Run a new analysis to generate sentiment insights.")
+            # Show empty chart
+            placeholder_df = pd.DataFrame({
+                'Sentiment': ['Positive', 'Negative', 'Neutral'],
+                'Count': [0, 0, 0]
+            })
+            st.bar_chart(placeholder_df.set_index('Sentiment'), use_container_width=True)
+
+
+def display_key_metrics(ticker: str):
+    """Display key financial metrics using real market data."""
+    st.markdown("### 💰 Key Metrics")
+    
+    # Fetch real price data
+    from stocksense.data_collectors import get_price_history
+    
+    with st.spinner("Loading real market metrics..."):
+        price_data = get_price_history(ticker, period="1mo")
+    
+    if price_data is not None and not price_data.empty:
+        # Calculate real metrics
+        current_price = price_data['Close'].iloc[-1]
+        prev_price = price_data['Close'].iloc[-2] if len(price_data) > 1 else current_price
+        high_30d = price_data['High'].max()
+        low_30d = price_data['Low'].min()
+        
+        # Calculate volatility from real returns
+        returns = price_data['Close'].pct_change().dropna()
+        volatility = returns.std() * 100 if len(returns) > 1 else 0
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            change_pct = ((current_price - prev_price) / prev_price * 100) if prev_price != 0 else 0
+            st.metric(
+                "💵 Current Price",
+                f"${current_price:.2f}",
+                f"{change_pct:+.2f}%"
+            )
+        
+        with col2:
+            st.metric(
+                "📊 30D High",
+                f"${high_30d:.2f}",
+                help="Highest price in the last 30 days"
+            )
+        
+        with col3:
+            st.metric(
+                "📉 30D Low",
+                f"${low_30d:.2f}",
+                help="Lowest price in the last 30 days"
+            )
+        
+        with col4:
+            st.metric(
+                "📈 Volatility",
+                f"{volatility:.1f}%",
+                help="Price volatility over the period"
+            )
+        
+        st.caption("📊 All metrics sourced from Yahoo Finance real-time data")
+    else:
+        st.error(f"❌ Unable to fetch real market data for {ticker}")
+        st.info("Please verify the ticker symbol and try again.")
+
+
+def display_analysis_history():
+    """Display analysis history in sidebar."""
+    if st.session_state.analysis_history:
+        st.markdown("### 📚 Recent Analyses")
+        
+        for i, analysis in enumerate(st.session_state.analysis_history[:5]):
+            ticker = analysis['ticker']
+            timestamp = analysis['timestamp']
+            dt = datetime.fromisoformat(timestamp)
+            time_str = dt.strftime("%m/%d %H:%M")
+            
+            if st.button(f"📊 {ticker} - {time_str}", key=f"history_{i}"):
+                st.session_state.analysis_result = analysis
+                st.rerun()
+
+
+def display_sidebar():
+    """Display enhanced sidebar with status and controls."""
+    with st.sidebar:
+        # Backend status
+        st.markdown("### 🔧 System Status")
+        
+        status = check_backend_status()
+        if status:
+            st.markdown('<p class="status-online">🟢 Backend Online</p>', unsafe_allow_html=True)
+        else:
+            st.markdown('<p class="status-offline">🔴 Backend Offline</p>', unsafe_allow_html=True)
+            st.warning("Start the FastAPI server to enable analysis")
+        
+        # Analysis history
+        display_analysis_history()
+        
+        st.markdown("---")
+        
+        # About section
+        st.markdown("### ℹ️ About ReAct Agent")
+        
+        with st.expander("How it works"):
+            st.markdown("""
+            **ReAct Pattern (Reasoning + Acting):**
+            
+            1. 🧠 **Reasons** about market conditions
+            2. 🔧 **Acts** by selecting appropriate tools
+            3. 📊 **Observes** the results
+            4. 🔄 **Adapts** strategy based on findings
+            5. ✅ **Concludes** with comprehensive analysis
+            
+            **Features:**
+            - Autonomous decision making
+            - Dynamic tool selection
+            - Real-time sentiment analysis
+            - Market trend identification
+            """)
+        
+        with st.expander("Data Sources"):
+            st.markdown("""
+            - 📰 **NewsAPI**: Latest market news
+            - 📈 **Yahoo Finance**: Price data
+            - 🤖 **Google Gemini**: AI analysis
+            - 💾 **SQLite**: Result caching
+            """)
+        
+        # Clear all data button
+        st.markdown("---")
+        if st.button("🗑️ Clear All Data", help="Clear analysis results and history"):
+            st.session_state.analysis_result = None
+            st.session_state.analysis_history = []
+            st.rerun()
+
+def main():
+    """Main application function with improved structure and UX."""
+    
+    # Display hero section
+    display_hero_section()
+    
+    # Display sidebar
+    display_sidebar()
+    
+    # Main content area
+    main_container = st.container()
+    
+    with main_container:
+        # Ticker input section
+        ticker = display_ticker_input()
+        
+        # Analysis trigger section
+        col1, col2, col3 = st.columns([1, 2, 1])
+        
+        with col2:
+            # Validation and analysis button
+            is_valid, error_msg = validate_ticker(ticker)
+            
+            if not is_valid and ticker:
+                st.error(f"❌ {error_msg}")
+            
+            analyze_button = st.button(
+                "🚀 Analyze with ReAct Agent",
+                type="primary",
+                use_container_width=True,
+                disabled=not is_valid,
+                help="Trigger autonomous AI analysis using the ReAct pattern"
+            )
+            
+            if analyze_button and is_valid:
+                result = trigger_analysis(ticker)
+                if result and result.get('success'):
+                    st.success(f"✅ Analysis completed for **{ticker}**!")
+        
+        st.markdown("---")
+        
+        # Display results if available
+        if st.session_state.analysis_result:
+            result_data = st.session_state.analysis_result
+            ticker = result_data['ticker']
+            data = result_data['data']
+        
+            
+            col1, col2 = st.columns([4, 1])
+            
+            with col1:
+                st.markdown(f"## 📊 Analysis Results: {ticker}")
+            
+            with col2:
+                if st.button("🗑️ Clear", help="Clear current results"):
+                    st.session_state.analysis_result = None
+                    st.rerun()
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Display analysis components with proper spacing and logical order
+            display_analysis_summary(data, ticker)
+            
+            display_key_metrics(ticker)
+            
+            st.markdown("<br>", unsafe_allow_html=True) # Spacing
+            
+            display_visualizations(ticker)
+            
+            st.markdown("<br>", unsafe_allow_html=True) # Spacing
+            
+            display_sentiment_analysis(data)
+            
+        else:
+            # Welcome message when no results
+            st.markdown("""
+            <div class="analysis-card fade-in" style="text-align: center; padding: 3rem;">
+                <h3>👋 Welcome to StockSense AI Agent</h3>
+                <p style="font-size: 1.1rem; color: #666;">
+                    Select a stock ticker above to begin your AI-powered market analysis
+                </p>
+                <p style="color: #888;">
+                    Our ReAct agent will autonomously reason about market conditions 
+                    and select the best tools for comprehensive analysis
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()

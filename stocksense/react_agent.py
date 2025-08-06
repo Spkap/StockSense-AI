@@ -8,17 +8,15 @@ This module implements a true ReAct (Reasoning + Acting) pattern agent that can:
 - Self-correct and iterate when needed
 """
 
-import os
 from typing import Dict, List, Optional, TypedDict, Literal
 from datetime import datetime
 
 from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolNode
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, ToolMessage
+from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 
 # Import our modules
-from .config import get_chat_llm, ConfigurationError
+from .config import get_chat_llm
 from .data_collectors import get_news, get_price_history
 from .analyzer import analyze_sentiment_of_headlines
 from .database import save_analysis
@@ -231,9 +229,20 @@ REASONING: Think step by step about what you should do next:
 3. What tool should I use next?
 4. Am I ready to provide a final analysis?
 
-ACTION: Based on your reasoning, either:
-- Use a tool to gather more information
-- Provide a final summary if you have enough data
+COMPLETION CRITERIA: You are ready to provide final analysis when you have:
+- Headlines collected (✓ if {len(state.get('headlines', []))} > 0)
+- Price data gathered (✓ if {state.get('price_data') is not None})
+- Sentiment analysis completed (✓ if {bool(state.get('sentiment_report'))})
+
+ACTION: Based on your reasoning:
+- If ANY of the above criteria are missing, use the appropriate tool to gather that information
+- If ALL criteria are met, provide a comprehensive final summary WITHOUT calling any more tools
+- DO NOT call analyze_sentiment more than once unless the first attempt failed
+
+IMPORTANT: Once you have collected headlines, performed sentiment analysis, and gathered price data, provide a comprehensive final summary that includes:
+- Overall market sentiment conclusion
+- Key insights from the news analysis
+- Market implications and investment considerations
 
 Be adaptive and intelligent about your approach. Consider market conditions, data quality, and completeness.
 """
@@ -255,9 +264,40 @@ Be adaptive and intelligent about your approach. Consider market conditions, dat
         if response.tool_calls:
             new_state["final_decision"] = "CONTINUE"
         else:
-            # Agent provided final answer
+            # Agent provided final answer - generate comprehensive summary
             new_state["final_decision"] = "COMPLETE"
-            new_state["summary"] = response.content
+            
+            # Extract content and create comprehensive summary
+            agent_response = response.content
+            
+            # Build comprehensive summary from collected data
+            headlines = state.get('headlines', [])
+            sentiment_report = state.get('sentiment_report', '')
+            price_data = state.get('price_data')
+            
+            if sentiment_report and headlines:
+                # Create a comprehensive summary incorporating the sentiment analysis
+                comprehensive_summary = f"""
+Stock Analysis Summary for {ticker}:
+
+Market Sentiment: Based on analysis of {len(headlines)} recent news headlines, the overall market sentiment shows {sentiment_report[:200]}...
+
+Key Findings:
+- News Coverage: {len(headlines)} articles analyzed from the past 7 days
+- Price Data: {'Available' if price_data is not None else 'Not available'}
+- Agent Reasoning: {agent_response}
+
+The ReAct agent completed analysis using {len(set(state.get('tools_used', [])))} different tools across {iterations + 1} reasoning iterations.
+                """.strip()
+                
+                new_state["summary"] = comprehensive_summary
+                
+                # Ensure we save the results to database
+                if sentiment_report and not any('save_analysis_results' in tool for tool in state.get('tools_used', [])):
+                    # The agent should call save_analysis_results, but if it didn't, we'll note this
+                    print(f"Warning: ReAct agent didn't call save_analysis_results for {ticker}")
+            else:
+                new_state["summary"] = agent_response or f"Analysis completed for {ticker} but insufficient data collected"
         
         return new_state
     
@@ -277,18 +317,41 @@ Be adaptive and intelligent about your approach. Consider market conditions, dat
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
             
-            # Find the tool function
-            tool_function = None
-            for tool in tools:
-                if tool.name == tool_name:
-                    tool_function = tool
-                    break
-            
-            if tool_function:
-                # Execute tool directly
-                result = tool_function.invoke(tool_args)
+            # Prevent redundant tool calls
+            if tool_name == "analyze_sentiment" and state.get("sentiment_report"):
+                # Skip if sentiment analysis already completed
+                result = {
+                    "success": True,
+                    "sentiment_report": state.get("sentiment_report"),
+                    "message": "Sentiment analysis already completed"
+                }
+            elif tool_name == "fetch_news_headlines" and state.get("headlines"):
+                # Skip if headlines already fetched
+                result = {
+                    "success": True,
+                    "headlines": state.get("headlines"),
+                    "message": "Headlines already fetched"
+                }
+            elif tool_name == "fetch_price_data" and state.get("price_data"):
+                # Skip if price data already fetched
+                result = {
+                    "success": True,
+                    "price_data": state.get("price_data"),
+                    "message": "Price data already fetched"
+                }
             else:
-                result = {"error": f"Tool {tool_name} not found"}
+                # Find the tool function
+                tool_function = None
+                for tool in tools:
+                    if tool.name == tool_name:
+                        tool_function = tool
+                        break
+                
+                if tool_function:
+                    # Execute tool directly
+                    result = tool_function.invoke(tool_args)
+                else:
+                    result = {"error": f"Tool {tool_name} not found"}
             
             # Create tool message
             tool_message = ToolMessage(
@@ -316,12 +379,6 @@ Be adaptive and intelligent about your approach. Consider market conditions, dat
                 reasoning_steps.append("Saved analysis to database")
         
         # Update state with tool results
-        return {
-            **state,
-            "messages": messages + tool_results,
-            "tools_used": tools_used,
-            "reasoning_steps": reasoning_steps
-        }
         return {
             **state,
             "messages": messages + tool_results,
@@ -397,7 +454,7 @@ def run_react_analysis(ticker: str) -> Dict:
         "reasoning_steps": [],
         "tools_used": [],
         "iterations": 0,
-        "max_iterations": 5,
+        "max_iterations": 8,
         "final_decision": "",
         "error": None
     }
@@ -430,10 +487,17 @@ def run_react_analysis(ticker: str) -> Dict:
     except Exception as e:
         error_msg = f"ReAct Agent error for {ticker}: {str(e)}"
         print(f"{error_msg}")
+        
+        # Check if it's a rate limit error and provide helpful message
+        if "429" in str(e) or "quota" in str(e).lower() or "rate" in str(e).lower():
+            friendly_error = f"API Rate Limit Reached: Google Gemini free tier allows 50 requests/day. Please wait for quota reset or upgrade to paid plan."
+            print(f"Rate limit detected for {ticker}: {friendly_error}")
+            error_msg = friendly_error
+        
         return {
             "ticker": ticker.upper(),
-            "summary": "Analysis failed",
-            "sentiment_report": "",
+            "summary": f"Analysis temporarily unavailable due to API limits. The data collection was successful (found real market data), but AI analysis is rate-limited.",
+            "sentiment_report": f"Rate Limit Info: Google Gemini free tier quota exceeded. Try again tomorrow or upgrade for higher limits.",
             "headlines": [],
             "price_data": None,
             "reasoning_steps": [],

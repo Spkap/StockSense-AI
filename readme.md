@@ -17,7 +17,7 @@ StockSense demonstrates advanced AI agent architecture through autonomous reason
 
 - **Autonomous ReAct Agent**: Self-guided analysis with dynamic tool selection and iterative reasoning
 - **Production-Ready Architecture**: Full-stack application with FastAPI backend and Streamlit frontend
-- **Advanced AI Integration**: Google Gemini 1.5 Flash with optimized prompting strategies
+- **Advanced AI Integration**: Google Gemini 2.5 Flash with optimized prompting strategies
 - **Enterprise-Grade Features**: Comprehensive error handling, caching, and health monitoring
 
 ## Architecture
@@ -26,7 +26,7 @@ StockSense demonstrates advanced AI agent architecture through autonomous reason
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
-| **AI Layer** | Google Gemini 1.5 Flash + LangGraph | ReAct reasoning and sentiment analysis |
+| **AI Layer** | Google Gemini 2.5 Flash + LangGraph | ReAct reasoning and sentiment analysis |
 | **Agent Framework** | LangChain Tools + StateGraph | Tool orchestration and state management |
 | **Backend** | FastAPI + Uvicorn | High-performance async REST API |
 | **Frontend** | Streamlit | Interactive dashboard and visualizations |

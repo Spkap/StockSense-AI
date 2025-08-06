@@ -69,7 +69,7 @@ def run_full_pipeline(ticker: str) -> None:
         print("=" * 80)
         print(f"Analysis Date: {get_current_timestamp()}")
         print(f"Headlines Analyzed: {len(headlines)}")
-        print(f"AI Model: Google Gemini 1.5 Flash")
+        print(f"AI Model: Google Gemini 2.5 Flash")
         print("=" * 80)
         
         print(sentiment_analysis)
@@ -112,7 +112,7 @@ def display_pipeline_info() -> None:
     print("3. Market Insights: Provides investment-relevant insights")
     print("\nCurrent Configuration:")
     print("   - News Source: NewsAPI (last 7 days)")
-    print("   - AI Model: Google Gemini 1.5 Flash")
+    print("   - AI Model: Google Gemini 2.5 Flash")
     print("   - Analysis Scope: Headlines sentiment + market impact")
     print("=" * 80)
 
