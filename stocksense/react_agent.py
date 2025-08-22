@@ -1,13 +1,3 @@
-"""
-ReAct Agent implementation for StockSense using LangGraph built-in utilities.
-
-This module implements a true ReAct (Reasoning + Acting) pattern agent that can:
-- Reason about market conditions and data quality
-- Dynamically select appropriate tools
-- Adapt behavior based on observations
-- Self-correct and iterate when needed
-"""
-
 from typing import Dict, List, Optional, TypedDict, Literal
 from datetime import datetime
 
@@ -15,7 +5,6 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 
-# Import our modules
 from .config import get_chat_llm
 from .data_collectors import get_news, get_price_history
 from .analyzer import analyze_sentiment_of_headlines
@@ -40,16 +29,15 @@ class AgentState(TypedDict):
     error: Optional[str]
 
 
-# Define available tools using LangChain's @tool decorator
 @tool
 def fetch_news_headlines(ticker: str, days: int = 7) -> Dict:
     """
     Fetch recent news headlines for a stock ticker.
-    
+
     Args:
         ticker: Stock ticker symbol
         days: Number of days to look back for news
-        
+
     Returns:
         Dictionary with headlines and metadata
     """
@@ -75,11 +63,11 @@ def fetch_news_headlines(ticker: str, days: int = 7) -> Dict:
 def fetch_price_data(ticker: str, period: str = "1mo") -> Dict:
     """
     Fetch price history for a stock ticker.
-    
+
     Args:
         ticker: Stock ticker symbol
         period: Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
-        
+
     Returns:
         Dictionary with price data and metadata
     """
@@ -104,10 +92,10 @@ def fetch_price_data(ticker: str, period: str = "1mo") -> Dict:
 def analyze_sentiment(headlines: List[str]) -> Dict:
     """
     Analyze sentiment of news headlines.
-    
+
     Args:
         headlines: List of news headlines
-        
+
     Returns:
         Dictionary with sentiment analysis results
     """
@@ -118,7 +106,7 @@ def analyze_sentiment(headlines: List[str]) -> Dict:
                 "error": "No headlines provided for analysis",
                 "sentiment_report": ""
             }
-        
+
         sentiment_report = analyze_sentiment_of_headlines(headlines)
         return {
             "success": True,
@@ -137,12 +125,12 @@ def analyze_sentiment(headlines: List[str]) -> Dict:
 def save_analysis_results(ticker: str, summary: str, sentiment_report: str) -> Dict:
     """
     Save analysis results to database.
-    
+
     Args:
         ticker: Stock ticker symbol
         summary: Analysis summary
         sentiment_report: Detailed sentiment report
-        
+
     Returns:
         Dictionary with save operation results
     """
@@ -161,7 +149,6 @@ def save_analysis_results(ticker: str, summary: str, sentiment_report: str) -> D
         }
 
 
-# Available tools
 tools = [
     fetch_news_headlines,
     fetch_price_data,
@@ -171,23 +158,15 @@ tools = [
 
 
 def create_react_agent() -> StateGraph:
-    """
-    Create a ReAct agent using LangGraph built-in utilities and features.
-    
-    Returns:
-        StateGraph: Configured ReAct agent ready for compilation
-    """
-    
-    # Get configured Chat LLM instance for ReAct agent
+
     llm = get_chat_llm(
         model="gemini-1.5-flash",
         temperature=0.1,
         max_output_tokens=1024
     )
-    
-    # Bind tools to the LLM using LangGraph's built-in tool binding
+
     llm_with_tools = llm.bind_tools(tools)
-    
+
     def agent_node(state: AgentState) -> AgentState:
         """
         Main agent reasoning node using ReAct pattern.
@@ -196,16 +175,14 @@ def create_react_agent() -> StateGraph:
         ticker = state["ticker"]
         iterations = state.get("iterations", 0)
         max_iterations = state.get("max_iterations", 5)
-        
-        # Check iteration limit
+
         if iterations >= max_iterations:
             return {
                 **state,
                 "final_decision": "MAX_ITERATIONS_REACHED",
                 "error": f"Reached maximum iterations ({max_iterations})"
             }
-        
-        # Create reasoning prompt based on current state
+
         reasoning_prompt = f"""
 You are a ReAct (Reasoning + Acting) agent for stock analysis. You must analyze {ticker} by reasoning about what to do next and then taking action.
 
@@ -242,41 +219,31 @@ ACTION: Based on your reasoning:
 IMPORTANT: Once you have collected headlines, performed sentiment analysis, and gathered price data, provide a comprehensive final summary that includes:
 - Overall market sentiment conclusion
 - Key insights from the news analysis
-- Market implications and investment considerations
-
-Be adaptive and intelligent about your approach. Consider market conditions, data quality, and completeness.
+- Market implications and investment considerations.
 """
-        
-        # Add the reasoning prompt to messages
+
         messages.append(HumanMessage(content=reasoning_prompt))
-        
-        # Get LLM response with tool calls
+
         response = llm_with_tools.invoke(messages)
-        
-        # Update state with new iteration
+
         new_state = {
             **state,
             "messages": messages + [response],
             "iterations": iterations + 1
         }
-        
-        # Check if the agent wants to use tools
+
         if response.tool_calls:
             new_state["final_decision"] = "CONTINUE"
         else:
-            # Agent provided final answer - generate comprehensive summary
             new_state["final_decision"] = "COMPLETE"
-            
-            # Extract content and create comprehensive summary
+
             agent_response = response.content
-            
-            # Build comprehensive summary from collected data
+
             headlines = state.get('headlines', [])
             sentiment_report = state.get('sentiment_report', '')
             price_data = state.get('price_data')
-            
+
             if sentiment_report and headlines:
-                # Create a comprehensive summary incorporating the sentiment analysis
                 comprehensive_summary = f"""
 Stock Analysis Summary for {ticker}:
 
@@ -289,125 +256,110 @@ Key Findings:
 
 The ReAct agent completed analysis using {len(set(state.get('tools_used', [])))} different tools across {iterations + 1} reasoning iterations.
                 """.strip()
-                
+
                 new_state["summary"] = comprehensive_summary
-                
-                # Ensure we save the results to database
+
                 if sentiment_report and not any('save_analysis_results' in tool for tool in state.get('tools_used', [])):
-                    # The agent should call save_analysis_results, but if it didn't, we'll note this
                     print(f"Warning: ReAct agent didn't call save_analysis_results for {ticker}")
             else:
                 new_state["summary"] = agent_response or f"Analysis completed for {ticker} but insufficient data collected"
-        
+
         return new_state
-    
+
     def custom_tool_node(state: AgentState) -> AgentState:
         """
         Tool execution node with state tracking.
         """
         messages = state["messages"]
         last_message = messages[-1]
-        
+
         tool_results = []
         tools_used = state.get("tools_used", [])
         reasoning_steps = state.get("reasoning_steps", [])
-        
-        # Execute each tool call
+
         for tool_call in last_message.tool_calls:
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
-            
+
             # Prevent redundant tool calls
             if tool_name == "analyze_sentiment" and state.get("sentiment_report"):
-                # Skip if sentiment analysis already completed
                 result = {
                     "success": True,
                     "sentiment_report": state.get("sentiment_report"),
                     "message": "Sentiment analysis already completed"
                 }
             elif tool_name == "fetch_news_headlines" and state.get("headlines"):
-                # Skip if headlines already fetched
                 result = {
                     "success": True,
                     "headlines": state.get("headlines"),
                     "message": "Headlines already fetched"
                 }
             elif tool_name == "fetch_price_data" and state.get("price_data"):
-                # Skip if price data already fetched
                 result = {
                     "success": True,
                     "price_data": state.get("price_data"),
                     "message": "Price data already fetched"
                 }
             else:
-                # Find the tool function
                 tool_function = None
-                for tool in tools:
-                    if tool.name == tool_name:
-                        tool_function = tool
+                for tool_item in tools:
+                    if tool_item.name == tool_name:
+                        tool_function = tool_item
                         break
-                
+
                 if tool_function:
-                    # Execute tool directly
                     result = tool_function.invoke(tool_args)
                 else:
                     result = {"error": f"Tool {tool_name} not found"}
-            
-            # Create tool message
+
             tool_message = ToolMessage(
                 content=str(result),
                 tool_call_id=tool_call["id"]
             )
-            
+
             tool_results.append(tool_message)
             tools_used.append(tool_name)
-            
-            # Update state based on tool results
+
             if tool_name == "fetch_news_headlines" and result.get("success"):
                 state["headlines"] = result.get("headlines", [])
                 reasoning_steps.append(f"Fetched {len(state['headlines'])} headlines")
-            
+
             elif tool_name == "fetch_price_data" and result.get("success"):
                 state["price_data"] = result.get("price_data")
                 reasoning_steps.append("Fetched price data")
-            
+
             elif tool_name == "analyze_sentiment" and result.get("success"):
                 state["sentiment_report"] = result.get("sentiment_report", "")
                 reasoning_steps.append("Completed sentiment analysis")
-            
+
             elif tool_name == "save_analysis_results" and result.get("success"):
                 reasoning_steps.append("Saved analysis to database")
-        
-        # Update state with tool results
+
         return {
             **state,
             "messages": messages + tool_results,
             "tools_used": tools_used,
             "reasoning_steps": reasoning_steps
         }
-    
+
     def should_continue(state: AgentState) -> Literal["tools", "end"]:
         """
         Conditional edge to determine if agent should continue or end.
         """
         final_decision = state.get("final_decision")
-        
+
         if final_decision == "CONTINUE":
             return "tools"
         elif final_decision in ["COMPLETE", "MAX_ITERATIONS_REACHED"]:
             return "end"
         else:
-            # Default to continue if no decision made
             return "tools"
-    
-    # Create the state graph
+
     workflow = StateGraph(AgentState)
-    
-    # Add nodes
+
     workflow.add_node("agent", agent_node)
     workflow.add_node("tools", custom_tool_node)
-    
-    # Add edges
+
     workflow.set_entry_point("agent")
     workflow.add_conditional_edges(
         "agent",
@@ -418,31 +370,15 @@ The ReAct agent completed analysis using {len(set(state.get('tools_used', [])))}
         }
     )
     workflow.add_edge("tools", "agent")
-    
+
     return workflow
 
 
-# Create and compile the ReAct agent
-print("Initializing StockSense ReAct Agent...")
 react_workflow = create_react_agent()
 react_app = react_workflow.compile()
-print("ReAct Agent ready!")
 
 
 def run_react_analysis(ticker: str) -> Dict:
-    """
-    Run the ReAct agent analysis for a stock ticker.
-    
-    Args:
-        ticker: Stock ticker symbol to analyze
-        
-    Returns:
-        Dict: Final analysis results
-    """
-    print(f"\n{'='*60}")
-    print(f"Starting ReAct Agent analysis for {ticker.upper()}")
-    print(f"{'='*60}")
-    
     # Initialize state
     initial_state = {
         "messages": [],
@@ -458,18 +394,11 @@ def run_react_analysis(ticker: str) -> Dict:
         "final_decision": "",
         "error": None
     }
-    
+
     try:
         # Run the ReAct agent
         final_state = react_app.invoke(initial_state)
-        
-        print(f"\n{'='*60}")
-        print(f"ReAct Agent completed analysis for {ticker.upper()}")
-        print(f"Iterations used: {final_state.get('iterations', 0)}")
-        print(f"Tools used: {final_state.get('tools_used', [])}")
-        print(f"Reasoning steps: {len(final_state.get('reasoning_steps', []))}")
-        print(f"{'='*60}")
-        
+
         # Extract final results
         return {
             "ticker": final_state["ticker"],
@@ -483,17 +412,15 @@ def run_react_analysis(ticker: str) -> Dict:
             "error": final_state.get("error"),
             "timestamp": datetime.now().isoformat()
         }
-        
+
     except Exception as e:
         error_msg = f"ReAct Agent error for {ticker}: {str(e)}"
-        print(f"{error_msg}")
-        
+
         # Check if it's a rate limit error and provide helpful message
         if "429" in str(e) or "quota" in str(e).lower() or "rate" in str(e).lower():
             friendly_error = f"API Rate Limit Reached: Google Gemini free tier allows 50 requests/day. Please wait for quota reset or upgrade to paid plan."
-            print(f"Rate limit detected for {ticker}: {friendly_error}")
             error_msg = friendly_error
-        
+
         return {
             "ticker": ticker.upper(),
             "summary": f"Analysis temporarily unavailable due to API limits. The data collection was successful (found real market data), but AI analysis is rate-limited.",
@@ -509,33 +436,5 @@ def run_react_analysis(ticker: str) -> Dict:
 
 
 if __name__ == '__main__':
-    """
-    Test the ReAct agent with a sample ticker.
-    """
-    print(" Testing StockSense ReAct Agent")
-    print("="*50)
-    
-    # Test ticker
     test_ticker = "AAPL"
-    
-    # Run the ReAct agent
     result = run_react_analysis(test_ticker)
-    
-    # Display results
-    print(f"\n Final Results for {test_ticker}:")
-    print("-" * 40)
-    print(f"Ticker: {result['ticker']}")
-    print(f"Headlines found: {len(result['headlines'])}")
-    print(f"Tools used: {result['tools_used']}")
-    print(f"Iterations: {result['iterations']}")
-    print(f"Error: {result.get('error', 'None')}")
-    
-    if result['summary']:
-        print(f"\nSummary:\n{result['summary']}")
-    
-    if result['reasoning_steps']:
-        print(f"\nReasoning Steps:")
-        for i, step in enumerate(result['reasoning_steps'], 1):
-            print(f"  {i}. {step}")
-    
-    print(f"\n ReAct Agent test completed!")
