@@ -24,14 +24,14 @@ StockSense demonstrates advanced AI agent architecture through autonomous reason
 
 ### Technology Stack
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **AI Layer** | Google Gemini 2.5 Flash + LangGraph | ReAct reasoning and sentiment analysis |
-| **Agent Framework** | LangChain Tools + StateGraph | Tool orchestration and state management |
-| **Backend** | FastAPI + Uvicorn | High-performance async REST API |
-| **Frontend** | Streamlit | Interactive dashboard and visualizations |
-| **Database** | SQLite + Peewee ORM | Persistent storage and intelligent caching |
-| **Data Sources** | NewsAPI + Yahoo Finance | Real-time market data integration |
+| Layer               | Technology                          | Purpose                                    |
+| ------------------- | ----------------------------------- | ------------------------------------------ |
+| **AI Layer**        | Google Gemini 2.5 Flash + LangGraph | ReAct reasoning and sentiment analysis     |
+| **Agent Framework** | LangChain Tools + StateGraph        | Tool orchestration and state management    |
+| **Backend**         | FastAPI + Uvicorn                   | High-performance async REST API            |
+| **Frontend**        | Streamlit                           | Interactive dashboard and visualizations   |
+| **Database**        | SQLite + Peewee ORM                 | Persistent storage and intelligent caching |
+| **Data Sources**    | NewsAPI + Yahoo Finance             | Real-time market data integration          |
 
 ### ReAct Agent Workflow
 
@@ -54,7 +54,12 @@ graph TD
 ```
 StockSense-Agent/
 ├── app.py                    # Streamlit frontend application
-├── run_pipeline.py           # CLI interface
+├── docker-compose.yml       # Multi-container orchestration
+├── Dockerfile.backend       # Backend containerization
+├── Dockerfile.frontend      # Frontend containerization
+├── nasdaq_screener.csv      # Stock market data file
+├── pytest.ini              # Pytest configuration
+├── stocksense.db            # SQLite database file
 ├── stocksense/
 │   ├── react_agent.py        # ReAct agent implementation (LangGraph)
 │   ├── main.py              # FastAPI backend server
@@ -62,43 +67,52 @@ StockSense-Agent/
 │   ├── analyzer.py          # AI sentiment analysis engine
 │   ├── database.py          # Database operations & ORM
 │   └── config.py            # Configuration management
-├── test_backend.py          # Comprehensive testing suite
+├── tests/
+│   ├── README.md            # Test documentation
+│   ├── test_api.py          # API integration test suite
+│   └── test_tools.py        # Unit tests for agent tools
 └── requirements.txt         # Dependencies
 ```
 
 ## Features
 
 ### Autonomous AI Agent
+
 - **Self-Guided Decision Making**: Agent independently determines optimal analysis strategy
 - **Dynamic Tool Selection**: Context-aware selection of appropriate data collection tools
 - **Iterative Reasoning**: Multi-step analysis with observation and adaptation
 - **Error Recovery**: Graceful handling of API failures and data quality issues
 
 ### Comprehensive Market Analysis
+
 - **Multi-Source Intelligence**: Combines news sentiment with historical price movements
 - **AI-Powered Insights**: Advanced sentiment classification using Google Gemini
 - **Visual Analytics**: Interactive charts for price trends and sentiment distribution
 - **Risk Assessment**: Identification of market opportunities and potential risks
 
 ### Production-Ready Infrastructure
+
 - **Scalable API Design**: RESTful endpoints with comprehensive error handling
 - **Intelligent Caching**: Optimized result storage to minimize API usage
 - **Health Monitoring**: Real-time system status and dependency verification
-- **Multi-Access Patterns**: Web UI, REST API, and CLI interfaces
+- **Multi-Access Patterns**: Web UI, REST API, and Docker deployment
+- **Containerized Deployment**: Full Docker support with multi-service orchestration
 
 ## Quick Start
 
 ### Prerequisites
+
 - Python 3.10+
 - [Google Gemini API Key](https://aistudio.google.com/app/apikey)
 - [NewsAPI Key](https://newsapi.org/register)
 
 ### Installation
 
+````bash
 ```bash
 # Clone repository
-git clone https://github.com/Spkap/StockSense-AI.git
-cd StockSense-AI
+git clone https://github.com/Spkap/StockSense-Agent.git
+cd StockSense-Agent
 
 # Setup environment
 python -m venv venv
@@ -113,11 +127,12 @@ echo "NEWSAPI_KEY=your_api_key_here" >> .env
 
 # Initialize database
 python -c "from stocksense.database import init_db; init_db()"
-```
+````
 
 ### Usage Options
 
 #### Full-Stack Application
+
 ```bash
 # Start backend server
 python -m stocksense.main  # http://localhost:8000
@@ -126,7 +141,25 @@ python -m stocksense.main  # http://localhost:8000
 streamlit run app.py       # http://localhost:8501
 ```
 
+#### Docker Deployment
+
+```bash
+# Quick start with Docker Compose
+docker-compose up -d
+
+# Access services
+# Frontend: http://localhost:8501
+# Backend API: http://localhost:8000
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
 #### REST API
+
 ```bash
 # Trigger ReAct agent analysis
 curl -X POST "http://localhost:8000/analyze/AAPL"
@@ -136,11 +169,16 @@ curl "http://localhost:8000/results/AAPL"
 
 # System health check
 curl "http://localhost:8000/health"
+
+# Get all cached tickers
+curl "http://localhost:8000/cached-tickers"
 ```
 
 #### Command Line Interface
+
 ```bash
-python run_pipeline.py
+# Use the run task to start the ReAct agent directly
+python -m stocksense.main
 ```
 
 ### Example Analysis Output
@@ -158,7 +196,11 @@ python run_pipeline.py
     "Performing AI sentiment analysis",
     "Generating comprehensive summary"
   ],
-  "tools_used": ["fetch_news_headlines", "fetch_price_data", "analyze_sentiment"],
+  "tools_used": [
+    "fetch_news_headlines",
+    "fetch_price_data",
+    "analyze_sentiment"
+  ],
   "iterations": 3,
   "agent_type": "ReAct"
 }
@@ -172,6 +214,9 @@ python run_pipeline.py
 - **GET `/results/{ticker}`** - Retrieve cached analysis results
 - **GET `/health`** - System health and dependency status
 - **GET `/cached-tickers`** - List all available cached analyses
+- **GET `/`** - API welcome message and endpoint directory
+- **GET `/docs`** - Interactive Swagger API documentation
+- **GET `/redoc`** - Alternative ReDoc API documentation
 
 ### Python Integration
 
@@ -188,10 +233,14 @@ print(f"Tools used: {result['tools_used']}")
 
 ```bash
 # Run comprehensive test suite
-python test_backend.py
+python -m pytest tests/ -v
 
-# System health verification
-python health_check.py
+# Run specific test modules
+python -m pytest tests/test_api.py -v     # API integration tests
+python -m pytest tests/test_tools.py -v  # Agent tool unit tests
+
+# Run tests with coverage
+python -m pytest tests/ --cov=stocksense --cov-report=html
 
 # Individual component testing
 python -m stocksense.react_agent    # Test ReAct agent
@@ -199,15 +248,18 @@ python -m stocksense.analyzer       # Test AI analysis
 ```
 
 ### Test Coverage
+
 - ✅ ReAct agent workflows and reasoning cycles
 - ✅ All REST API endpoints with error scenarios
 - ✅ Database operations and caching mechanisms
 - ✅ External API integrations (NewsAPI, Yahoo Finance)
 - ✅ Error handling and graceful degradation
+- ✅ Agent tool functionality and data validation
 
 ## Configuration
 
 ### Environment Variables
+
 ```bash
 # Required
 GOOGLE_API_KEY=your_google_gemini_api_key
@@ -216,40 +268,44 @@ NEWSAPI_KEY=your_newsapi_key
 # Optional
 STOCKSENSE_DB_PATH=./stocksense.db
 STOCKSENSE_LOG_LEVEL=INFO
+API_BASE_URL=http://127.0.0.1:8000  # For frontend connection
 ```
 
+### Docker Configuration
+
+```bash
+# Create environment file for Docker
+cp .env.example .env
+# Edit .env with your API keys
+
+# Docker environment variables
+GOOGLE_API_KEY=your_api_key_here
+NEWSAPI_KEY=your_api_key_here
+```
+
+**Note**: The docker-compose.yml includes an optional nginx service, but the nginx.conf file is not included in the repository. You can either remove the nginx service from docker-compose.yml or create your own nginx.conf file for reverse proxy setup.
+
 ### Agent Configuration
-- **Max Iterations**: 5 reasoning cycles per analysis
+
+- **Max Iterations**: 8 reasoning cycles per analysis
 - **Temperature**: 0.1 for reasoning, 0.3 for analysis
 - **Data Collection**: 7 days of news, 30 days of price history
-
-## Performance Metrics
-
-- **Analysis Time**: 15-30 seconds per ticker
-- **API Response**: <500ms cached, <30s fresh analysis
-- **Memory Usage**: 50-100MB during active analysis
-- **Accuracy**: 78% sentiment classification accuracy
 
 ## Technical Highlights
 
 ### Advanced AI Implementation
+
 - **ReAct Pattern**: True autonomous reasoning with observation loops
 - **State Management**: Comprehensive agent state tracking across iterations
 - **Tool Orchestration**: Dynamic binding and execution of analysis tools
 - **Context Optimization**: Temperature-controlled prompting for different tasks
 
 ### Production Engineering
+
 - **Async Architecture**: High-performance FastAPI with proper error handling
 - **Caching Strategy**: Intelligent result storage with database integration
 - **Health Monitoring**: Real-time system status and dependency checking
 - **Scalable Design**: Modular architecture supporting future enhancements
+- **Container Orchestration**: Docker Compose with health checks and service dependencies
 
 ## Future Enhancements
-
-- Advanced technical analysis and portfolio management
-- Real-time WebSocket updates and notifications
-- Docker containerization and cloud deployment
-- Enterprise features (authentication, rate limiting, custom dashboards)
-
-
-**❤️ Built with modern AI agent architecture for intelligent financial market research**
