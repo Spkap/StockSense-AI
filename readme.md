@@ -2,7 +2,7 @@
 
 **AI-Powered Autonomous Stock Market Research System Using Advanced ReAct Pattern**
 
-An intelligent stock analysis platform that leverages the **ReAct (Reasoning + Acting)** design pattern to conduct autonomous market research through sophisticated AI agent capabilities, dynamic tool selection, and adaptive strategy formation.
+An intelligent stock analysis platform that leverages the **ReAct (Reasoning + Action)** design pattern to conduct autonomous market research through sophisticated AI agent capabilities, dynamic tool selection, and adaptive strategy formation.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)

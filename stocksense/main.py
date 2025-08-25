@@ -75,7 +75,7 @@ async def root() -> Dict[str, str]:
 
 @app.post("/analyze/{ticker}")
 async def analyze_stock(ticker: str) -> Dict[str, Any]:
-    """Analyze stock using the ReAct Agent (Reasoning + Acting) pattern."""
+    """Analyze stock using the ReAct Agent (Reasoning + Action) pattern."""
     try:
         # Validate and normalize ticker
         ticker = ticker.upper().strip()

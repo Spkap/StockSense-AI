@@ -210,7 +210,7 @@ def create_react_agent() -> StateGraph:
             }
 
         reasoning_prompt = f"""
-You are a ReAct (Reasoning + Acting) agent for stock analysis. You must analyze {ticker} by reasoning about what to do next and then taking action.
+You are a ReAct (Reasoning + Action) agent for stock analysis. You must analyze {ticker} by reasoning about what to do next and then taking action.
 
 Current situation:
 - Ticker: {ticker}

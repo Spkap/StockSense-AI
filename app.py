@@ -255,7 +255,7 @@ def create_styled_header():
         </h1>
         <p style="color: #f0f0f0; text-align: center; margin: 0.5rem 0 0 0;
                   font-size: 1.1rem; opacity: 0.9;">
-            AI-Powered Stock Analysis Using Reasoning & Acting
+            AI-Powered Stock Analysis Using Reasoning & Action
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -1030,7 +1030,7 @@ def display_sidebar():
 
         with st.expander("How it works"):
             st.markdown("""
-            **ReAct Pattern (Reasoning + Acting):**
+            **ReAct Pattern (Reasoning + Action):**
 
             1. 🧠 **Reasons** about market conditions
             2. 🔧 **Acts** by selecting appropriate tools
