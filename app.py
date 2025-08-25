@@ -7,13 +7,11 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import json
 import yfinance as yf
-
-try:
-    import plotly.express as px
-    import plotly.graph_objects as go
-    PLOTLY_AVAILABLE = True
-except ImportError:
-    PLOTLY_AVAILABLE = False
+import plotly.graph_objects as go
+import plotly.express as px
+from pathlib import Path
+import os
+PLOTLY_AVAILABLE = True
 
 st.set_page_config(
     page_title="StockSense AI Agent",
@@ -143,12 +141,97 @@ def initialize_session_state():
 
 initialize_session_state()
 
-BACKEND_URL = "http://127.0.0.1:8000"
+@st.cache_data
+def load_company_ticker_mapping():
+    """Load company name to ticker mapping from CSV file."""
+    csv_path = Path("nasdaq_screener.csv")
+    
+    if csv_path.exists():
+        try:
+            df = pd.read_csv(csv_path)
+            if 'Symbol' in df.columns and 'Name' in df.columns:
+                # Create a mapping from company name to ticker
+                mapping = dict(zip(df['Name'], df['Symbol']))
+                return mapping, df
+        except Exception as e:
+            st.warning(f"Error loading CSV file: {e}")
+    
+    # Fallback to popular stocks if CSV not available
+    fallback_mapping = {
+        "Apple Inc.": "AAPL",
+        "Microsoft Corporation": "MSFT", 
+        "Alphabet Inc.": "GOOGL",
+        "Amazon.com Inc.": "AMZN",
+        "Tesla Inc.": "TSLA",
+        "NVIDIA Corporation": "NVDA",
+        "Meta Platforms Inc.": "META",
+        "Netflix Inc.": "NFLX",
+        "Advanced Micro Devices Inc.": "AMD",
+        "Intel Corporation": "INTC"
+    }
+    
+    return fallback_mapping, None
 
-POPULAR_TICKERS = [
-    "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA",
-    "NVDA", "META", "NFLX", "AMD", "INTC"
-]
+def create_candlestick_chart(price_data: list) -> go.Figure:
+    """Create an interactive candlestick chart with moving averages."""
+    if not price_data:
+        return None
+        
+    # Convert to DataFrame
+    df = pd.DataFrame(price_data)
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.sort_values('Date')
+    
+    # Calculate moving averages
+    df['SMA_20'] = df['Close'].rolling(window=20, min_periods=1).mean()
+    df['SMA_50'] = df['Close'].rolling(window=50, min_periods=1).mean()
+    
+    # Create candlestick chart
+    fig = go.Figure()
+    
+    # Add candlestick
+    fig.add_trace(go.Candlestick(
+        x=df['Date'],
+        open=df['Open'],
+        high=df['High'],
+        low=df['Low'],
+        close=df['Close'],
+        name="Price",
+        increasing_line_color='#26a69a',
+        decreasing_line_color='#ef5350'
+    ))
+    
+    # Add moving averages
+    fig.add_trace(go.Scatter(
+        x=df['Date'],
+        y=df['SMA_20'],
+        mode='lines',
+        name='SMA 20',
+        line=dict(color='orange', width=2)
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=df['Date'],
+        y=df['SMA_50'],
+        mode='lines',
+        name='SMA 50',
+        line=dict(color='blue', width=2)
+    ))
+    
+    # Update layout
+    fig.update_layout(
+        title="Stock Price with Moving Averages",
+        yaxis_title="Price ($)",
+        xaxis_title="Date",
+        template="plotly_white",
+        height=500,
+        showlegend=True,
+        xaxis_rangeslider_visible=False
+    )
+    
+    return fig
+
+BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
 def check_backend_status() -> bool:
     """Check if the backend is online."""
@@ -194,34 +277,59 @@ def display_hero_section():
 def display_ticker_input():
     st.markdown("### Select Stock to Analyze")
 
+    # Load company mapping
+    company_mapping, df = load_company_ticker_mapping()
+    company_names = list(company_mapping.keys())
+
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        st.markdown("**Quick Select:**")
-        cols = st.columns(5)
-        for i, ticker in enumerate(POPULAR_TICKERS[:5]):
-            with cols[i]:
-                if st.button(ticker, key=f"quick_{ticker}", use_container_width=True):
-                    st.session_state.selected_ticker = ticker
-
-        cols = st.columns(5)
-        for i, ticker in enumerate(POPULAR_TICKERS[5:]):
-            with cols[i]:
-                if st.button(ticker, key=f"quick_{ticker}", use_container_width=True):
-                    st.session_state.selected_ticker = ticker
+        st.markdown("**Select Company:**")
+        
+        # Company selectbox
+        selected_company = st.selectbox(
+            "Choose a company",
+            options=[""] + company_names,
+            index=0,
+            help="Select a company from the dropdown",
+            label_visibility="collapsed"
+        )
+        
+        if selected_company:
+            ticker = company_mapping[selected_company]
+            st.session_state.selected_ticker = ticker
+            st.info(f"Selected: **{selected_company}** → **{ticker}**")
 
     with col2:
         st.markdown("**Or enter manually:**")
         manual_ticker = st.text_input(
             "Stock Ticker",
-            value=st.session_state.selected_ticker,
+            value=st.session_state.selected_ticker if not selected_company else "",
             placeholder="e.g., AAPL",
             help="Enter any valid stock ticker symbol",
             label_visibility="collapsed"
         )
 
-        if manual_ticker != st.session_state.selected_ticker:
+        if manual_ticker and manual_ticker != st.session_state.selected_ticker:
             st.session_state.selected_ticker = manual_ticker.upper().strip()
+
+    # Quick select buttons for popular stocks
+    st.markdown("**Quick Select Popular Stocks:**")
+    cols = st.columns(5)
+    popular_tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
+    
+    for i, ticker in enumerate(popular_tickers):
+        with cols[i]:
+            if st.button(ticker, key=f"quick_{ticker}", use_container_width=True):
+                st.session_state.selected_ticker = ticker
+
+    cols = st.columns(5)
+    more_tickers = ["NVDA", "META", "NFLX", "AMD", "INTC"]
+    
+    for i, ticker in enumerate(more_tickers):
+        with cols[i]:
+            if st.button(ticker, key=f"quick_{ticker}", use_container_width=True):
+                st.session_state.selected_ticker = ticker
 
     return st.session_state.selected_ticker
 
@@ -253,63 +361,103 @@ def trigger_analysis(ticker: str) -> Optional[Dict[str, Any]]:
         if response.status_code == 200:
             result = response.json()
 
-            st.success(f"Analysis for **{ticker}** has been triggered! Fetching results...")
+            st.success(f"Analysis for **{ticker}** has been triggered!")
 
-            with st.expander("Backend Response Details"):
-                st.json(result)
+            # Check if this is a fresh analysis or cached result
+            analysis_data = result.get('data', {})
+            if analysis_data.get('source') == 'react_analysis':
+                # Fresh analysis - use the data directly from /analyze response
+                st.success("✅ Fresh analysis completed!")
+                
+                result_obj = {
+                    'ticker': ticker,
+                    'data': analysis_data,
+                    'timestamp': datetime.now().isoformat(),
+                    'success': True
+                }
 
-            st.markdown("---")
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+                st.session_state.analysis_result = result_obj
+                st.session_state.analysis_history.insert(0, result_obj)
+                if len(st.session_state.analysis_history) > 10:
+                    st.session_state.analysis_history.pop()
 
-            max_attempts = 10
-            for attempt in range(1, max_attempts + 1):
-                status_text.text(f"Fetching results... (Attempt {attempt}/{max_attempts})")
-                progress_bar.progress(attempt / max_attempts)
+                return result_obj
+                
+            elif analysis_data.get('source') == 'cache':
+                # Cached result - data is already complete
+                st.info("📚 Retrieved from cache")
+                
+                result_obj = {
+                    'ticker': ticker,
+                    'data': analysis_data,
+                    'timestamp': datetime.now().isoformat(),
+                    'success': True
+                }
 
-                try:
-                    results_response = requests.get(
-                        f"{BACKEND_URL}/results/{ticker}",
-                        timeout=10
-                    )
+                st.session_state.analysis_result = result_obj
+                st.session_state.analysis_history.insert(0, result_obj)
+                if len(st.session_state.analysis_history) > 10:
+                    st.session_state.analysis_history.pop()
 
-                    if results_response.status_code == 200:
-                        analysis_data = results_response.json()
-                        status_text.text("Results retrieved successfully!")
-                        progress_bar.progress(1.0)
+                return result_obj
+            
+            else:
+                # Fallback to old behavior for backward compatibility
+                with st.expander("Backend Response Details"):
+                    st.json(result)
 
-                        result_obj = {
-                            'ticker': ticker,
-                            'data': analysis_data.get('data', analysis_data),
-                            'timestamp': datetime.now().isoformat(),
-                            'success': True
-                        }
+                st.markdown("---")
+                progress_bar = st.progress(0)
+                status_text = st.empty()
 
-                        st.session_state.analysis_result = result_obj
+                max_attempts = 10
+                for attempt in range(1, max_attempts + 1):
+                    status_text.text(f"Fetching results... (Attempt {attempt}/{max_attempts})")
+                    progress_bar.progress(attempt / max_attempts)
 
-                        st.session_state.analysis_history.insert(0, result_obj)
-                        if len(st.session_state.analysis_history) > 10:
-                            st.session_state.analysis_history.pop()
+                    try:
+                        results_response = requests.get(
+                            f"{BACKEND_URL}/results/{ticker}",
+                            timeout=10
+                        )
 
-                        progress_bar.empty()
-                        status_text.empty()
-                        return result_obj
+                        if results_response.status_code == 200:
+                            analysis_data = results_response.json()
+                            status_text.text("Results retrieved successfully!")
+                            progress_bar.progress(1.0)
 
-                    elif results_response.status_code == 404:
-                        if attempt < max_attempts:
-                            time.sleep(2)
-                            continue
-                    else:
-                        st.error(f"❌ Error fetching results: Status {results_response.status_code}")
+                            result_obj = {
+                                'ticker': ticker,
+                                'data': analysis_data.get('data', analysis_data),
+                                'timestamp': datetime.now().isoformat(),
+                                'success': True
+                            }
+
+                            st.session_state.analysis_result = result_obj
+
+                            st.session_state.analysis_history.insert(0, result_obj)
+                            if len(st.session_state.analysis_history) > 10:
+                                st.session_state.analysis_history.pop()
+
+                            progress_bar.empty()
+                            status_text.empty()
+                            return result_obj
+
+                        elif results_response.status_code == 404:
+                            if attempt < max_attempts:
+                                time.sleep(2)
+                                continue
+                        else:
+                            st.error(f"❌ Error fetching results: Status {results_response.status_code}")
+                            break
+
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"❌ Network error: {str(e)}")
                         break
 
-                except requests.exceptions.RequestException as e:
-                    st.error(f"❌ Network error: {str(e)}")
-                    break
-
-            progress_bar.empty()
-            status_text.empty()
-            st.error("⏱️ Analysis timed out. Please try again.")
+                progress_bar.empty()
+                status_text.empty()
+                st.error("⏱️ Analysis timed out. Please try again.")
             return None
 
         else:
@@ -329,69 +477,215 @@ def trigger_analysis(ticker: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def display_analysis_summary(data: Dict[str, Any], ticker: str):
-    """Displays the analysis summary."""
-    summary = data.get('summary') or data.get('analysis_summary')
-
-    if summary:
-        st.markdown(f"""
-        <div class="analysis-card fade-in">
-            <h4 style="color: #667eea; margin-bottom: 1rem; font-size: 1.3rem; border-bottom: 2px solid #e1e5e9; padding-bottom: 0.5rem;">
-                📊 Analysis Summary
-            </h4>
-            <p><strong>Stock:</strong> {ticker}</p>
-            <div>{summary}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.info("📝 Summary not available")
-
-
-def display_sentiment_analysis(data: Dict[str, Any]):
-    """Displays sentiment analysis."""
-    sentiment_report_raw = data.get('sentiment_report')
-    sentiment_report_data = None
-    sentiment_report_string = None
-
-    if isinstance(sentiment_report_raw, str) and sentiment_report_raw.strip():
-        try:
-            parsed_report = json.loads(sentiment_report_raw)
-            if isinstance(parsed_report, list) and parsed_report:
-                sentiment_report_data = parsed_report
-            else:
-                sentiment_report_string = sentiment_report_raw
-        except json.JSONDecodeError:
-            sentiment_report_string = sentiment_report_raw
-    elif isinstance(sentiment_report_raw, list) and sentiment_report_raw:
-        sentiment_report_data = sentiment_report_raw
-
-    st.markdown("### 📈 Sentiment Analysis")
-
-    if sentiment_report_data or sentiment_report_string:
-        with st.container():
+def display_enhanced_analysis_results(data: Dict[str, Any], ticker: str):
+    """Display enhanced analysis results with tabbed interface."""
+    
+    # Create tabs
+    tab1, tab2, tab3 = st.tabs(["📊 Analysis Dashboard", "📰 News & Sentiment", "⚙️ Agent Reasoning"])
+    
+    with tab1:
+        st.markdown("### 📊 Analysis Dashboard")
+        
+        # Display analysis summary
+        summary = (data.get('summary') or 
+                  data.get('analysis_summary') or
+                  data.get('analysis') or
+                  "Analysis completed successfully")
+        
+        if summary and summary != "Analysis completed successfully":
+            st.markdown(f"""
+            <div class="analysis-card fade-in">
+                <h4 style="color: #667eea; margin-bottom: 1rem; font-size: 1.3rem; border-bottom: 2px solid #e1e5e9; padding-bottom: 0.5rem;">
+                    📊 Analysis Summary
+                </h4>
+                <p><strong>Stock:</strong> {ticker}</p>
+                <div>{summary}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("📊 Detailed analysis summary not available for this request")
+        
+        # Display interactive candlestick chart
+        price_data = data.get('price_data', [])
+        if not price_data:
+            # Try alternative key names
+            price_data = (data.get('historical_data') or 
+                         data.get('price_history') or
+                         data.get('ohlcv_data') or [])
+        
+        if price_data and len(price_data) > 0:
+            st.markdown("#### 📈 Interactive Price Chart with Moving Averages")
+            
+            try:
+                fig = create_candlestick_chart(price_data)
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True)
+                    st.success(f"📊 Displaying {len(price_data)} days of price data with technical indicators")
+                else:
+                    st.warning("Unable to create candlestick chart - trying fallback visualization")
+                    # Fallback to simple line chart
+                    try:
+                        df = pd.DataFrame(price_data)
+                        df['Date'] = pd.to_datetime(df['Date'])
+                        df = df.sort_values('Date').set_index('Date')
+                        st.line_chart(df[['Close']], use_container_width=True)
+                    except Exception as fallback_error:
+                        st.error(f"Chart creation failed: {str(fallback_error)}")
+            except Exception as e:
+                st.error(f"Error creating chart: {str(e)}")
+                # Show raw data for debugging
+                with st.expander("🔍 Debug: Raw Price Data"):
+                    st.json(price_data[:3])  # Show first 3 records
+        else:
+            # Show more helpful message
+            available_keys = list(data.keys())
+            st.info(f"📈 No historical price data available in this analysis. Available data: {', '.join(available_keys)}")
+            
+            # Try to get real-time price data as fallback
+            if st.button("🔄 Fetch Current Price Data", key="fetch_price_fallback"):
+                with st.spinner("Fetching current market data..."):
+                    try:
+                        from stocksense.data_collectors import get_price_history
+                        df = get_price_history(ticker, period="1mo")
+                        if df is not None and not df.empty:
+                            # Convert to our format
+                            df_reset = df.reset_index()
+                            df_reset['Date'] = df_reset['Date'].dt.strftime('%Y-%m-%d')
+                            fallback_data = df_reset.to_dict(orient='records')
+                            
+                            fig = create_candlestick_chart(fallback_data)
+                            if fig:
+                                st.plotly_chart(fig, use_container_width=True)
+                                st.success("📊 Showing current market data (not from AI analysis)")
+                    except Exception as e:
+                        st.error(f"Failed to fetch fallback data: {str(e)}")
+        
+        # Display key metrics
+        display_key_metrics(ticker)
+    
+    with tab2:
+        st.markdown("### 📰 News & Sentiment Analysis")
+        
+        # Display detailed sentiment report
+        sentiment_report_raw = data.get('sentiment_report')
+        
+        if sentiment_report_raw:
             st.markdown("""
                 <h4 style="color: #667eea; margin-bottom: 1rem; font-size: 1.3rem; border-bottom: 2px solid #e1e5e9; padding-bottom: 0.5rem;">
                     📊 Market Sentiment Report
                 </h4>
             """, unsafe_allow_html=True)
-
-            if sentiment_report_data:
-                st.markdown("<h5>Headline Sentiment Analysis:</h5>", unsafe_allow_html=True)
-                for i, item in enumerate(sentiment_report_data, 1):
+            
+            # Try to parse as JSON first
+            if isinstance(sentiment_report_raw, str):
+                try:
+                    sentiment_data = json.loads(sentiment_report_raw)
+                    if isinstance(sentiment_data, list):
+                        # Display structured sentiment data
+                        for i, item in enumerate(sentiment_data, 1):
+                            headline = item.get('headline', 'N/A')
+                            sentiment = item.get('sentiment', 'N/A')
+                            justification = item.get('justification', 'N/A')
+                            
+                            with st.expander(f"📰 Article {i}: {headline[:80]}..."):
+                                st.markdown(f"**Headline:** {headline}")
+                                st.markdown(f"**Sentiment:** {sentiment}")
+                                st.markdown(f"**Analysis:** {justification}")
+                    else:
+                        st.markdown(sentiment_report_raw)
+                except json.JSONDecodeError:
+                    st.markdown(sentiment_report_raw)
+            elif isinstance(sentiment_report_raw, list):
+                # Already structured data
+                for i, item in enumerate(sentiment_report_raw, 1):
                     headline = item.get('headline', 'N/A')
                     sentiment = item.get('sentiment', 'N/A')
                     justification = item.get('justification', 'N/A')
-
-                    st.markdown(f"**{i}. {headline}**")
-                    st.markdown(f"&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;**Sentiment:** {sentiment}", unsafe_allow_html=True)
-                    st.markdown(f"&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;**Justification:** {justification}", unsafe_allow_html=True)
-                    if i < len(sentiment_report_data):
-                        st.markdown("<br>", unsafe_allow_html=True)
-
-            elif sentiment_report_string:
-                st.markdown(f"<div>{sentiment_report_string}</div>", unsafe_allow_html=True)
-    else:
-        st.info("📊 Sentiment analysis not available for this stock.")
+                    
+                    with st.expander(f"� Article {i}: {headline[:80]}..."):
+                        st.markdown(f"**Headline:** {headline}")
+                        st.markdown(f"**Sentiment:** {sentiment}")
+                        st.markdown(f"**Analysis:** {justification}")
+            else:
+                st.markdown(str(sentiment_report_raw))
+        else:
+            # Try to show any related sentiment data
+            sentiment_info = []
+            if data.get('headlines_count'):
+                sentiment_info.append(f"Analyzed {data['headlines_count']} headlines")
+            if data.get('sentiment'):
+                sentiment_info.append(f"Overall sentiment: {data['sentiment']}")
+                
+            if sentiment_info:
+                st.info("Sentiment analysis completed. " + " | ".join(sentiment_info))
+            else:
+                st.info("No detailed sentiment analysis data available")
+    
+    with tab3:
+        st.markdown("### ⚙️ Agent Reasoning Process")
+        
+        # Check if we have any reasoning data - be more specific about what constitutes "available"
+        reasoning_steps = data.get('reasoning_steps') or []
+        has_reasoning_steps = len(reasoning_steps) > 0
+        has_tools_used = data.get('tools_used') and len(data.get('tools_used', [])) > 0
+        has_iterations = data.get('iterations') and data.get('iterations', 0) > 0
+        has_source_info = data.get('source') == 'react_analysis'  # Fresh analysis vs cached
+        
+        # For cached data, don't show reasoning even if it has generic cache steps
+        is_cached = data.get('source') == 'cache'
+        has_meaningful_reasoning = has_reasoning_steps and not is_cached
+        
+        if has_meaningful_reasoning or (has_tools_used and not is_cached) or (has_iterations and not is_cached):
+            st.markdown("""
+                <h4 style="color: #667eea; margin-bottom: 1rem; font-size: 1.3rem; border-bottom: 2px solid #e1e5e9; padding-bottom: 0.5rem;">
+                    🧠 ReAct Agent Decision Process
+                </h4>
+            """, unsafe_allow_html=True)
+            
+            # Show reasoning steps if available
+            if has_meaningful_reasoning:
+                reasoning_data = reasoning_steps  # Use the cleaned version
+                st.markdown("**📋 Agent Reasoning Steps:**")
+                if isinstance(reasoning_data, str):
+                    st.markdown(reasoning_data)
+                elif isinstance(reasoning_data, list):
+                    for i, step in enumerate(reasoning_data, 1):
+                        st.markdown(f"**Step {i}:** {step}")
+                else:
+                    st.markdown(str(reasoning_data))
+            
+            # Show tools used if available (but not for cached data)
+            if has_tools_used and not is_cached:
+                st.markdown("**🔧 Tools Used:**")
+                tools = data['tools_used']
+                if isinstance(tools, list):
+                    for tool in set(tools):  # Remove duplicates
+                        st.markdown(f"• {tool}")
+                else:
+                    st.markdown(str(tools))
+            
+            # Show iteration count if available (but not for cached data)
+            if has_iterations and not is_cached:
+                st.markdown(f"**🔄 Analysis Iterations:** {data['iterations']}")
+                
+            # Show analysis type
+            if has_source_info and not is_cached:
+                st.info(f"✅ Fresh ReAct analysis completed with {data.get('iterations', 0)} reasoning iterations")
+                
+        else:
+            # Determine why no reasoning data is available
+            source = data.get('source', 'unknown')
+            if source == 'cache':
+                st.info("📚 This is a cached result from a previous analysis. Detailed reasoning steps are not available for cached results.")
+            elif not has_source_info:
+                st.warning("⚠️ No detailed reasoning information available. This may be an incomplete analysis or cached result.")
+            else:
+                # This shouldn't happen for fresh analyses
+                st.error("❌ No reasoning data available despite being a fresh analysis. This may indicate an issue with the ReAct agent.")
+        
+        # Display raw data for debugging
+        with st.expander("🔍 Raw Analysis Data (Debug)"):
+            st.json(data)
 
 
 def display_visualizations(ticker: str):
@@ -602,6 +896,105 @@ def display_key_metrics(ticker: str):
         st.info("Please verify the ticker symbol and try again.")
 
 
+def clear_database_cache() -> bool:
+    """Clear all cached analysis results from the database."""
+    try:
+        import sqlite3
+        import os
+        
+        # Get database path (same logic as in database.py)
+        current_file_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(current_file_dir, 'stocksense.db')
+        
+        if os.path.exists(db_path):
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM analysis_cache')
+                rows_deleted = cursor.rowcount
+                conn.commit()
+            return True, rows_deleted
+        else:
+            return True, 0  # No database file, so "cleared"
+            
+    except Exception as e:
+        return False, str(e)
+
+
+def get_cache_stats() -> dict:
+    """Get statistics about cached analysis results."""
+    try:
+        import sqlite3
+        import os
+        
+        current_file_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(current_file_dir, 'stocksense.db')
+        
+        if not os.path.exists(db_path):
+            return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": 0}
+        
+        # Get file size
+        db_size_mb = round(os.path.getsize(db_path) / (1024 * 1024), 2)
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Check if table exists
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_cache'")
+            if not cursor.fetchone():
+                return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": db_size_mb}
+            
+            # Get total analyses
+            cursor.execute('SELECT COUNT(*) FROM analysis_cache')
+            total_analyses = cursor.fetchone()[0]
+            
+            # Get unique tickers
+            cursor.execute('SELECT COUNT(DISTINCT ticker) FROM analysis_cache')
+            unique_tickers = cursor.fetchone()[0]
+            
+            return {
+                "total_analyses": total_analyses,
+                "unique_tickers": unique_tickers,
+                "db_size_mb": db_size_mb
+            }
+            
+    except Exception as e:
+        return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": 0, "error": str(e)}
+
+
+def get_cached_tickers() -> list:
+    """Get list of all cached ticker symbols."""
+    try:
+        import sqlite3
+        import os
+        
+        current_file_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(current_file_dir, 'stocksense.db')
+        
+        if not os.path.exists(db_path):
+            return []
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Check if table exists
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_cache'")
+            if not cursor.fetchone():
+                return []
+            
+            cursor.execute('''
+                SELECT DISTINCT ticker, MAX(timestamp) as latest_timestamp, COUNT(*) as analysis_count
+                FROM analysis_cache 
+                GROUP BY ticker 
+                ORDER BY latest_timestamp DESC
+            ''')
+            
+            results = cursor.fetchall()
+            return [{"ticker": result[0], "latest": result[1], "count": result[2]} for result in results]
+            
+    except Exception as e:
+        return []
+
+
 def display_analysis_history():
     """Displays analysis history in sidebar."""
     if st.session_state.analysis_history:
@@ -661,7 +1054,79 @@ def display_sidebar():
             """)
 
         st.markdown("---")
-        if st.button("🗑️ Clear All Data", help="Clear analysis results and history"):
+        
+        # Cache Management Section
+        st.markdown("### 💾 Cache Management")
+        
+        # Get cache statistics
+        cache_stats = get_cache_stats()
+        
+        if cache_stats.get("error"):
+            st.error(f"❌ Cache error: {cache_stats['error']}")
+        else:
+            # Display cache statistics in a nice format
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("📊 Total Analyses", cache_stats["total_analyses"])
+            with col2:
+                st.metric("🎯 Unique Stocks", cache_stats["unique_tickers"])
+            
+            if cache_stats["db_size_mb"] > 0:
+                st.metric("💾 Database Size", f"{cache_stats['db_size_mb']} MB")
+            
+            # Clear cache section
+            if cache_stats["total_analyses"] > 0:
+                with st.expander("🗑️ Clear Cache", expanded=False):
+                    st.markdown(f"""
+                    **Current Cache Status:**
+                    - {cache_stats['total_analyses']} cached analyses
+                    - {cache_stats['unique_tickers']} different stocks
+                    - {cache_stats['db_size_mb']} MB database size
+                    """)
+                    
+                    # Show cached tickers
+                    cached_tickers = get_cached_tickers()
+                    if cached_tickers:
+                        st.markdown("**Cached Stocks:**")
+                        ticker_display = ", ".join([f"`{item['ticker']}`" for item in cached_tickers[:10]])
+                        if len(cached_tickers) > 10:
+                            ticker_display += f" *(+{len(cached_tickers)-10} more)*"
+                        st.markdown(ticker_display)
+                    
+                    st.markdown("""
+                    ⚠️ **Warning:** This will permanently delete all cached analysis results.
+                    Fresh analyses will take longer but will use the latest data.
+                    """)
+                    
+                    # Confirmation checkbox
+                    confirm_clear = st.checkbox("I understand this action cannot be undone", key="confirm_cache_clear")
+                    
+                    # Clear button (only enabled when confirmed)
+                    if st.button(
+                        "🗑️ Clear All Cached Results", 
+                        type="secondary",
+                        disabled=not confirm_clear,
+                        help="Permanently delete all cached analysis results",
+                        use_container_width=True
+                    ):
+                        with st.spinner("Clearing cache..."):
+                            success, result = clear_database_cache()
+                            
+                        if success:
+                            st.success(f"✅ Successfully cleared {result} cached analyses!")
+                            # Also clear session state
+                            st.session_state.analysis_result = None
+                            st.session_state.analysis_history = []
+                            time.sleep(1)  # Brief pause to show success message
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Failed to clear cache: {result}")
+            else:
+                st.info("📭 No cached results to clear")
+
+        st.markdown("---")
+        
+        if st.button("🗑️ Clear Session Data", help="Clear current analysis results and history from this session only"):
             st.session_state.analysis_result = None
             st.session_state.analysis_history = []
             st.rerun()
@@ -704,7 +1169,6 @@ def main():
             ticker = result_data['ticker']
             data = result_data['data']
 
-
             col1, col2 = st.columns([4, 1])
 
             with col1:
@@ -717,12 +1181,8 @@ def main():
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            display_analysis_summary(data, ticker)
-            display_key_metrics(ticker)
-            st.markdown("<br>", unsafe_allow_html=True)
-            display_visualizations(ticker)
-            st.markdown("<br>", unsafe_allow_html=True)
-            display_sentiment_analysis(data)
+            # Use the enhanced tabbed display
+            display_enhanced_analysis_results(data, ticker)
 
         else:
             st.markdown("""

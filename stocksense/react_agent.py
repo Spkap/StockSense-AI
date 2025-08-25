@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, TypedDict, Literal
+from typing import Dict, List, Optional, TypedDict, Literal, Any
 from datetime import datetime
 
 from langgraph.graph import StateGraph, END
@@ -18,7 +18,7 @@ class AgentState(TypedDict):
     messages: List[BaseMessage]
     ticker: str
     headlines: List[str]
-    price_data: Optional[Dict]
+    price_data: List[Dict[str, Any]]  # Updated to hold structured OHLCV data
     sentiment_report: str
     summary: str
     reasoning_steps: List[str]
@@ -62,29 +62,55 @@ def fetch_news_headlines(ticker: str, days: int = 7) -> Dict:
 @tool
 def fetch_price_data(ticker: str, period: str = "1mo") -> Dict:
     """
-    Fetch price history for a stock ticker.
+    Fetch price history for a stock ticker and return structured OHLCV data.
 
     Args:
         ticker: Stock ticker symbol
         period: Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
 
     Returns:
-        Dictionary with price data and metadata
+        Dictionary with structured price data and metadata
     """
     try:
-        price_data = get_price_history(ticker, period=period)
+        df = get_price_history(ticker, period=period)
+        
+        if df is None or df.empty:
+            return {
+                "success": False,
+                "error": "No price data available",
+                "price_data": []
+            }
+        
+        # Convert DataFrame to list of dictionaries with structured OHLCV data
+        df_reset = df.reset_index()
+        df_reset['Date'] = df_reset['Date'].dt.strftime('%Y-%m-%d')
+        
+        # Convert to records and ensure proper data types
+        price_data = []
+        for record in df_reset.to_dict(orient='records'):
+            price_record = {
+                'Date': record['Date'],
+                'Open': float(record['Open']) if record['Open'] is not None else None,
+                'High': float(record['High']) if record['High'] is not None else None,
+                'Low': float(record['Low']) if record['Low'] is not None else None,
+                'Close': float(record['Close']) if record['Close'] is not None else None,
+                'Volume': int(record['Volume']) if record['Volume'] is not None else None
+            }
+            price_data.append(price_record)
+        
         return {
             "success": True,
             "price_data": price_data,
             "ticker": ticker,
             "period": period,
-            "has_data": price_data is not None
+            "data_points": len(price_data),
+            "has_data": len(price_data) > 0
         }
     except Exception as e:
         return {
             "success": False,
             "error": str(e),
-            "price_data": None
+            "price_data": []
         }
 
 
@@ -190,7 +216,7 @@ Current situation:
 - Ticker: {ticker}
 - Iteration: {iterations + 1}/{max_iterations}
 - Headlines collected: {len(state.get('headlines', []))}
-- Price data available: {state.get('price_data') is not None}
+- Price data available: {len(state.get('price_data', [])) > 0}
 - Sentiment analyzed: {bool(state.get('sentiment_report'))}
 - Tools used so far: {state.get('tools_used', [])}
 
@@ -208,7 +234,7 @@ REASONING: Think step by step about what you should do next:
 
 COMPLETION CRITERIA: You are ready to provide final analysis when you have:
 - Headlines collected (✓ if {len(state.get('headlines', []))} > 0)
-- Price data gathered (✓ if {state.get('price_data') is not None})
+- Price data gathered (✓ if {len(state.get('price_data', [])) > 0})
 - Sentiment analysis completed (✓ if {bool(state.get('sentiment_report'))})
 
 ACTION: Based on your reasoning:
@@ -241,7 +267,7 @@ IMPORTANT: Once you have collected headlines, performed sentiment analysis, and 
 
             headlines = state.get('headlines', [])
             sentiment_report = state.get('sentiment_report', '')
-            price_data = state.get('price_data')
+            price_data = state.get('price_data', [])
 
             if sentiment_report and headlines:
                 comprehensive_summary = f"""
@@ -251,7 +277,7 @@ Market Sentiment: Based on analysis of {len(headlines)} recent news headlines, t
 
 Key Findings:
 - News Coverage: {len(headlines)} articles analyzed from the past 7 days
-- Price Data: {'Available' if price_data is not None else 'Not available'}
+- Price Data: {'Available' if len(price_data) > 0 else 'Not available'} ({len(price_data)} data points)
 - Agent Reasoning: {agent_response}
 
 The ReAct agent completed analysis using {len(set(state.get('tools_used', [])))} different tools across {iterations + 1} reasoning iterations.
@@ -325,8 +351,9 @@ The ReAct agent completed analysis using {len(set(state.get('tools_used', [])))}
                 reasoning_steps.append(f"Fetched {len(state['headlines'])} headlines")
 
             elif tool_name == "fetch_price_data" and result.get("success"):
-                state["price_data"] = result.get("price_data")
-                reasoning_steps.append("Fetched price data")
+                state["price_data"] = result.get("price_data", [])
+                data_points = len(state["price_data"]) if state["price_data"] else 0
+                reasoning_steps.append(f"Fetched price data with {data_points} data points")
 
             elif tool_name == "analyze_sentiment" and result.get("success"):
                 state["sentiment_report"] = result.get("sentiment_report", "")
@@ -384,7 +411,7 @@ def run_react_analysis(ticker: str) -> Dict:
         "messages": [],
         "ticker": ticker.upper(),
         "headlines": [],
-        "price_data": None,
+        "price_data": [],  # Changed from None to empty list
         "sentiment_report": "",
         "summary": "",
         "reasoning_steps": [],
@@ -426,7 +453,7 @@ def run_react_analysis(ticker: str) -> Dict:
             "summary": f"Analysis temporarily unavailable due to API limits. The data collection was successful (found real market data), but AI analysis is rate-limited.",
             "sentiment_report": f"Rate Limit Info: Google Gemini free tier quota exceeded. Try again tomorrow or upgrade for higher limits.",
             "headlines": [],
-            "price_data": None,
+            "price_data": [],  # Changed from None to empty list
             "reasoning_steps": [],
             "tools_used": [],
             "iterations": 0,

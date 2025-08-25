@@ -1,0 +1,21 @@
+Symbol,Name,Last Sale,Net Change,% Change,Market Cap,Country,IPO Year,Volume,Sector,Industry
+AAPL,Apple Inc.,231.7,1.23,0.53%,3543210000000,United States,1980,45123000,Technology,Consumer Electronics
+MSFT,Microsoft Corporation,421.45,2.87,0.69%,3123450000000,United States,1986,32145000,Technology,Software - Infrastructure
+GOOGL,Alphabet Inc.,171.23,-0.87,-0.50%,2156780000000,United States,2004,28945000,Communication Services,Internet Content & Information
+AMZN,Amazon.com Inc.,185.92,1.45,0.79%,1943210000000,United States,1997,34567000,Consumer Cyclical,Internet Retail
+TSLA,Tesla Inc.,247.86,-2.34,-0.93%,788450000000,United States,2010,67891000,Consumer Cyclical,Auto Manufacturers
+NVDA,NVIDIA Corporation,129.37,3.21,2.54%,3189670000000,United States,1999,89456000,Technology,Semiconductors
+META,Meta Platforms Inc.,542.81,4.56,0.85%,1378900000000,United States,2012,23456000,Communication Services,Internet Content & Information
+NFLX,Netflix Inc.,702.33,-1.23,-0.17%,311890000000,United States,2002,12345000,Communication Services,Entertainment
+AMD,Advanced Micro Devices Inc.,164.52,2.87,1.78%,265780000000,United States,1972,45678000,Technology,Semiconductors
+INTC,Intel Corporation,22.89,-0.45,-1.93%,97340000000,United States,1971,67890000,Technology,Semiconductors
+JPM,JPMorgan Chase & Co.,221.45,1.23,0.56%,642310000000,United States,1980,23456000,Financial Services,Banks - Diversified
+JNJ,Johnson & Johnson,161.78,-0.87,-0.53%,389670000000,United States,1944,12345000,Healthcare,Drug Manufacturers - General
+V,Visa Inc.,289.45,2.34,0.82%,567890000000,United States,2008,34567000,Financial Services,Credit Services
+PG,Procter & Gamble Company,166.23,0.78,0.47%,389120000000,United States,1946,23456000,Consumer Defensive,Household & Personal Products
+HD,Home Depot Inc.,346.78,1.45,0.42%,345670000000,United States,1981,34567000,Consumer Cyclical,Home Improvement Retail
+UNH,UnitedHealth Group Incorporated,524.67,3.21,0.62%,485930000000,United States,1984,12345000,Healthcare,Healthcare Plans
+BAC,Bank of America Corporation,44.56,-0.23,-0.51%,345670000000,United States,1968,67890000,Financial Services,Banks - Diversified
+XOM,Exxon Mobil Corporation,119.78,2.34,1.99%,456780000000,United States,1928,45678000,Energy,Oil & Gas Integrated
+KO,Coca-Cola Company,62.45,0.45,0.73%,268900000000,United States,1919,23456000,Consumer Defensive,Beverages - Non-Alcoholic
+PFE,Pfizer Inc.,28.67,-0.56,-1.91%,161230000000,United States,1942,34567000,Healthcare,Drug Manufacturers - General

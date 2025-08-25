@@ -100,7 +100,11 @@ async def analyze_stock(ticker: str) -> Dict[str, Any]:
                     "sentiment_report": cached_analysis["sentiment_report"],
                     "timestamp": cached_analysis["timestamp"],
                     "source": "cache",
-                    "agent_type": "ReAct"
+                    "agent_type": "ReAct",
+                    "price_data": [],  # Cached results don't have structured price data
+                    "reasoning_steps": ["Retrieved from cache - no detailed steps available"],
+                    "tools_used": ["cache_lookup"],
+                    "iterations": 0
                 }
             }
 
@@ -124,8 +128,7 @@ async def analyze_stock(ticker: str) -> Dict[str, Any]:
             summary = final_state.get("summary", "")
             sentiment_report = final_state.get("sentiment_report", "")
 
-            if (not summary or summary.startswith("Analysis failed") or
-                not sentiment_report or sentiment_report.startswith("Error")):
+            if (not summary or summary.startswith("Analysis failed")):
                 raise HTTPException(
                     status_code=500,
                     detail="ReAct Agent completed but produced insufficient data"
@@ -149,6 +152,7 @@ async def analyze_stock(ticker: str) -> Dict[str, Any]:
                     "ticker": final_state["ticker"],
                     "summary": final_state["summary"],
                     "sentiment_report": final_state["sentiment_report"],
+                    "price_data": final_state.get("price_data", []),  # Include structured OHLCV data
                     "headlines_count": len(final_state.get("headlines", [])),
                     "reasoning_steps": final_state.get("reasoning_steps", []),
                     "tools_used": final_state.get("tools_used", []),
