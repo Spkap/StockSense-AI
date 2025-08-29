@@ -58,6 +58,8 @@ grpcio==1.74.0
     #   grpcio-status
 grpcio-status==1.74.0
     # via google-api-core
+gunicorn==23.0.0
+    # via -r requirements-backend.in
 h11==0.16.0
     # via
     #   httpcore
@@ -123,6 +125,7 @@ ormsgpack==1.10.0
     # via langgraph-checkpoint
 packaging==25.0
     # via
+    #   gunicorn
     #   langchain-core
     #   langsmith
     #   pytest

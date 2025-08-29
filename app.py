@@ -352,120 +352,68 @@ def trigger_analysis(ticker: str) -> Optional[Dict[str, Any]]:
             st.error("🔌 Backend server is offline. Please start the FastAPI server.")
             return None
 
-        with st.spinner("🤖 ReAct Agent is analyzing..."):
-            response = requests.post(
+        # Fire-and-forget POST to trigger analysis
+        try:
+            requests.post(
                 f"{BACKEND_URL}/analyze/{ticker}",
-                timeout=60
+                timeout=5  # Very short timeout, don't care about response
             )
+        except requests.exceptions.RequestException:
+            st.warning("Analysis trigger sent, but backend may be cold starting. Waiting for results...")
 
-        if response.status_code == 200:
-            result = response.json()
+        # Patient polling for results
+        max_attempts = 30
+        sleep_interval = 3
+        status_text = st.empty()
+        progress_bar = st.progress(0)
+        result_obj = None
 
-            st.success(f"Analysis for **{ticker}** has been triggered!")
+        for attempt in range(1, max_attempts + 1):
+            status_text.info(
+                f"Waiting for backend analysis to complete for '{ticker}'... "
+                f"(Attempt {attempt}/{max_attempts}, up to {max_attempts * sleep_interval} seconds)"
+            )
+            progress_bar.progress(attempt / max_attempts)
+            try:
+                results_response = requests.get(
+                    f"{BACKEND_URL}/results/{ticker}",
+                    timeout=10
+                )
+                if results_response.status_code == 200:
+                    analysis_data = results_response.json()
+                    if analysis_data.get('ready') or analysis_data.get('data'):
+                        status_text.success("Analysis complete! Displaying results.")
+                        progress_bar.progress(1.0)
+                        result_obj = {
+                            'ticker': ticker,
+                            'data': analysis_data.get('data', analysis_data),
+                            'timestamp': datetime.now().isoformat(),
+                            'success': True
+                        }
+                        st.session_state.analysis_result = result_obj
+                        st.session_state.analysis_history.insert(0, result_obj)
+                        if len(st.session_state.analysis_history) > 10:
+                            st.session_state.analysis_history.pop()
+                        progress_bar.empty()
+                        status_text.empty()
+                        return result_obj
+                elif results_response.status_code == 404:
+                    # Not ready yet, keep polling
+                    pass
+                else:
+                    st.error(f"❌ Error fetching results: Status {results_response.status_code}")
+                    break
+            except requests.exceptions.RequestException:
+                # Ignore errors, keep polling
+                pass
+            time.sleep(sleep_interval)
 
-            # Check if this is a fresh analysis or cached result
-            analysis_data = result.get('data', {})
-            if analysis_data.get('source') == 'react_analysis':
-                # Fresh analysis - use the data directly from /analyze response
-                st.success("✅ Fresh analysis completed!")
-                
-                result_obj = {
-                    'ticker': ticker,
-                    'data': analysis_data,
-                    'timestamp': datetime.now().isoformat(),
-                    'success': True
-                }
-
-                st.session_state.analysis_result = result_obj
-                st.session_state.analysis_history.insert(0, result_obj)
-                if len(st.session_state.analysis_history) > 10:
-                    st.session_state.analysis_history.pop()
-
-                return result_obj
-                
-            elif analysis_data.get('source') == 'cache':
-                # Cached result - data is already complete
-                st.info("📚 Retrieved from cache")
-                
-                result_obj = {
-                    'ticker': ticker,
-                    'data': analysis_data,
-                    'timestamp': datetime.now().isoformat(),
-                    'success': True
-                }
-
-                st.session_state.analysis_result = result_obj
-                st.session_state.analysis_history.insert(0, result_obj)
-                if len(st.session_state.analysis_history) > 10:
-                    st.session_state.analysis_history.pop()
-
-                return result_obj
-            
-            else:
-                # Fallback to old behavior for backward compatibility
-                with st.expander("Backend Response Details"):
-                    st.json(result)
-
-                st.markdown("---")
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-
-                max_attempts = 10
-                for attempt in range(1, max_attempts + 1):
-                    status_text.text(f"Fetching results... (Attempt {attempt}/{max_attempts})")
-                    progress_bar.progress(attempt / max_attempts)
-
-                    try:
-                        results_response = requests.get(
-                            f"{BACKEND_URL}/results/{ticker}",
-                            timeout=10
-                        )
-
-                        if results_response.status_code == 200:
-                            analysis_data = results_response.json()
-                            status_text.text("Results retrieved successfully!")
-                            progress_bar.progress(1.0)
-
-                            result_obj = {
-                                'ticker': ticker,
-                                'data': analysis_data.get('data', analysis_data),
-                                'timestamp': datetime.now().isoformat(),
-                                'success': True
-                            }
-
-                            st.session_state.analysis_result = result_obj
-
-                            st.session_state.analysis_history.insert(0, result_obj)
-                            if len(st.session_state.analysis_history) > 10:
-                                st.session_state.analysis_history.pop()
-
-                            progress_bar.empty()
-                            status_text.empty()
-                            return result_obj
-
-                        elif results_response.status_code == 404:
-                            if attempt < max_attempts:
-                                time.sleep(2)
-                                continue
-                        else:
-                            st.error(f"❌ Error fetching results: Status {results_response.status_code}")
-                            break
-
-                    except requests.exceptions.RequestException as e:
-                        st.error(f"❌ Network error: {str(e)}")
-                        break
-
-                progress_bar.empty()
-                status_text.empty()
-                st.error("⏱️ Analysis timed out. Please try again.")
-            return None
-
-        else:
-            st.error(f"❌ Analysis failed: Status {response.status_code}")
-            if response.text:
-                st.error(f"Details: {response.text}")
-            return None
-
+        progress_bar.empty()
+        status_text.error(
+            f"Analysis for '{ticker}' did not complete within {max_attempts * sleep_interval} seconds. "
+            "Please try again later or check backend status."
+        )
+        return None
     except requests.exceptions.Timeout:
         st.error("⏱️ Request timed out. Analysis may still be processing.")
         return None
