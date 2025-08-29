@@ -1,0 +1,30 @@
+# Core backend framework
+fastapi
+uvicorn
+
+# Core frontend framework
+streamlit
+
+# LangChain ecosystem
+langchain
+langchain-google-genai
+langgraph
+
+# Utilities
+python-dotenv
+requests
+pandas
+
+# Data sources
+yfinance
+newsapi-python
+
+# Visualization
+plotly
+
+# AI/ML dependencies for FinBERT
+torch
+transformers
+
+# Testing dependencies
+pytest
