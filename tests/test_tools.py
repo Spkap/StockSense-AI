@@ -27,27 +27,29 @@ class TestNewsHeadlines:
     
     def test_fetch_news_headlines_success(self):
         """Test successful news headlines retrieval with valid ticker"""
-        # Use a common, stable ticker for testing
-        ticker = "MSFT"
+    # Use a common, stable ticker for testing
+    ticker = "MSFT"
 
-        # Call the tool function
-        result = fetch_news_headlines.invoke({"ticker": ticker})
+    # Call the tool function
+    result = fetch_news_headlines.invoke({"ticker": ticker})
 
-        # Print the full result for debugging in CI logs
-        print(result)
+    # Print the full result for debugging in CI logs
+    print(result)
 
-        # Assertions
-        assert isinstance(result, dict), "Result should be a dictionary"
-        assert "headlines" in result, "Result should contain 'headlines' key"
-        assert isinstance(result["headlines"], list), "Headlines should be a list"
+    # Assert that the tool call itself reports success
+    assert result.get("success") is True, f"Tool did not report success. Full result: {result}"
 
-        # Check for successful retrieval
-        if result.get("success", False):
-            assert len(result["headlines"]) > 0, f"Headlines list was empty. Full tool result: {result}"
+    # Assert that the structure of the dictionary is correct
+    assert isinstance(result, dict), "Result should be a dictionary"
+    assert "headlines" in result, "Result should contain 'headlines' key"
+    assert "count" in result, "Result should contain 'count' key"
+    assert "ticker" in result, "Result should contain ticker information"
+    assert isinstance(result["headlines"], list), "Headlines should be a list"
+    assert isinstance(result["count"], int), "Count should be an integer"
+    assert result["ticker"] == ticker.upper(), "Ticker should be normalized to uppercase"
 
-        # Verify expected structure
-        assert "ticker" in result, "Result should contain ticker information"
-        assert result["ticker"] == ticker.upper(), "Ticker should be normalized to uppercase"
+    # Assert that the count field matches the actual length of the headlines list
+    assert result["count"] == len(result["headlines"]), f"Count field does not match headlines list length. Full result: {result}"
     
     def test_fetch_news_headlines_structure(self):
         """Test the structure of news headlines response"""
