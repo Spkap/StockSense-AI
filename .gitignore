@@ -78,7 +78,11 @@ env/
 /venv/
 .conda/
 deploy_test_env/
-docker-compose.yml
+docker-compose.override.yml
+
+# Local database (explicit)
+stocksense.db
+*.db
 
 # =============================================================================
 # -- Editor & IDE Files --
