@@ -231,7 +231,7 @@ def create_candlestick_chart(price_data: list) -> go.Figure:
     
     return fig
 
-BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+BACKEND_URL = "http://127.0.0.1:8000"
 
 def check_backend_status() -> bool:
     """Check if the backend is online."""
