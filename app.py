@@ -346,82 +346,103 @@ def validate_ticker(ticker: str) -> tuple[bool, str]:
 
 
 def trigger_analysis(ticker: str) -> Optional[Dict[str, Any]]:
-    """Triggers stock analysis via backend API."""
+    """
+    Triggers backend analysis, handles direct responses for cache hits,
+    and patiently polls for results for fresh analyses.
+    """
+    # Helper function to process a successful result and update session state
+    def _handle_success(result_data: Dict[str, Any], ticker: str) -> Dict[str, Any]:
+        result_obj = {
+            'ticker': ticker,
+            'data': result_data,
+            'timestamp': datetime.now().isoformat(),
+            'success': True
+        }
+        st.session_state.analysis_result = result_obj
+        st.session_state.analysis_history.insert(0, result_obj)
+        # Keep history to a max of 10 items
+        if len(st.session_state.analysis_history) > 10:
+            st.session_state.analysis_history.pop()
+        return result_obj
+
     try:
         if not check_backend_status():
-            st.error("🔌 Backend server is offline. Please start the FastAPI server.")
+            st.error("🔌 Backend server is offline. Please check its status on Render.")
             return None
 
-        # Fire-and-forget POST to trigger analysis
-        try:
-            requests.post(
-                f"{BACKEND_URL}/analyze/{ticker}",
-                timeout=5  # Very short timeout, don't care about response
-            )
-        except requests.exceptions.RequestException:
-            st.warning("Analysis trigger sent, but backend may be cold starting. Waiting for results...")
+        # --- Step 1: Trigger the analysis ---
+        with st.spinner("Sending analysis request to the AI agent..."):
+            response = requests.post(f"{BACKEND_URL}/analyze/{ticker}", timeout=60)
 
-        # Patient polling for results
+        if response.status_code != 200:
+            st.error(f"❌ Analysis request failed: Status {response.status_code}")
+            try:
+                st.error(f"Details: {response.json().get('detail', response.text)}")
+            except json.JSONDecodeError:
+                st.error(f"Details: {response.text}")
+            return None
+        
+        # --- Step 2: Handle the response from the trigger ---
+        result = response.json()
+        analysis_data = result.get('data', {})
+        source = analysis_data.get('source')
+
+        if source == 'cache':
+            st.success("✅ Analysis retrieved instantly from cache!")
+            return _handle_success(analysis_data, ticker)
+        
+        elif source == 'react_analysis':
+            st.success("✅ Fresh analysis completed directly!")
+            return _handle_success(analysis_data, ticker)
+
+        # --- Step 3: If not a direct response, start patient polling ---
+        st.info("🤖 Agent has started a new analysis. Waiting for results...")
         max_attempts = 30
         sleep_interval = 3
         status_text = st.empty()
-        progress_bar = st.progress(0)
-        result_obj = None
+        progress_bar = st.progress(0, text="Initializing...")
 
         for attempt in range(1, max_attempts + 1):
-            status_text.info(
-                f"Waiting for backend analysis to complete for '{ticker}'... "
-                f"(Attempt {attempt}/{max_attempts}, up to {max_attempts * sleep_interval} seconds)"
-            )
-            progress_bar.progress(attempt / max_attempts)
+            progress_bar.progress(attempt / max_attempts, text=f"Polling for results... (Attempt {attempt}/{max_attempts})")
+            
             try:
-                results_response = requests.get(
-                    f"{BACKEND_URL}/results/{ticker}",
-                    timeout=10
-                )
+                results_response = requests.get(f"{BACKEND_URL}/results/{ticker}", timeout=10)
+
                 if results_response.status_code == 200:
-                    analysis_data = results_response.json()
-                    if analysis_data.get('ready') or analysis_data.get('data'):
-                        status_text.success("Analysis complete! Displaying results.")
-                        progress_bar.progress(1.0)
-                        result_obj = {
-                            'ticker': ticker,
-                            'data': analysis_data.get('data', analysis_data),
-                            'timestamp': datetime.now().isoformat(),
-                            'success': True
-                        }
-                        st.session_state.analysis_result = result_obj
-                        st.session_state.analysis_history.insert(0, result_obj)
-                        if len(st.session_state.analysis_history) > 10:
-                            st.session_state.analysis_history.pop()
-                        progress_bar.empty()
-                        status_text.empty()
-                        return result_obj
+                    analysis_data = results_response.json().get('data', {})
+                    status_text.success("✅ Results received!")
+                    progress_bar.empty()
+                    return _handle_success(analysis_data, ticker)
+                
+                # If 404, it means the result is not ready yet. Just wait and continue.
                 elif results_response.status_code == 404:
-                    # Not ready yet, keep polling
-                    pass
+                    time.sleep(sleep_interval)
+                
+                # Handle other potential server errors during polling
                 else:
-                    st.error(f"❌ Error fetching results: Status {results_response.status_code}")
-                    break
+                    status_text.error(f"Backend returned an error (Status {results_response.status_code}). Aborting.")
+                    progress_bar.empty()
+                    return None
+
             except requests.exceptions.RequestException:
-                # Ignore errors, keep polling
-                pass
-            time.sleep(sleep_interval)
+                # Ignore transient network errors and just retry
+                time.sleep(sleep_interval)
 
         progress_bar.empty()
         status_text.error(
             f"Analysis for '{ticker}' did not complete within {max_attempts * sleep_interval} seconds. "
-            "Please try again later or check backend status."
+            "The backend might be busy or an error occurred. Please check the backend logs on Render."
         )
         return None
+
     except requests.exceptions.Timeout:
-        st.error("⏱️ Request timed out. Analysis may still be processing.")
+        st.error("⏱️ Initial request timed out. The backend may be experiencing a cold start. Please try again in a moment.")
         return None
     except requests.exceptions.ConnectionError:
-        st.error("🔌 Cannot connect to backend. Please ensure the server is running.")
+        st.error("🔌 Cannot connect to backend. Please ensure the server is running and the URL is correct.")
         return None
     except Exception as e:
-        st.error(f"❌ Unexpected error: {str(e)}")
+        st.error(f"❌ An unexpected error occurred: {str(e)}")
         return None
 
 
