@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -72,111 +72,57 @@ async def root() -> Dict[str, str]:
         "health": "/health"
     }
 
-
 @app.post("/analyze/{ticker}")
-async def analyze_stock(ticker: str) -> Dict[str, Any]:
-    """Analyze stock using the ReAct Agent (Reasoning + Action) pattern."""
+async def analyze_stock(ticker: str, background_tasks: BackgroundTasks) -> Dict[str, Any]: # <--- ADD BackgroundTasks ARGUMENT
+    """
+    Triggers a ReAct Agent analysis in the background for a given stock ticker.
+    Checks the cache first and returns immediately if a result is found.
+    """
     try:
         # Validate and normalize ticker
         ticker = ticker.upper().strip()
         if not ticker:
             raise HTTPException(status_code=400, detail="Ticker cannot be empty")
 
-        print(f"ReAct Agent analysis request received for ticker: {ticker}")
+        print(f"Analysis request received for ticker: {ticker}")
 
-        # Check for cached analysis first
+        # --- Step 1: Check cache ---
         print(f"Checking cache for existing analysis of {ticker}...")
         cached_analysis = get_latest_analysis(ticker)
 
         if cached_analysis:
             print(f"Found cached analysis for {ticker}")
+            # The structure of this response should match the one in get_analysis_results
+            # so the frontend can handle it consistently.
+            cached_analysis['source'] = 'cache'
+            cached_analysis['agent_type'] = 'ReAct'
             return {
                 "message": "Analysis retrieved from cache",
                 "ticker": ticker,
-                "data": {
-                    "id": cached_analysis["id"],
-                    "ticker": cached_analysis["ticker"],
-                    "summary": cached_analysis["analysis_summary"],
-                    "sentiment_report": cached_analysis["sentiment_report"],
-                    "timestamp": cached_analysis["timestamp"],
-                    "source": "cache",
-                    "agent_type": "ReAct",
-                    "price_data": [],  # Cached results don't have structured price data
-                    "reasoning_steps": ["Retrieved from cache - no detailed steps available"],
-                    "tools_used": ["cache_lookup"],
-                    "iterations": 0
-                }
+                "data": cached_analysis
             }
 
-        # No cached data found, run fresh ReAct analysis
-        print(f"No cached data found for {ticker}, running fresh ReAct analysis...")
+        # --- Step 2: If no cache, start analysis in the background ---
+        print(f"No cached data for {ticker}. Starting analysis in the background...")
+        
+        # This is the key change: the long-running task is handed off.
+        background_tasks.add_task(run_react_analysis, ticker)
 
-        # Run the ReAct agent
-        try:
-            final_state = run_react_analysis(ticker)
-
-            # Check if the ReAct agent completed successfully
-            if final_state.get("error"):
-                error_msg = final_state["error"]
-                print(f"ReAct Agent error for {ticker}: {error_msg}")
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"ReAct Agent analysis failed: {error_msg}"
-                )
-
-            # Check if we have valid results
-            summary = final_state.get("summary", "")
-            sentiment_report = final_state.get("sentiment_report", "")
-
-            if (not summary or summary.startswith("Analysis failed")):
-                raise HTTPException(
-                    status_code=500,
-                    detail="ReAct Agent completed but produced insufficient data"
-                )
-
-            # Save the analysis results to database
-            try:
-                from .database import save_analysis
-                save_analysis(ticker, summary, sentiment_report)
-                print(f"Analysis results saved to database for {ticker}")
-            except Exception as e:
-                print(f"Warning: Failed to save analysis to database: {str(e)}")
-                # Don't fail the request if database save fails
-
-            print(f"ReAct Agent analysis completed successfully for {ticker}")
-
-            return {
-                "message": "ReAct Agent analysis complete and saved",
-                "ticker": ticker,
-                "data": {
-                    "ticker": final_state["ticker"],
-                    "summary": final_state["summary"],
-                    "sentiment_report": final_state["sentiment_report"],
-                    "price_data": final_state.get("price_data", []),  # Include structured OHLCV data
-                    "headlines_count": len(final_state.get("headlines", [])),
-                    "reasoning_steps": final_state.get("reasoning_steps", []),
-                    "tools_used": final_state.get("tools_used", []),
-                    "iterations": final_state.get("iterations", 0),
-                    "timestamp": final_state.get("timestamp"),
-                    "source": "react_analysis",
-                    "agent_type": "ReAct"
-                }
-            }
-
-        except HTTPException:
-            # Re-raise HTTP exceptions
-            raise
-        except Exception as e:
-            error_msg = f"ReAct Agent execution error: {str(e)}"
-            print(f"{error_msg}")
-            raise HTTPException(status_code=500, detail=error_msg)
+        # --- Step 3: Return an immediate response ---
+        # This tells the frontend that the job has started successfully.
+        # The frontend will now poll the /results/{ticker} endpoint.
+        return {
+            "message": "Analysis has been started in the background",
+            "ticker": ticker
+        }
 
     except HTTPException:
-        # Re-raise HTTP exceptions
+        # Re-raise known HTTP exceptions
         raise
     except Exception as e:
-        error_msg = f"Unexpected error analyzing {ticker}: {str(e)}"
-        print(f"{error_msg}")
+        # Catch any other unexpected errors
+        error_msg = f"Unexpected error in analysis request for {ticker}: {str(e)}"
+        print(f"ERROR: {error_msg}")
         raise HTTPException(status_code=500, detail=error_msg)
 
 
