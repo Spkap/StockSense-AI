@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+langgraph
+langchain
+langchain-google-genai
+python-dotenv
+yfinance
+newsapi-python
+requests
+pytest

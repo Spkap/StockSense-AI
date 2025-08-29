@@ -4,18 +4,13 @@ FROM python:3.10-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# No system packages needed; keep image minimal to reduce vulnerabilities
 
 # Copy requirements first (for better caching)
-COPY requirements.txt .
+COPY requirements-backend.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-backend.txt
 
 # Copy application code
 COPY . .
@@ -26,9 +21,9 @@ RUN mkdir -p /app/data
 # Expose port for FastAPI backend
 EXPOSE 8000
 
-# Health check for backend API
+# Health check for backend API (no curl dependency)
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD python -c "import sys, requests; sys.exit(0) if requests.get('http://localhost:8000/health', timeout=5).ok else sys.exit(1)"
 
 # Run the FastAPI backend application
 CMD ["uvicorn", "stocksense.main:app", "--host", "0.0.0.0", "--port", "8000"]
