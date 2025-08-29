@@ -29,19 +29,22 @@ class TestNewsHeadlines:
         """Test successful news headlines retrieval with valid ticker"""
         # Use a common, stable ticker for testing
         ticker = "MSFT"
-        
+
         # Call the tool function
         result = fetch_news_headlines.invoke({"ticker": ticker})
-        
+
+        # Print the full result for debugging in CI logs
+        print(result)
+
         # Assertions
         assert isinstance(result, dict), "Result should be a dictionary"
         assert "headlines" in result, "Result should contain 'headlines' key"
         assert isinstance(result["headlines"], list), "Headlines should be a list"
-        
+
         # Check for successful retrieval
         if result.get("success", False):
-            assert len(result["headlines"]) > 0, "Headlines list should not be empty for valid ticker"
-        
+            assert len(result["headlines"]) > 0, f"Headlines list was empty. Full tool result: {result}"
+
         # Verify expected structure
         assert "ticker" in result, "Result should contain ticker information"
         assert result["ticker"] == ticker.upper(), "Ticker should be normalized to uppercase"
