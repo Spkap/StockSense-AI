@@ -283,8 +283,6 @@ GOOGLE_API_KEY=your_api_key_here
 NEWSAPI_KEY=your_api_key_here
 ```
 
-**Note**: The docker-compose.yml includes an optional nginx service, but the nginx.conf file is not included in the repository. You can either remove the nginx service from docker-compose.yml or create your own nginx.conf file for reverse proxy setup.
-
 ### Agent Configuration
 
 - **Max Iterations**: 8 reasoning cycles per analysis
@@ -307,5 +305,3 @@ NEWSAPI_KEY=your_api_key_here
 - **Health Monitoring**: Real-time system status and dependency checking
 - **Scalable Design**: Modular architecture supporting future enhancements
 - **Container Orchestration**: Docker Compose with health checks and service dependencies
-
-## Future Enhancements
