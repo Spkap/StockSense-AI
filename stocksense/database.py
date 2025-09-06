@@ -2,24 +2,77 @@ import sqlite3
 import os
 from datetime import datetime
 from typing import Dict, Optional
+import logging
 
 
 def _resolve_db_path() -> str:
-    """Resolve database path allowing override with STOCKSENSE_DB_PATH env var.
+    """Resolve database path with graceful fallbacks.
 
-    Falls back to project root 'stocksense.db' if not specified. Ensures directory exists.
+    Precedence:
+    1. STOCKSENSE_DB_PATH (if set & writable or creatable)
+    2. ./data/<basename-from-env-or-stocksense.db>
+    3. Project root ./stocksense.db
+
+    Avoids noisy warnings during local development when an absolute path like
+    /var/data isn't writable (common outside the Render deployment environment).
     """
-    # Allow explicit override
-    env_path = os.getenv("STOCKSENSE_DB_PATH")
-    if env_path:
-        db_path = os.path.abspath(env_path)
-    else:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
-        db_path = os.path.join(project_root, 'stocksense.db')
+    logger = logging.getLogger("stocksense.database")
 
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    return db_path
+    # Determine project root once
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)
+
+    env_path = os.getenv("STOCKSENSE_DB_PATH")
+    candidates = []
+
+    if env_path:
+        abs_env_path = os.path.abspath(env_path)
+        candidates.append(abs_env_path)
+        # If the env path lives in a non-writable system location (e.g. /var)
+        # and we're not on Render (RENDER env var), we'll add a local data/ fallback early.
+        if abs_env_path.startswith("/var/") and not os.getenv("RENDER"):
+            data_dir = os.path.join(project_root, "data")
+            os.makedirs(data_dir, exist_ok=True)
+            candidates.append(os.path.join(data_dir, os.path.basename(abs_env_path)))
+
+    # Standard data directory inside project (kept separate from repository root file)
+    data_dir = os.path.join(project_root, "data")
+    os.makedirs(data_dir, exist_ok=True)
+    candidates.append(os.path.join(data_dir, "stocksense.db"))
+
+    # Final hard fallback (historical behavior)
+    candidates.append(os.path.join(project_root, "stocksense.db"))
+
+    chosen_path = None
+    for path in candidates:
+        dir_path = os.path.dirname(path)
+        try:
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
+            # Directory exists / is creatable; accept this path
+            chosen_path = path
+            break
+        except PermissionError:
+            logger.debug("Path not writable, trying next candidate", extra={"dir": dir_path})
+            continue
+        except OSError:
+            logger.debug("OS error creating directory, trying next candidate", extra={"dir": dir_path})
+            continue
+
+    if chosen_path is None:
+        # Extremely unlikely: fallback to in-memory DB (won't persist) but avoids crash
+        logger.error("No writable path for SQLite DB; using in-memory database.")
+        return ":memory:"
+
+    # If the first candidate (env path) failed and we moved to another, log once at INFO
+    if env_path and os.path.abspath(env_path) != chosen_path:
+        logger.info(
+            "Using fallback database path %s (env path not writable: %s)",
+            chosen_path,
+            env_path,
+        )
+
+    return chosen_path
 
 
 def init_db() -> None:

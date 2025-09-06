@@ -900,15 +900,17 @@ def display_key_metrics(ticker: str):
         st.info("Please verify the ticker symbol and try again.")
 
 
-def clear_database_cache() -> bool:
-    """Clear all cached analysis results from the database."""
+def clear_database_cache() -> tuple[bool, int | str]:
+    """Clear all cached analysis results from the database.
+
+    Returns (success, rows_deleted_or_error_message)
+    """
     try:
+        # For Streamlit Cloud, we can't clear the backend database directly
+        # This function is mainly for local development
         import sqlite3
-        import os
-        
-        # Get database path (same logic as in database.py)
-        current_file_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(current_file_dir, 'stocksense.db')
+        from stocksense.database import _resolve_db_path  # type: ignore
+        db_path = _resolve_db_path()
         
         if os.path.exists(db_path):
             with sqlite3.connect(db_path) as conn:
@@ -918,23 +920,52 @@ def clear_database_cache() -> bool:
                 conn.commit()
             return True, rows_deleted
         else:
-            return True, 0  # No database file, so "cleared"
+            # If no local database exists, assume success (nothing to clear)
+            return True, 0
             
     except Exception as e:
         return False, str(e)
 
 
 def get_cache_stats() -> dict:
-    """Get statistics about cached analysis results."""
+    """Get statistics about cached analysis results via backend API."""
     try:
+        # Try to get data from backend API first (for Streamlit Cloud)
+        try:
+            response = requests.get(f"{BACKEND_URL}/cached-tickers", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                tickers = data.get('tickers', [])
+                unique_tickers = len(tickers)
+                total_analyses = sum(ticker.get('count', 1) for ticker in tickers if isinstance(ticker, dict))
+                
+                return {
+                    "total_analyses": total_analyses,
+                    "unique_tickers": unique_tickers,
+                    "db_size_mb": 0,  # Not available via API
+                    "source": "backend_api",
+                    "debug": {"method": "backend_api", "backend_url": BACKEND_URL}
+                }
+        except Exception as api_error:
+            # Fall back to direct database access (for local development)
+            pass
+        
+        # Fallback to direct database access
         import sqlite3
         import os
+        from stocksense.database import _resolve_db_path  # type: ignore
+        db_path = _resolve_db_path()
         
-        current_file_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(current_file_dir, 'stocksense.db')
+        # Debug info for troubleshooting
+        debug_info = {
+            "method": "direct_db",
+            "db_path": db_path,
+            "path_exists": os.path.exists(db_path),
+            "file_size_bytes": os.path.getsize(db_path) if os.path.exists(db_path) else 0
+        }
         
         if not os.path.exists(db_path):
-            return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": 0}
+            return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": 0, "source": "direct_db", "debug": debug_info}
         
         # Get file size
         db_size_mb = round(os.path.getsize(db_path) / (1024 * 1024), 2)
@@ -945,7 +976,7 @@ def get_cache_stats() -> dict:
             # Check if table exists
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_cache'")
             if not cursor.fetchone():
-                return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": db_size_mb}
+                return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": db_size_mb, "source": "direct_db", "debug": debug_info}
             
             # Get total analyses
             cursor.execute('SELECT COUNT(*) FROM analysis_cache')
@@ -958,21 +989,39 @@ def get_cache_stats() -> dict:
             return {
                 "total_analyses": total_analyses,
                 "unique_tickers": unique_tickers,
-                "db_size_mb": db_size_mb
+                "db_size_mb": db_size_mb,
+                "source": "direct_db",
+                "debug": debug_info
             }
             
     except Exception as e:
-        return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": 0, "error": str(e)}
+        return {
+            "total_analyses": 0, 
+            "unique_tickers": 0, 
+            "db_size_mb": 0, 
+            "error": str(e), 
+            "source": "error",
+            "debug": {"method": "error", "error": str(e)}
+        }
 
 
 def get_cached_tickers() -> list:
-    """Get list of all cached ticker symbols."""
+    """Get list of all cached ticker symbols via backend API."""
     try:
-        import sqlite3
-        import os
+        # Try to get data from backend API first (for Streamlit Cloud)
+        try:
+            response = requests.get(f"{BACKEND_URL}/cached-tickers", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('tickers', [])
+        except Exception:
+            # Fall back to direct database access (for local development)
+            pass
         
-        current_file_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(current_file_dir, 'stocksense.db')
+        # Fallback to direct database access
+        import sqlite3
+        from stocksense.database import _resolve_db_path  # type: ignore
+        db_path = _resolve_db_path()
         
         if not os.path.exists(db_path):
             return []
@@ -1062,6 +1111,10 @@ def display_sidebar():
         # Cache Management Section
         st.markdown("### 💾 Cache Management")
         
+        # Force refresh cache stats (no @st.cache_data to ensure fresh data)
+        if st.button("🔄 Refresh Cache Stats", help="Force refresh cache statistics"):
+            st.rerun()
+        
         # Get cache statistics
         cache_stats = get_cache_stats()
         
@@ -1078,53 +1131,72 @@ def display_sidebar():
             if cache_stats["db_size_mb"] > 0:
                 st.metric("💾 Database Size", f"{cache_stats['db_size_mb']} MB")
             
+            # Show debug info in expandable section
+            debug_info = cache_stats.get("debug", {})
+            source = cache_stats.get("source", "unknown")
+            with st.expander("🔍 Debug Info", expanded=False):
+                st.code(f"""
+Data Source: {source}
+Method: {debug_info.get('method', 'unknown')}
+Backend URL: {debug_info.get('backend_url', BACKEND_URL)}
+Database Path: {debug_info.get('db_path', 'N/A')}
+Path Exists: {debug_info.get('path_exists', 'N/A')}
+File Size: {debug_info.get('file_size_bytes', 0)} bytes
+                """.strip())
+            
             # Clear cache section
             if cache_stats["total_analyses"] > 0:
                 with st.expander("🗑️ Clear Cache", expanded=False):
-                    st.markdown(f"""
-                    **Current Cache Status:**
-                    - {cache_stats['total_analyses']} cached analyses
-                    - {cache_stats['unique_tickers']} different stocks
-                    - {cache_stats['db_size_mb']} MB database size
-                    """)
+                    source = cache_stats.get("source", "unknown")
                     
-                    # Show cached tickers
-                    cached_tickers = get_cached_tickers()
-                    if cached_tickers:
-                        st.markdown("**Cached Stocks:**")
-                        ticker_display = ", ".join([f"`{item['ticker']}`" for item in cached_tickers[:10]])
-                        if len(cached_tickers) > 10:
-                            ticker_display += f" *(+{len(cached_tickers)-10} more)*"
-                        st.markdown(ticker_display)
-                    
-                    st.markdown("""
-                    ⚠️ **Warning:** This will permanently delete all cached analysis results.
-                    Fresh analyses will take longer but will use the latest data.
-                    """)
-                    
-                    # Confirmation checkbox
-                    confirm_clear = st.checkbox("I understand this action cannot be undone", key="confirm_cache_clear")
-                    
-                    # Clear button (only enabled when confirmed)
-                    if st.button(
-                        "🗑️ Clear All Cached Results", 
-                        type="secondary",
-                        disabled=not confirm_clear,
-                        help="Permanently delete all cached analysis results",
-                        use_container_width=True
-                    ):
-                        with st.spinner("Clearing cache..."):
-                            success, result = clear_database_cache()
-                            
-                        if success:
-                            st.success(f"✅ Successfully cleared {result} cached analyses!")
-                            # Also clear session state
-                            st.session_state.analysis_result = None
-                            st.session_state.analysis_history = []
-                            time.sleep(1)  # Brief pause to show success message
-                            st.rerun()
-                        else:
-                            st.error(f"❌ Failed to clear cache: {result}")
+                    if source == "backend_api":
+                        st.warning("⚠️ **Streamlit Cloud Limitation**: Cache clearing is not available when using the backend API. The cache is managed by the backend service and will expire automatically over time.")
+                        st.info("💡 **Note**: The backend cache helps improve performance by avoiding repeated API calls for the same stock analysis.")
+                    else:
+                        st.markdown(f"""
+                        **Current Cache Status:**
+                        - {cache_stats['total_analyses']} cached analyses
+                        - {cache_stats['unique_tickers']} different stocks
+                        - {cache_stats['db_size_mb']} MB database size
+                        """)
+                        
+                        # Show cached tickers
+                        cached_tickers = get_cached_tickers()
+                        if cached_tickers:
+                            st.markdown("**Cached Stocks:**")
+                            ticker_display = ", ".join([f"`{item['ticker']}`" for item in cached_tickers[:10]])
+                            if len(cached_tickers) > 10:
+                                ticker_display += f" *(+{len(cached_tickers)-10} more)*"
+                            st.markdown(ticker_display)
+                        
+                        st.markdown("""
+                        ⚠️ **Warning:** This will permanently delete all cached analysis results.
+                        Fresh analyses will take longer but will use the latest data.
+                        """)
+                        
+                        # Confirmation checkbox
+                        confirm_clear = st.checkbox("I understand this action cannot be undone", key="confirm_cache_clear")
+                        
+                        # Clear button (only enabled when confirmed)
+                        if st.button(
+                            "🗑️ Clear All Cached Results", 
+                            type="secondary",
+                            disabled=not confirm_clear,
+                            help="Permanently delete all cached analysis results",
+                            use_container_width=True
+                        ):
+                            with st.spinner("Clearing cache..."):
+                                success, result = clear_database_cache()
+                                
+                            if success:
+                                st.success(f"✅ Successfully cleared {result} cached analyses!")
+                                # Also clear session state
+                                st.session_state.analysis_result = None
+                                st.session_state.analysis_history = []
+                                time.sleep(1)  # Brief pause to show success message
+                                st.rerun()
+                            else:
+                                st.error(f"❌ Failed to clear cache: {result}")
             else:
                 st.info("📭 No cached results to clear")
 
