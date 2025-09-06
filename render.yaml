@@ -9,7 +9,7 @@ services:
       - key: NEWSAPI_KEY
         sync: false
       - key: STOCKSENSE_DB_PATH
-        value: ./stocksense.db
+        value: /var/data/stocksense.db
       - key: LOG_LEVEL
         value: info
       - key: PORT
