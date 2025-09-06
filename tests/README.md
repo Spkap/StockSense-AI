@@ -108,15 +108,6 @@ def test_new_endpoint():
     assert "expected_field" in response.json()
 ```
 
-## Continuous Integration
-
-These tests are designed to be CI/CD friendly:
-
-- Unit tests can run without external dependencies
-- API tests can be skipped if server isn't available
-- Clear exit codes for success/failure
-- Detailed output for debugging
-
 ## Troubleshooting
 
 ### Common Issues
