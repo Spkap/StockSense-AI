@@ -8,6 +8,12 @@ pandas==2.3.2
 numpy==2.2.6
 yfinance==0.2.65
 
+# News API for news data collection
+newsapi-python==0.2.7
+
+# Environment variables support
+python-dotenv==1.1.1
+
 # Additional streamlit dependencies
 altair==5.5.0
 pillow==11.3.0
