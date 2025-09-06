@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from pathlib import Path
 import os
+import sqlite3
 PLOTLY_AVAILABLE = True
 
 st.set_page_config(
@@ -144,7 +145,8 @@ initialize_session_state()
 @st.cache_data
 def load_company_ticker_mapping():
     """Load company name -> ticker mapping from minimal CSV (Symbol, Name)."""
-    csv_path = Path("nasdaq_screener.csv")
+    # Use absolute path resolution to handle different working directories
+    csv_path = Path(__file__).parent / "nasdaq_screener.csv"
     if csv_path.exists():
         try:
             df = pd.read_csv(csv_path, usecols=["Symbol", "Name"])  # enforce only needed columns
