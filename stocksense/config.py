@@ -53,8 +53,8 @@ def get_chat_llm(model: str = "gemini-1.5-flash",
         temperature=temperature,
         max_output_tokens=max_output_tokens,
         max_retries=3,
-        timeout=30,
-        requests_per_minute=30
+        timeout=30
+        # Removed requests_per_minute - deprecated parameter
     )
 
 

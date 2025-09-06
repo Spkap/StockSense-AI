@@ -13,12 +13,27 @@ def _resolve_db_path() -> str:
     env_path = os.getenv("STOCKSENSE_DB_PATH")
     if env_path:
         db_path = os.path.abspath(env_path)
+        # For Render persistent disk, check if directory exists before creating
+        dir_path = os.path.dirname(db_path)
+        if not os.path.exists(dir_path):
+            try:
+                os.makedirs(dir_path, exist_ok=True)
+            except PermissionError:
+                # If can't create the configured path, fall back to project root
+                print(f"Warning: Cannot create directory {dir_path}, falling back to project root")
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                project_root = os.path.dirname(current_dir)
+                db_path = os.path.join(project_root, 'stocksense.db')
     else:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(current_dir)
         db_path = os.path.join(project_root, 'stocksense.db')
 
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    # Ensure the final directory exists (this should always work for project root)
+    final_dir = os.path.dirname(db_path)
+    if not os.path.exists(final_dir):
+        os.makedirs(final_dir, exist_ok=True)
+    
     return db_path
 
 
