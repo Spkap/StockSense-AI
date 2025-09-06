@@ -928,11 +928,19 @@ def get_cache_stats() -> dict:
     """Get statistics about cached analysis results."""
     try:
         import sqlite3
+        import os
         from stocksense.database import _resolve_db_path  # type: ignore
         db_path = _resolve_db_path()
         
+        # Debug info for troubleshooting
+        debug_info = {
+            "db_path": db_path,
+            "path_exists": os.path.exists(db_path),
+            "file_size_bytes": os.path.getsize(db_path) if os.path.exists(db_path) else 0
+        }
+        
         if not os.path.exists(db_path):
-            return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": 0}
+            return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": 0, "debug": debug_info}
         
         # Get file size
         db_size_mb = round(os.path.getsize(db_path) / (1024 * 1024), 2)
@@ -956,11 +964,12 @@ def get_cache_stats() -> dict:
             return {
                 "total_analyses": total_analyses,
                 "unique_tickers": unique_tickers,
-                "db_size_mb": db_size_mb
+                "db_size_mb": db_size_mb,
+                "debug": debug_info
             }
             
     except Exception as e:
-        return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": 0, "error": str(e)}
+        return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": 0, "error": str(e), "debug": {"db_path": "unknown", "path_exists": False, "file_size_bytes": 0}}
 
 
 def get_cached_tickers() -> list:
@@ -1058,6 +1067,10 @@ def display_sidebar():
         # Cache Management Section
         st.markdown("### 💾 Cache Management")
         
+        # Force refresh cache stats (no @st.cache_data to ensure fresh data)
+        if st.button("🔄 Refresh Cache Stats", help="Force refresh cache statistics"):
+            st.rerun()
+        
         # Get cache statistics
         cache_stats = get_cache_stats()
         
@@ -1073,6 +1086,15 @@ def display_sidebar():
             
             if cache_stats["db_size_mb"] > 0:
                 st.metric("💾 Database Size", f"{cache_stats['db_size_mb']} MB")
+            
+            # Show debug info in expandable section
+            debug_info = cache_stats.get("debug", {})
+            with st.expander("🔍 Debug Info", expanded=False):
+                st.code(f"""
+Database Path: {debug_info.get('db_path', 'unknown')}
+Path Exists: {debug_info.get('path_exists', False)}
+File Size: {debug_info.get('file_size_bytes', 0)} bytes
+                """.strip())
             
             # Clear cache section
             if cache_stats["total_analyses"] > 0:
