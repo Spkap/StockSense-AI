@@ -1,0 +1,13 @@
+# Requirements for Streamlit Cloud Deployment
+# Frontend dependencies only
+
+streamlit==1.49.0
+requests==2.32.5
+plotly==6.3.0
+pandas==2.3.2
+numpy==2.2.6
+yfinance==0.2.65
+
+# Additional streamlit dependencies
+altair==5.5.0
+pillow==11.3.0
