@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from typing import Dict, Any
 from datetime import datetime
+import os
 
 from .config import validate_configuration, ConfigurationError
 from .database import init_db, get_latest_analysis, get_all_cached_tickers
@@ -245,11 +246,15 @@ async def get_cached_tickers() -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    print("Starting StockSense ReAct Agent FastAPI development server...")
+    # Support Render / other PaaS dynamic port assignment
+    port = int(os.getenv("PORT", "8000"))
+    reload_flag = os.getenv("UVICORN_RELOAD", "false").lower() == "true"
+    log_level = os.getenv("LOG_LEVEL", "info")
+    print(f"Starting StockSense ReAct Agent FastAPI server on 0.0.0.0:{port} (reload={reload_flag}) ...")
     uvicorn.run(
         "stocksense.main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
+        port=port,
+        reload=reload_flag,
+        log_level=log_level
     )
