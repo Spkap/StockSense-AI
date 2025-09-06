@@ -900,15 +900,15 @@ def display_key_metrics(ticker: str):
         st.info("Please verify the ticker symbol and try again.")
 
 
-def clear_database_cache() -> bool:
-    """Clear all cached analysis results from the database."""
+def clear_database_cache() -> tuple[bool, int | str]:
+    """Clear all cached analysis results from the database.
+
+    Returns (success, rows_deleted_or_error_message)
+    """
     try:
         import sqlite3
-        import os
-        
-        # Get database path (same logic as in database.py)
-        current_file_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(current_file_dir, 'stocksense.db')
+        from stocksense.database import _resolve_db_path  # type: ignore
+        db_path = _resolve_db_path()
         
         if os.path.exists(db_path):
             with sqlite3.connect(db_path) as conn:
@@ -928,10 +928,8 @@ def get_cache_stats() -> dict:
     """Get statistics about cached analysis results."""
     try:
         import sqlite3
-        import os
-        
-        current_file_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(current_file_dir, 'stocksense.db')
+        from stocksense.database import _resolve_db_path  # type: ignore
+        db_path = _resolve_db_path()
         
         if not os.path.exists(db_path):
             return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": 0}
@@ -969,10 +967,8 @@ def get_cached_tickers() -> list:
     """Get list of all cached ticker symbols."""
     try:
         import sqlite3
-        import os
-        
-        current_file_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(current_file_dir, 'stocksense.db')
+        from stocksense.database import _resolve_db_path  # type: ignore
+        db_path = _resolve_db_path()
         
         if not os.path.exists(db_path):
             return []
