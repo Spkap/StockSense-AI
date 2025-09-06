@@ -4,13 +4,27 @@ from datetime import datetime
 from typing import Dict, Optional
 
 
-def init_db() -> None:
-    try:
+def _resolve_db_path() -> str:
+    """Resolve database path allowing override with STOCKSENSE_DB_PATH env var.
+
+    Falls back to project root 'stocksense.db' if not specified. Ensures directory exists.
+    """
+    # Allow explicit override
+    env_path = os.getenv("STOCKSENSE_DB_PATH")
+    if env_path:
+        db_path = os.path.abspath(env_path)
+    else:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(current_dir)
         db_path = os.path.join(project_root, 'stocksense.db')
 
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    return db_path
+
+
+def init_db() -> None:
+    try:
+        db_path = _resolve_db_path()
 
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
@@ -39,9 +53,7 @@ def init_db() -> None:
 def save_analysis(ticker: str, summary: str, sentiment_report: str) -> None:
     """Save analysis results to the database cache."""
     try:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
-        db_path = os.path.join(project_root, 'stocksense.db')
+        db_path = _resolve_db_path()
 
         if not os.path.exists(db_path) or os.path.getsize(db_path) == 0:
             init_db()
@@ -75,9 +87,7 @@ def save_analysis(ticker: str, summary: str, sentiment_report: str) -> None:
 def get_latest_analysis(ticker: str) -> Optional[Dict[str, str]]:
     """Retrieve the most recent analysis for a given ticker."""
     try:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
-        db_path = os.path.join(project_root, 'stocksense.db')
+        db_path = _resolve_db_path()
 
         if not os.path.exists(db_path):
             return None
@@ -127,9 +137,7 @@ def get_latest_analysis(ticker: str) -> Optional[Dict[str, str]]:
 def get_all_cached_tickers() -> list:
     """Get a list of all tickers that have cached analysis data."""
     try:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
-        db_path = os.path.join(project_root, 'stocksense.db')
+        db_path = _resolve_db_path()
 
         if not os.path.exists(db_path):
             return []

@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: stocksense-backend
+    runtime: python
+    plan: free
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: NEWSAPI_KEY
+        sync: false
+      - key: STOCKSENSE_DB_PATH
+        value: /var/data/stocksense.db
+      - key: LOG_LEVEL
+        value: info
+      - key: PORT
+        value: 8000
+    disk:
+      name: analysis-cache
+      mountPath: /var/data
+      sizeGB: 1
+    buildCommand: pip install --no-cache-dir -r requirements-backend.txt
+    startCommand: uvicorn stocksense.main:app --host 0.0.0.0 --port $PORT
+# Optional: If you decide to serve Streamlit from Render as well (otherwise deploy on Streamlit Cloud)
+#  - type: web
+#    name: stocksense-frontend
+#    runtime: python
+#    plan: free
+#    envVars:
+#      - key: BACKEND_URL
+#        value: https://stocksense-backend.onrender.com
+#    buildCommand: pip install --no-cache-dir -r requirements-frontend.txt
+#    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0

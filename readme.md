@@ -256,38 +256,30 @@ python -m stocksense.analyzer       # Test AI analysis
 - ✅ Error handling and graceful degradation
 - ✅ Agent tool functionality and data validation
 
-## Configuration
+## Deployment
 
-### Environment Variables
+### Production Deployment
 
-```bash
-# Required
-GOOGLE_API_KEY=your_google_gemini_api_key
-NEWSAPI_KEY=your_newsapi_key
+**Backend (Render)**:
 
-# Optional
-STOCKSENSE_DB_PATH=./stocksense.db
-STOCKSENSE_LOG_LEVEL=INFO
-API_BASE_URL=http://127.0.0.1:8000  # For frontend connection
-```
+- Automatic deployment from GitHub
+- Persistent storage for SQLite database
+- Environment variables for API keys
+- See `DEPLOYMENT.md` for detailed instructions
 
-### Docker Configuration
+**Frontend (Streamlit Cloud)**:
 
-```bash
-# Create environment file for Docker
-cp .env.example .env
-# Edit .env with your API keys
+- Direct deployment from GitHub repository
+- Configuration via Streamlit secrets
+- Automatic updates on code changes
 
-# Docker environment variables
-GOOGLE_API_KEY=your_api_key_here
-NEWSAPI_KEY=your_api_key_here
-```
+### Quick Deployment Steps
 
-### Agent Configuration
+1. Deploy backend to Render using `render.yaml`
+2. Update `.streamlit/secrets.toml` with Render backend URL
+3. Deploy frontend to Streamlit Cloud using `app.py`
 
-- **Max Iterations**: 8 reasoning cycles per analysis
-- **Temperature**: 0.1 for reasoning, 0.3 for analysis
-- **Data Collection**: 7 days of news, 30 days of price history
+For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 ## Technical Highlights
 
