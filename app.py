@@ -143,23 +143,20 @@ initialize_session_state()
 
 @st.cache_data
 def load_company_ticker_mapping():
-    """Load company name to ticker mapping from CSV file."""
+    """Load company name -> ticker mapping from minimal CSV (Symbol, Name)."""
     csv_path = Path("nasdaq_screener.csv")
-    
     if csv_path.exists():
         try:
-            df = pd.read_csv(csv_path)
-            if 'Symbol' in df.columns and 'Name' in df.columns:
-                # Create a mapping from company name to ticker
-                mapping = dict(zip(df['Name'], df['Symbol']))
-                return mapping, df
+            df = pd.read_csv(csv_path, usecols=["Symbol", "Name"])  # enforce only needed columns
+            df['Symbol'] = df['Symbol'].astype(str).str.strip()
+            df = df.dropna(subset=["Symbol", "Name"]).drop_duplicates(subset=["Symbol"])
+            mapping = dict(zip(df['Name'], df['Symbol']))
+            return mapping, df
         except Exception as e:
             st.warning(f"Error loading CSV file: {e}")
-    
-    # Fallback to popular stocks if CSV not available
     fallback_mapping = {
         "Apple Inc.": "AAPL",
-        "Microsoft Corporation": "MSFT", 
+        "Microsoft Corporation": "MSFT",
         "Alphabet Inc.": "GOOGL",
         "Amazon.com Inc.": "AMZN",
         "Tesla Inc.": "TSLA",
@@ -169,11 +166,12 @@ def load_company_ticker_mapping():
         "Advanced Micro Devices Inc.": "AMD",
         "Intel Corporation": "INTC"
     }
-    
     return fallback_mapping, None
 
-def create_candlestick_chart(price_data: list) -> go.Figure:
-    """Create an interactive candlestick chart with moving averages."""
+def create_candlestick_chart(price_data: list) -> Optional[go.Figure]:
+    """Create an interactive candlestick chart with moving averages.
+    Returns a Plotly Figure or None if no price data provided.
+    """
     if not price_data:
         return None
         
@@ -280,8 +278,6 @@ def display_hero_section():
 
 def display_ticker_input():
     st.markdown("### Select Stock to Analyze")
-
-    # Load company mapping
     company_mapping, df = load_company_ticker_mapping()
     company_names = list(company_mapping.keys())
 

@@ -1,21 +1,101 @@
-Symbol,Name,Last Sale,Net Change,% Change,Market Cap,Country,IPO Year,Volume,Sector,Industry
-AAPL,Apple Inc.,231.7,1.23,0.53%,3543210000000,United States,1980,45123000,Technology,Consumer Electronics
-MSFT,Microsoft Corporation,421.45,2.87,0.69%,3123450000000,United States,1986,32145000,Technology,Software - Infrastructure
-GOOGL,Alphabet Inc.,171.23,-0.87,-0.50%,2156780000000,United States,2004,28945000,Communication Services,Internet Content & Information
-AMZN,Amazon.com Inc.,185.92,1.45,0.79%,1943210000000,United States,1997,34567000,Consumer Cyclical,Internet Retail
-TSLA,Tesla Inc.,247.86,-2.34,-0.93%,788450000000,United States,2010,67891000,Consumer Cyclical,Auto Manufacturers
-NVDA,NVIDIA Corporation,129.37,3.21,2.54%,3189670000000,United States,1999,89456000,Technology,Semiconductors
-META,Meta Platforms Inc.,542.81,4.56,0.85%,1378900000000,United States,2012,23456000,Communication Services,Internet Content & Information
-NFLX,Netflix Inc.,702.33,-1.23,-0.17%,311890000000,United States,2002,12345000,Communication Services,Entertainment
-AMD,Advanced Micro Devices Inc.,164.52,2.87,1.78%,265780000000,United States,1972,45678000,Technology,Semiconductors
-INTC,Intel Corporation,22.89,-0.45,-1.93%,97340000000,United States,1971,67890000,Technology,Semiconductors
-JPM,JPMorgan Chase & Co.,221.45,1.23,0.56%,642310000000,United States,1980,23456000,Financial Services,Banks - Diversified
-JNJ,Johnson & Johnson,161.78,-0.87,-0.53%,389670000000,United States,1944,12345000,Healthcare,Drug Manufacturers - General
-V,Visa Inc.,289.45,2.34,0.82%,567890000000,United States,2008,34567000,Financial Services,Credit Services
-PG,Procter & Gamble Company,166.23,0.78,0.47%,389120000000,United States,1946,23456000,Consumer Defensive,Household & Personal Products
-HD,Home Depot Inc.,346.78,1.45,0.42%,345670000000,United States,1981,34567000,Consumer Cyclical,Home Improvement Retail
-UNH,UnitedHealth Group Incorporated,524.67,3.21,0.62%,485930000000,United States,1984,12345000,Healthcare,Healthcare Plans
-BAC,Bank of America Corporation,44.56,-0.23,-0.51%,345670000000,United States,1968,67890000,Financial Services,Banks - Diversified
-XOM,Exxon Mobil Corporation,119.78,2.34,1.99%,456780000000,United States,1928,45678000,Energy,Oil & Gas Integrated
-KO,Coca-Cola Company,62.45,0.45,0.73%,268900000000,United States,1919,23456000,Consumer Defensive,Beverages - Non-Alcoholic
-PFE,Pfizer Inc.,28.67,-0.56,-1.91%,161230000000,United States,1942,34567000,Healthcare,Drug Manufacturers - General
+Symbol,Name
+AAPL,Apple Inc.
+MSFT,Microsoft Corporation
+GOOGL,Alphabet Inc.
+AMZN,Amazon.com Inc.
+TSLA,Tesla Inc.
+NVDA,NVIDIA Corporation
+META,Meta Platforms Inc.
+NFLX,Netflix Inc.
+AMD,Advanced Micro Devices Inc.
+INTC,Intel Corporation
+JPM,JPMorgan Chase & Co.
+JNJ,Johnson & Johnson
+V,Visa Inc.
+PG,Procter & Gamble Company
+HD,Home Depot Inc.
+UNH,UnitedHealth Group Incorporated
+BAC,Bank of America Corporation
+XOM,Exxon Mobil Corporation
+KO,Coca-Cola Company
+PFE,Pfizer Inc.
+PEP,PepsiCo Inc.
+ORCL,Oracle Corporation
+CRM,Salesforce Inc.
+ABNB,Airbnb Inc.
+PYPL,PayPal Holdings Inc.
+DIS,Walt Disney Company
+CSCO,Cisco Systems Inc.
+IBM,International Business Machines Corp.
+QCOM,QUALCOMM Incorporated
+TXN,Texas Instruments Incorporated
+SHOP,Shopify Inc.
+SBUX,Starbucks Corporation
+NKE,Nike Inc.
+ADP,Automatic Data Processing Inc.
+CAT,Caterpillar Inc.
+BA,Boeing Company
+GE,General Electric Company
+HON,Honeywell International Inc.
+UPS,United Parcel Service Inc.
+MS,Morgan Stanley
+GS,Goldman Sachs Group Inc.
+BLK,BlackRock Inc.
+CME,CME Group Inc.
+SPGI,S&P Global Inc.
+MCD,McDonald's Corporation
+LOW,Lowe's Companies Inc.
+MDT,Medtronic plc
+MRK,Merck & Co. Inc.
+ABBV,AbbVie Inc.
+TMO,Thermo Fisher Scientific Inc.
+AMGN,Amgen Inc.
+LIN,Linde plc
+BMY,Bristol-Myers Squibb Company
+CVS,CVS Health Corporation
+COP,ConocoPhillips
+CVX,Chevron Corporation
+PXD,Pioneer Natural Resources Company
+SLB,Schlumberger Limited
+PLTR,Palantir Technologies Inc.
+SNOW,Snowflake Inc.
+PANW,Palo Alto Networks Inc.
+CRWD,CrowdStrike Holdings Inc.
+NOW,ServiceNow Inc.
+ASML,ASML Holding NV
+SAP,SAP SE
+SONY,Sony Group Corporation
+TM,Toyota Motor Corporation
+DE,Deere & Company
+LMT,Lockheed Martin Corporation
+NOC,Northrop Grumman Corporation
+ADBE,Adobe Inc.
+INTU,Intuit Inc.
+MU,Micron Technology Inc.
+AVGO,Broadcom Inc.
+BX,Blackstone Inc.
+KKR,KKR & Co. Inc.
+T,AT&T Inc.
+VZ,Verizon Communications Inc.
+LRCX,Lam Research Corporation
+KLAC,KLA Corporation
+CDNS,Cadence Design Systems Inc.
+ANET,Arista Networks Inc.
+FTNT,Fortinet Inc.
+WDAY,Workday Inc.
+DKNG,DraftKings Inc.
+F,Ford Motor Company
+GM,General Motors Company
+RIVN,Rivian Automotive Inc.
+LCID,Lucid Group Inc.
+BYDDY,BYD Company Ltd.
+BIDU,Baidu Inc.
+PDD,PDD Holdings Inc.
+MELI,MercadoLibre Inc.
+SE,Sea Limited
+UBER,Uber Technologies Inc.
+LYFT,Lyft Inc.
+SQ,Block Inc.
+COIN,Coinbase Global Inc.
+RIOT,Riot Platforms Inc.
+MSTR,MicroStrategy Incorporated
