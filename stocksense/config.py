@@ -1,7 +1,15 @@
 import os
 from typing import Optional
 from dotenv import load_dotenv
-from langchain_google_genai import GoogleGenerativeAI, ChatGoogleGenerativeAI
+
+# Optional import: frontend (Streamlit) deployment may not include backend LLM deps
+try:
+    from langchain_google_genai import GoogleGenerativeAI, ChatGoogleGenerativeAI  # type: ignore
+    _GENAI_AVAILABLE = True
+except ModuleNotFoundError:
+    GoogleGenerativeAI = None  # type: ignore
+    ChatGoogleGenerativeAI = None  # type: ignore
+    _GENAI_AVAILABLE = False
 
 load_dotenv()
 
@@ -29,11 +37,21 @@ def get_google_api_key() -> str:
 
 def get_llm(model: str = "gemini-1.5-flash",
            temperature: float = 0.3,
-           max_output_tokens: int = 2048) -> GoogleGenerativeAI:
-    """Get configured Google Generative AI LLM instance."""
+           max_output_tokens: int = 2048):  # return type conditional
+    """Get configured Google Generative AI LLM instance.
+
+    This function is safe to call even if langchain-google-genai is not installed.
+    In that case it raises a ConfigurationError with a clear message instead of
+    causing an immediate ModuleNotFoundError during import of this module.
+    """
+    if not _GENAI_AVAILABLE or GoogleGenerativeAI is None:  # type: ignore
+        raise ConfigurationError(
+            "langchain-google-genai dependency not installed. Install backend requirements or add 'langchain-google-genai' to requirements.txt for LLM features."
+        )
+
     api_key = get_google_api_key()
 
-    return GoogleGenerativeAI(
+    return GoogleGenerativeAI(  # type: ignore
         model=model,
         google_api_key=api_key,
         temperature=temperature,
@@ -43,11 +61,19 @@ def get_llm(model: str = "gemini-1.5-flash",
 
 def get_chat_llm(model: str = "gemini-1.5-flash",
                 temperature: float = 0.1,
-                max_output_tokens: int = 1024) -> ChatGoogleGenerativeAI:
-    """Get configured Google Generative AI Chat LLM instance."""
+                max_output_tokens: int = 1024):  # return type conditional
+    """Get configured Google Generative AI Chat LLM instance.
+
+    Raises ConfigurationError with guidance if dependency missing.
+    """
+    if not _GENAI_AVAILABLE or ChatGoogleGenerativeAI is None:  # type: ignore
+        raise ConfigurationError(
+            "langchain-google-genai dependency not installed. Install backend requirements or add 'langchain-google-genai' to requirements.txt for chat LLM features."
+        )
+
     api_key = get_google_api_key()
 
-    return ChatGoogleGenerativeAI(
+    return ChatGoogleGenerativeAI(  # type: ignore
         model=model,
         google_api_key=api_key,
         temperature=temperature,
