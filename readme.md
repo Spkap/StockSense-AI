@@ -164,14 +164,8 @@ docker-compose down
 # Trigger ReAct agent analysis
 curl -X POST "http://localhost:8000/analyze/AAPL"
 
-# Retrieve cached results
-curl "http://localhost:8000/results/AAPL"
-
 # System health check
 curl "http://localhost:8000/health"
-
-# Get all cached tickers
-curl "http://localhost:8000/cached-tickers"
 ```
 
 #### Command Line Interface
@@ -211,9 +205,7 @@ python -m stocksense.main
 ### Core Endpoints
 
 - **POST `/analyze/{ticker}`** - Trigger autonomous ReAct agent analysis
-- **GET `/results/{ticker}`** - Retrieve cached analysis results
 - **GET `/health`** - System health and dependency status
-- **GET `/cached-tickers`** - List all available cached analyses
 - **GET `/`** - API welcome message and endpoint directory
 - **GET `/docs`** - Interactive Swagger API documentation
 - **GET `/redoc`** - Alternative ReDoc API documentation

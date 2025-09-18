@@ -1,11 +1,10 @@
-altair==5.5.0
+ altair==5.5.0
 annotated-types==0.7.0
 anyio==4.9.0
 async-timeout==4.0.3
 attrs==25.3.0
 beautifulsoup4==4.13.4
 blinker==1.9.0
-cachetools==5.5.2
 certifi==2025.6.15
 cffi==1.17.1
 charset-normalizer==3.4.2
@@ -107,7 +106,6 @@ tzdata==2025.2
 uritemplate==4.2.0
 urllib3==2.5.0
 uvicorn==0.34.3
-uvloop==0.21.0
 watchfiles==1.1.0
 websockets==15.0.1
 xxhash==3.5.0

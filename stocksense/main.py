@@ -1,14 +1,18 @@
+import os
+import sys
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 from typing import Dict, Any
-from datetime import datetime
 
-from .config import validate_configuration, ConfigurationError
-from .database import init_db, get_latest_analysis, get_all_cached_tickers
-from .react_agent import run_react_analysis
+# Add the parent directory to Python path to enable imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
+from stocksense.core.config import validate_configuration, ConfigurationError
+from stocksense.ai.react_agent import run_react_analysis
 
 
 @asynccontextmanager
@@ -24,14 +28,6 @@ async def lifespan(app: FastAPI):
         print(f"Configuration error: {str(e)}")
         raise
 
-    print("Initializing database...")
-    try:
-        init_db()
-        print("Database initialized successfully")
-    except Exception as e:
-        print(f"Error initializing database: {str(e)}")
-        raise
-
     print("StockSense ReAct Agent API ready to serve requests!")
 
     yield
@@ -41,11 +37,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="StockSense ReAct Agent API",
-    description="AI-powered autonomous stock analysis using ReAct pattern",
-    version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    title="StockSense AI Analysis API",
+    description="AI-powered stock analysis with data sources",
     lifespan=lifespan
 )
 
@@ -60,196 +53,136 @@ app.add_middleware(
 
 @app.get("/health")
 async def health_check() -> Dict[str, str]:
-    return {"status": "ok"}
+    """Health check endpoint."""
+    return {"status": "healthy", "service": "StockSense AI"}
 
 
 @app.get("/")
-async def root() -> Dict[str, str]:
+async def root() -> Dict[str, Any]:
+    """Root endpoint with API information."""
     return {
-        "message": "Welcome to StockSense ReAct Agent API",
-        "description": "AI-powered autonomous stock analysis using ReAct pattern",
-        "docs": "/docs",
-        "health": "/health"
+        "message": "StockSense AI Analysis API",
+        "description": "Get comprehensive stock analysis with data sources",
+        "endpoints": [
+            "GET /analyze/{ticker} - Get complete stock analysis",
+            "GET /health - Check API status", 
+            "GET /docs - API documentation"
+        ],
+        "version": "2.0.0",
+        "status": "active"
     }
 
 
-@app.post("/analyze/{ticker}")
+@app.get("/analyze/{ticker}")
 async def analyze_stock(ticker: str) -> Dict[str, Any]:
-    """Analyze stock using the ReAct Agent (Reasoning + Action) pattern."""
+    """
+    Comprehensive stock analysis endpoint.
+    
+    Args:
+        ticker: Stock ticker symbol (e.g., AAPL, MSFT, GOOGL)
+        
+    Returns:
+        Complete analysis with data and sources
+    """
     try:
-        # Validate and normalize ticker
+        # Validate ticker input
         ticker = ticker.upper().strip()
         if not ticker:
-            raise HTTPException(status_code=400, detail="Ticker cannot be empty")
+            raise HTTPException(status_code=400, detail="Ticker symbol is required")
+        
+        if not ticker.replace('.', '').replace('-', '').isalpha() or len(ticker) > 10:
+            raise HTTPException(status_code=400, detail="Invalid ticker format")
 
-        print(f"ReAct Agent analysis request received for ticker: {ticker}")
+        print(f"Starting analysis for ticker: {ticker}")
 
-        # Check for cached analysis first
-        print(f"Checking cache for existing analysis of {ticker}...")
-        cached_analysis = get_latest_analysis(ticker)
+        analysis_result = run_react_analysis(ticker)
+        print(f"Raw analysis result: {analysis_result}")
 
-        if cached_analysis:
-            print(f"Found cached analysis for {ticker}")
-            return {
-                "message": "Analysis retrieved from cache",
-                "ticker": ticker,
-                "data": {
-                    "id": cached_analysis["id"],
-                    "ticker": cached_analysis["ticker"],
-                    "summary": cached_analysis["analysis_summary"],
-                    "sentiment_report": cached_analysis["sentiment_report"],
-                    "timestamp": cached_analysis["timestamp"],
-                    "source": "cache",
-                    "agent_type": "ReAct",
-                    "price_data": [],  # Cached results don't have structured price data
-                    "reasoning_steps": ["Retrieved from cache - no detailed steps available"],
-                    "tools_used": ["cache_lookup"],
-                    "iterations": 0
-                }
-            }
-
-        # No cached data found, run fresh ReAct analysis
-        print(f"No cached data found for {ticker}, running fresh ReAct analysis...")
-
-        # Run the ReAct agent
-        try:
-            final_state = run_react_analysis(ticker)
-
-            # Check if the ReAct agent completed successfully
-            if final_state.get("error"):
-                error_msg = final_state["error"]
-                print(f"ReAct Agent error for {ticker}: {error_msg}")
+        # Check for errors
+        if analysis_result.get("error"):
+            error_msg = analysis_result["error"]
+            if "rate" in error_msg.lower() or "429" in error_msg:
                 raise HTTPException(
-                    status_code=500,
-                    detail=f"ReAct Agent analysis failed: {error_msg}"
+                    status_code=429, 
+                    detail="API rate limit reached. Please try again later."
                 )
+            raise HTTPException(status_code=500, detail=f"Analysis failed: {error_msg}")
 
-            # Check if we have valid results
-            summary = final_state.get("summary", "")
-            sentiment_report = final_state.get("sentiment_report", "")
+        # Extract analysis components
+        summary = analysis_result.get("summary", "")
+        sentiment_report = analysis_result.get("sentiment_report", "")
+        headlines = analysis_result.get("headlines", [])
+        price_data = analysis_result.get("price_data", [])
+        reasoning_steps = analysis_result.get("reasoning_steps", [])
+        tools_used = analysis_result.get("tools_used", [])
+        final_decision = analysis_result.get("final_decision", "UNSPECIFIED")
 
-            if (not summary or summary.startswith("Analysis failed")):
-                raise HTTPException(
-                    status_code=500,
-                    detail="ReAct Agent completed but produced insufficient data"
-                )
+        # Validate we have meaningful results
+        if not summary or summary.startswith("Analysis failed"):
+            raise HTTPException(
+                status_code=500, 
+                detail="Analysis completed but insufficient data generated"
+            )
 
-            # Save the analysis results to database
-            try:
-                from .database import save_analysis
-                save_analysis(ticker, summary, sentiment_report)
-                print(f"Analysis results saved to database for {ticker}")
-            except Exception as e:
-                print(f"Warning: Failed to save analysis to database: {str(e)}")
-                # Don't fail the request if database save fails
+        print(f"Analysis completed successfully for {ticker}")
 
-            print(f"ReAct Agent analysis completed successfully for {ticker}")
-
-            return {
-                "message": "ReAct Agent analysis complete and saved",
-                "ticker": ticker,
-                "data": {
-                    "ticker": final_state["ticker"],
-                    "summary": final_state["summary"],
-                    "sentiment_report": final_state["sentiment_report"],
-                    "price_data": final_state.get("price_data", []),  # Include structured OHLCV data
-                    "headlines_count": len(final_state.get("headlines", [])),
-                    "reasoning_steps": final_state.get("reasoning_steps", []),
-                    "tools_used": final_state.get("tools_used", []),
-                    "iterations": final_state.get("iterations", 0),
-                    "timestamp": final_state.get("timestamp"),
-                    "source": "react_analysis",
-                    "agent_type": "ReAct"
+        # Return comprehensive response with sources
+        return {
+            "success": True,
+            "ticker": ticker,
+            "analysis": {
+                "summary": summary,
+                "sentiment_report": sentiment_report,
+                "recommendation": final_decision,
+                "confidence": "high" if len(tools_used) >= 3 else "medium"
+            },
+            "data_sources": {
+                "news_headlines": {
+                    "count": len(headlines),
+                    "headlines": headlines[:10],
+                    "source": "NewsAPI"
+                },
+                "price_data": {
+                    "data_points": len(price_data),
+                    "latest_price": price_data[-1]["Close"] if price_data else None,
+                    "price_range": {
+                        "period": "30 days",
+                        "high": max([p["High"] for p in price_data]) if price_data else None,
+                        "low": min([p["Low"] for p in price_data]) if price_data else None
+                    },
+                    "source": "Yahoo Finance",
+                    "chart_data": price_data  # Full price data for charting
+                },
+                "ai_analysis": {
+                    "model": "Google Gemini 1.5 Flash",
+                    "reasoning_steps": len(reasoning_steps),
+                    "tools_used": tools_used,
+                    "iterations": analysis_result.get("iterations", 0),
+                    "sentiment_analyzed": analysis_result.get("sentiment_analyzed", False)
                 }
+            },
+            "metadata": {
+                "analysis_type": "ReAct Agent",
+                "timestamp": analysis_result.get("timestamp"),
+                "processing_time": f"{analysis_result.get('iterations', 0)} AI iterations",
+                "data_freshness": "Real-time"
             }
-
-        except HTTPException:
-            # Re-raise HTTP exceptions
-            raise
-        except Exception as e:
-            error_msg = f"ReAct Agent execution error: {str(e)}"
-            print(f"{error_msg}")
-            raise HTTPException(status_code=500, detail=error_msg)
+        }
 
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         error_msg = f"Unexpected error analyzing {ticker}: {str(e)}"
-        print(f"{error_msg}")
-        raise HTTPException(status_code=500, detail=error_msg)
-
-
-@app.get("/results/{ticker}")
-async def get_analysis_results(ticker: str) -> Dict[str, Any]:
-    try:
-        # Validate and normalize ticker
-        ticker = ticker.upper().strip()
-        if not ticker:
-            raise HTTPException(status_code=400, detail="Ticker cannot be empty")
-
-        print(f"Results request for ticker: {ticker}")
-
-        # Get the latest analysis from database
-        analysis = get_latest_analysis(ticker)
-
-        if not analysis:
-            print(f"No analysis found for {ticker}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"No analysis found for ticker: {ticker}"
-            )
-
-        print(f"Analysis results retrieved for {ticker}")
-
-        return {
-            "message": "Analysis results retrieved successfully",
-            "ticker": ticker,
-            "data": {
-                "id": analysis["id"],
-                "ticker": analysis["ticker"],
-                "summary": analysis["analysis_summary"],
-                "sentiment_report": analysis["sentiment_report"],
-                "timestamp": analysis["timestamp"]
-            }
-        }
-
-    except HTTPException:
-        # Re-raise HTTP exceptions
-        raise
-    except Exception as e:
-        error_msg = f"Error retrieving results for {ticker}: {str(e)}"
-        print(f"{error_msg}")
-        raise HTTPException(status_code=500, detail=error_msg)
-
-
-@app.get("/cached-tickers")
-async def get_cached_tickers() -> Dict[str, Any]:
-    try:
-        print("Retrieving list of cached tickers...")
-
-        cached_tickers = get_all_cached_tickers()
-
-        print(f"Found {len(cached_tickers)} cached tickers")
-
-        return {
-            "message": "Cached tickers retrieved successfully",
-            "count": len(cached_tickers),
-            "tickers": cached_tickers
-        }
-
-    except Exception as e:
-        error_msg = f"Error retrieving cached tickers: {str(e)}"
-        print(f"{error_msg}")
-        raise HTTPException(status_code=500, detail=error_msg)
+        print(error_msg)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 if __name__ == "__main__":
-    print("Starting StockSense ReAct Agent FastAPI development server...")
+    print("Starting StockSense AI Analysis API server...")
     uvicorn.run(
-        "stocksense.main:app",
-        host="0.0.0.0",
+        app,  
+        host="localhost",
         port=8000,
-        reload=True,
+        reload=False, 
         log_level="info"
     )
