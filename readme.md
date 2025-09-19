@@ -80,7 +80,6 @@ Create `.env` files with your API keys:
 1. **Sign Up** - Create account with Firebase auth
 2. **Add Stocks** - Search and add stocks to your watchlist
 3. **Get Analysis** - Click analyze to get AI-powered insights
-4. **View Charts** - Interactive price charts and sentiment data
 
 ## Project Structure
 
