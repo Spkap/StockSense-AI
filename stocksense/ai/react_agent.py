@@ -148,7 +148,6 @@ def analyze_sentiment(ticker: str) -> Dict:
             }
 
         sentiment_report = analyze_sentiment_of_headlines(headlines)
-        print(f"Sentiment Analysis Report for {ticker}:\n", sentiment_report)
         
         return {
             "success": True,

@@ -17,7 +17,6 @@ A modern full-stack application that combines AI analysis with real-time market 
 **Frontend:**
 - React + Vite
 - Firebase Authentication
-- Chart.js for data visualization
 
 **Backend:**
 - Django REST Framework
