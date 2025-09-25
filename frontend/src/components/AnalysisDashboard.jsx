@@ -1,7 +1,125 @@
 import React, { useState, useEffect } from 'react';
 
-const AnalysisDashboard = ({ stock, onClose, analysisData }) => {
+const AnalysisDashboard = ({ stock, onClose, analysisData, loading }) => {
   const [modalKey, setModalKey] = useState(0);
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  
+  const loadingSteps = [
+    { icon: '', text: 'Initializing AI analysis' },
+    { icon: '', text: 'Collecting market data' },
+    { icon: '', text: 'Gathering news sentiment' },
+    { icon: '', text: 'AI processing' },
+    { icon: '', text: 'Generating insights' },
+    { icon: '', text: 'Finalizing report' }
+  ];
+
+  useEffect(() => {
+    if (loading) {
+      setLoadingStep(0);
+      setLoadingProgress(0);
+      
+      const stepInterval = setInterval(() => {
+        setLoadingStep(prev => {
+          if (prev < loadingSteps.length - 1) {
+            return prev + 1;
+          }
+          return prev;
+        });
+      }, 2000); // Change step every 2 seconds
+
+      const progressInterval = setInterval(() => {
+        setLoadingProgress(prev => {
+          if (prev < 95) {
+            return prev + Math.random() * 3; // Random progress increment
+          }
+          return prev;
+        });
+      }, 100);
+
+      return () => {
+        clearInterval(stepInterval);
+        clearInterval(progressInterval);
+      };
+    }
+  }, [loading]);
+
+  // Don't render anything if no stock is being analyzed
+  if (!stock) return null;
+  
+  if (loading) {
+    return (
+      <div className="modal-overlay" style={{ zIndex: 9999 }}>
+        <div className="modal-content analysis-modal loading-modal">
+          <div className="modal-header loading-header">
+            <div className="loading-title-section">
+              <div className="stock-symbol-badge">{stock?.symbol}</div>
+              <h3>AI Stock Analysis in Progress</h3>
+            </div>
+            <button className="close-button" onClick={onClose}>×</button>
+          </div>
+          
+          <div className="analysis-loading">
+            <div className="loading-animation-container">
+              <div className="ai-brain-animation">
+                <div className="brain-core"></div>
+                <div className="neural-network">
+                  <div className="neural-pulse pulse-1"></div>
+                  <div className="neural-pulse pulse-2"></div>
+                  <div className="neural-pulse pulse-3"></div>
+                  <div className="neural-pulse pulse-4"></div>
+                </div>
+              </div>
+              
+              <div className="loading-progress">
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${Math.min(loadingProgress, 95)}%` }}
+                  ></div>
+                </div>
+                <div className="progress-percentage">
+                  {loadingSteps[loadingStep]?.text || 'Analyzing...'}
+                </div>
+              </div>
+            </div>
+            
+            <div className="loading-steps">
+              {loadingSteps.map((step, index) => (
+                <div key={index} className={`step-item ${
+                  index < loadingStep ? 'completed' : 
+                  index === loadingStep ? 'active' : 
+                  index === loadingStep + 1 ? 'processing' : 'pending'
+                }`}>
+                  <div className="step-icon">{step.icon}</div>
+                  <div className="step-content">
+                    <span className="step-text">{step.text}</span>
+                  </div>
+                  {index < loadingStep && <div className="step-checkmark">✓</div>}
+                </div>
+              ))}
+            </div>
+            
+            <div className="loading-messages">
+              <p className="primary-message">
+                {loadingSteps[loadingStep]?.text || 'Analyzing'} {stock?.symbol}
+              </p>
+              <p className="secondary-message">
+                Processing comprehensive market analysis
+              </p>
+              <div className="progress-details">
+                <span>Progress: {Math.round(loadingProgress)}%</span>
+                <span>•</span>
+                <span>Step {loadingStep + 1} of {loadingSteps.length}</span>
+                <span>•</span>
+                <span>ETA: {Math.max(10 - Math.floor(loadingProgress / 10), 1)}s</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     // Force remount when new data arrives
@@ -30,6 +148,18 @@ const AnalysisDashboard = ({ stock, onClose, analysisData }) => {
     // Split into paragraphs
     let paragraphs = text.split('\n\n').filter(p => p.trim());
     
+    // Remove unwanted sections
+    paragraphs = paragraphs.filter(paragraph => {
+      const lowerParagraph = paragraph.toLowerCase();
+      // Remove analysis completion messages
+      if (lowerParagraph.includes('analysis completed using') || 
+          lowerParagraph.includes('tools across') ||
+          lowerParagraph.includes('reasoning iterations')) {
+        return false;
+      }
+      return true;
+    });
+    
     // Remove duplicate "Final Recommendation" sections
     let finalRecommendationFound = false;
     paragraphs = paragraphs.filter(paragraph => {
@@ -45,16 +175,27 @@ const AnalysisDashboard = ({ stock, onClose, analysisData }) => {
       return true;
     });
 
-    // Clean up each paragraph and handle markdown formatting
+    // Enhanced formatting with structure detection
     paragraphs = paragraphs.map(paragraph => {
       // Remove excessive line breaks
       let cleaned = paragraph.replace(/\n{3,}/g, '\n\n').trim();
-      // Remove markdown bold formatting
-      cleaned = cleaned.replace(/\*\*/g, '');
+      
+      // Preserve markdown formatting for better styling
+      cleaned = cleaned
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold text
+        .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic text
+        .replace(/#{1,6}\s(.+)/g, '<h4 class="summary-heading">$1</h4>') // Headers
+        .replace(/^\d+\.\s/gm, '') // Remove numbered list markers
+        .replace(/^[-•]\s/gm, '• '); // Standardize bullet points
+      
       return cleaned;
+    }).filter(paragraph => {
+      // Remove empty or nearly empty paragraphs
+      const textContent = paragraph.replace(/<[^>]*>/g, '').trim();
+      return textContent.length > 5; // Only keep paragraphs with meaningful content
     });
 
-    return paragraphs.join('\n\n');
+    return paragraphs;
   };
 
   // Helper function to clean markdown formatting from text
@@ -83,7 +224,7 @@ const AnalysisDashboard = ({ stock, onClose, analysisData }) => {
           textContent = JSON.stringify(content, null, 2);
         } catch (e) {
           return (
-            <div style={{ color: '#ff6b6b', padding: '1rem' }}>
+            <div className="sentiment-error">
               <p>Error: Unable to display sentiment content - invalid data type</p>
             </div>
           );
@@ -108,55 +249,42 @@ const AnalysisDashboard = ({ stock, onClose, analysisData }) => {
           // Handle headlines with bullet points and sentiment analysis
           if (section.includes('Headline:') || section.includes('* Sentiment:')) {
             return (
-              <div key={index} className="headline-analysis-block" style={{
-                backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                border: '1px solid rgba(99, 102, 241, 0.2)',
-                borderRadius: '8px',
-                padding: '1rem',
-                marginBottom: '1rem'
-              }}>
+              <div key={index} className="headline-analysis-block">
                 {section.split('\n').map((line, lineIndex) => {
                   if (line.trim().startsWith('Headline:')) {
                     return (
-                      <div key={lineIndex} style={{ 
-                        fontWeight: 'bold', 
-                        color: '#60a5fa',
-                        marginBottom: '0.5rem'
-                      }}>
-                        📰 {cleanMarkdownText(line.replace('Headline:', ''))}
+                      <div key={lineIndex} className="headline-text">
+                        {cleanMarkdownText(line.replace('Headline:', ''))}
                       </div>
                     );
                   } else if (line.trim().startsWith('* Sentiment:')) {
                     const sentiment = line.replace('* Sentiment:', '').trim();
-                    const sentimentColor = sentiment.toLowerCase().includes('positive') ? '#10b981' :
-                                         sentiment.toLowerCase().includes('negative') ? '#ef4444' : '#f59e0b';
+                    const sentimentClass = sentiment.toLowerCase().includes('positive') ? 'positive' :
+                                         sentiment.toLowerCase().includes('negative') ? 'negative' : 'neutral';
                     return (
-                      <div key={lineIndex} style={{ 
-                        color: sentimentColor, 
-                        fontWeight: '600',
-                        marginLeft: '1rem',
-                        marginBottom: '0.25rem'
-                      }}>
+                      <div key={lineIndex} className={`sentiment-badge ${sentimentClass}`}>
+                        <span className="sentiment-icon">
+                          {sentimentClass === 'positive' ? '+' : sentimentClass === 'negative' ? '-' : '~'}
+                        </span>
                         Sentiment: {sentiment}
                       </div>
                     );
                   } else if (line.trim().startsWith('* Justification:')) {
                     return (
-                      <div key={lineIndex} style={{ 
-                        color: '#d1d5db',
-                        marginLeft: '1rem',
-                        fontStyle: 'italic',
-                        lineHeight: '1.5'
-                      }}>
+                      <div key={lineIndex} className="justification-text">
                         {cleanMarkdownText(line.replace('* Justification:', '').trim())}
                       </div>
                     );
                   } else if (line.trim()) {
-                    return (
-                      <div key={lineIndex} style={{ color: '#e5e7eb', marginBottom: '0.25rem' }}>
-                        {cleanMarkdownText(line)}
-                      </div>
-                    );
+                    // Remove numbering and bullet points from the line
+                    const cleanLine = line.replace(/^\d+\.\s*/, '').replace(/^[•\-*]\s*/, '').trim();
+                    if (cleanLine) {
+                      return (
+                        <div key={lineIndex} style={{ color: '#e5e7eb', marginBottom: '0.25rem' }}>
+                          {cleanMarkdownText(cleanLine)}
+                        </div>
+                      );
+                    }
                   }
                   return null;
                 })}
@@ -191,13 +319,15 @@ const AnalysisDashboard = ({ stock, onClose, analysisData }) => {
                   {content.split('\n').map((line, lineIdx) => {
                     if (!line.trim()) return null;
                     if (line.startsWith('*')) {
+                      // Remove bullet points and numbering
+                      const cleanLine = line.replace(/^\*\s*/, '').replace(/^\d+\.\s*/, '').replace(/^[•\-*]\s*/, '').trim();
                       return (
                         <div key={lineIdx} style={{ 
                           marginBottom: '0.75rem',
                           paddingLeft: '1rem',
                           borderLeft: '3px solid rgba(167, 139, 250, 0.5)'
                         }}>
-                          🔹 {cleanMarkdownText(line.replace(/^\*\s*/, ''))}
+                          {cleanMarkdownText(cleanLine)}
                         </div>
                       );
                     }
@@ -222,15 +352,19 @@ const AnalysisDashboard = ({ stock, onClose, analysisData }) => {
                 padding: '1rem',
                 marginBottom: '1rem'
               }}>
-                {items.map((item, itemIndex) => (
-                  <div key={itemIndex} className="sentiment-list-item" style={{
-                    marginBottom: '0.5rem',
-                    color: '#e5e7eb',
-                    lineHeight: '1.5'
-                  }}>
-                    {cleanMarkdownText(item.trim())}
-                  </div>
-                ))}
+                {items.map((item, itemIndex) => {
+                  // Remove numbering and bullet points from each item
+                  const cleanItem = item.replace(/^\d+\.\s*/, '').replace(/^[•\-*]\s*/, '').trim();
+                  return (
+                    <div key={itemIndex} className="sentiment-list-item" style={{
+                      marginBottom: '0.5rem',
+                      color: '#e5e7eb',
+                      lineHeight: '1.5'
+                    }}>
+                      {cleanMarkdownText(cleanItem)}
+                    </div>
+                  );
+                })}
               </div>
             );
           }
@@ -256,166 +390,98 @@ const AnalysisDashboard = ({ stock, onClose, analysisData }) => {
 
   return (
     <div className="modal-overlay">
-      <div className="analysis-modal" style={{ 
-        maxHeight: '90vh', 
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        <div className="modal-header" style={{ 
-          flex: '0 0 auto',
-          minHeight: 'fit-content'
-        }}>
-          <div className="header-content">
-            <div className="company-info">
-              <div className="company-icon">
-                {analysisData?.analysis?.symbol?.slice(0, 2) || stock?.symbol?.slice(0, 2) || '??'}
-              </div>
-              <div className="company-details">
-                <h2 className="company-name">
-                  {analysisData?.analysis?.company_name || stock?.name || analysisData?.analysis?.symbol || 'Unknown Company'}
-                </h2>
-                <div className="stock-symbol">{analysisData?.analysis?.symbol || stock?.symbol}</div>
+      <div className="analysis-dashboard-modal">
+        {/* Header */}
+        <div className="analysis-dashboard-header">
+          <div className="stock-info-header">
+            <div className="stock-symbol-large">
+              {analysisData?.analysis?.symbol || stock?.symbol}
+            </div>
+            <div className="stock-details">
+              <h2 className="stock-name">
+                {analysisData?.analysis?.company_name || stock?.name || 'Stock Analysis'}
+              </h2>
+              <div className="analysis-timestamp">
+                AI Analysis • {new Date().toLocaleString()}
               </div>
             </div>
-            <button className="close-button" onClick={onClose}>
-              <span>×</span>
-            </button>
           </div>
+          <button className="modal-close-btn" onClick={onClose}>
+            ×
+          </button>
         </div>
 
-        <div className="analysis-content" style={{ 
-          padding: '1.5rem', 
-          gap: '1.5rem', 
-          display: 'flex', 
-          flexDirection: 'column',
-          flex: 1,
-          overflow: 'auto',
-          minHeight: 0
-        }}>
-          {/* Investment Verdict */}
-          <div className={`verdict-section enhanced ${(analysisData?.analysis?.recommendation || 'unspecified').toLowerCase()}`} 
-               style={{ 
-                 minHeight: 'fit-content',
-                 marginBottom: '1rem',
-                 flex: '0 0 auto'
-               }}>
-            <div className="verdict-header">
-              <div className="verdict-icon">
-                {analysisData?.analysis?.recommendation === 'BUY' ? '↗' : 
-                 analysisData?.analysis?.recommendation === 'SELL' ? '↘' : 
-                 analysisData?.analysis?.recommendation === 'HOLD' ? '→' : '?'}
-              </div>
-              <h4>Investment Verdict</h4>
+        {/* Main Content */}
+        <div className="analysis-dashboard-content">
+          {/* Investment Verdict Card */}
+          <div className="analysis-card primary-card">
+            <div className="card-header">
+              
+              <h3>Investment Verdict</h3>
             </div>
-            
-            <div className={`verdict-badge enhanced ${(analysisData?.analysis?.recommendation || 'unspecified').toLowerCase()}`}
-                 style={{ marginBottom: '1rem' }}>
-              {analysisData?.analysis?.recommendation || 'ANALYZING'}
-            </div>
-            
-            <div className="verdict-details" style={{ width: '100%' }}>
-              <div className="confidence-meter" style={{ width: '100%' }}>
-                <span className="confidence-label">Confidence Level</span>
-                <div className="confidence-bar" style={{ margin: '0.5rem 0' }}>
-                  <div className={`confidence-fill ${analysisData?.analysis?.confidence || 'medium'}`}
-                       style={{width: analysisData?.analysis?.confidence === 'high' ? '90%' : 
-                                     analysisData?.analysis?.confidence === 'medium' ? '70%' : '50%'}}>
-                  </div>
+            <div className="verdict-display">
+              <div className="verdict-main">
+                <div className={`verdict-badge ${(analysisData?.analysis?.recommendation || 'analyzing').toLowerCase()}`}>
+                  {analysisData?.analysis?.recommendation || 'ANALYZING'}
                 </div>
-                <span className={`confidence-text ${analysisData?.analysis?.confidence || 'medium'}`}>
-                  {(analysisData?.analysis?.confidence || 'MEDIUM').toUpperCase()}
-                </span>
+                {analysisData?.analysis?.confidence && (
+                  <div className="confidence-indicator">
+                    <span className="confidence-text">
+                      Confidence: <span className={`confidence-level ${analysisData.analysis.confidence.toLowerCase()}`}>
+                        {analysisData.analysis.confidence.toUpperCase()}
+                      </span>
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Analysis Summary */}
-          <div className="summary-section enhanced">
-            <div className="section-header">
-              <div className="section-icon">🤖</div>
-              <h4>AI Analysis Summary</h4>
-            </div>
-            <div className="summary-content enhanced">
-              <div className="summary-text">
-                {(() => {
-                  try {
-                    const formattedSummary = formatSummaryText(analysisData?.analysis?.summary);
-                    return (
-                      <div className="formatted-summary">
-                        {formattedSummary.split('\n\n').map((paragraph, index) => (
-                          <p key={index} className="summary-paragraph" 
-                             style={{ 
-                               marginBottom: '1rem', 
-                               lineHeight: '1.7',
-                               color: '#e5e7eb',
-                               fontSize: '0.95rem'
-                             }}>
-                            {paragraph}
-                          </p>
-                        ))}
-                      </div>
-                    );
-                  } catch (error) {
-                    console.error('Error rendering summary:', error);
-                    return 'Error loading analysis summary';
-                  }
-                })()}
-              </div>
-            </div>
-          </div>
-
-          {/* Market Sentiment */}
+          {/* Market Sentiment Card */}
           {analysisData?.analysis?.sentiment_report && (
-            <div className="sentiment-section enhanced">
-              <div className="section-header">
-                <div className="section-icon"></div>
-                <h4>Market Sentiment Analysis</h4>
+            <div className="analysis-card sentiment-card full-width-card">
+              <div className="card-header">
+                <div className="card-icon"></div>
+                <h3>Market Sentiment</h3>
               </div>
-              <div className="sentiment-content enhanced">
+              <div className="sentiment-display">
                 {renderSentimentContent(analysisData.analysis.sentiment_report)}
               </div>
             </div>
           )}
 
-          {/* News Analysis */}
-          {analysisData?.data_sources?.news_headlines && (
-            <div className="news-section enhanced">
-              <div className="section-header">
-                <div className="section-icon">📰</div>
-                <h4>Recent News Analysis</h4>
-                <div className="news-count enhanced">
-                  {analysisData.data_sources.news_headlines.count || 0} articles
-                </div>
+          {/* Recent Headlines Card */}
+          {analysisData?.data_sources?.news_headlines?.headlines && (
+            <div className="analysis-card news-card full-width-card">
+              <div className="card-header">
+                <div className="card-icon"></div>
+                <h3>Recent News Headlines</h3>
               </div>
-              <div className="news-grid">
+              <div className="news-display">
                 {(() => {
                   try {
                     const headlines = analysisData.data_sources.news_headlines.headlines;
-                    if (!Array.isArray(headlines)) {
-                      return <div style={{color: '#ff6b6b'}}>Error: Headlines data is not an array</div>;
-                    }
-                    return headlines.slice(0, 6).map((headline, index) => (
-                      <div key={index} className="news-card enhanced">
-                        <div className="news-content">
-                          <div className="news-title">{headline?.headline || 'No title available'}</div>
-                          {headline?.url && (
-                            <a 
-                              href={headline.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="news-link enhanced"
-                            >
-                              <span>Read article</span>
-                              <div className="link-arrow">→</div>
-                            </a>
-                          )}
+                    if (!Array.isArray(headlines)) return null;
+                    
+                    return headlines.slice(0, 4).map((headline, index) => (
+                      <div key={index} className="headline-item">
+                        <div className="headline-text">
+                          {headline?.headline || headline}
                         </div>
+                        {headline?.url && (
+                          <a 
+                            href={headline.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="headline-link"
+                          >
+                            Read More →
+                          </a>
+                        )}
                       </div>
                     ));
                   } catch (error) {
-                    console.error('Error rendering news:', error);
-                    return <div style={{color: '#ff6b6b'}}>Error loading news headlines</div>;
+                    return <div className="error-text">Error loading headlines</div>;
                   }
                 })()}
               </div>
@@ -423,17 +489,11 @@ const AnalysisDashboard = ({ stock, onClose, analysisData }) => {
           )}
         </div>
 
-        <div className="modal-actions" style={{ 
-          flex: '0 0 auto',
-          minHeight: 'fit-content'
-        }}>
-          <button className="action-button secondary" onClick={() => window.location.reload()}>
-            <span className="button-icon">↻</span>
-            <span>New Analysis</span>
-          </button>
-          <button className="action-button primary" onClick={onClose}>
-            <span className="button-icon">←</span>
-            <span>Back to Dashboard</span>
+        {/* Footer Actions */}
+        <div className="analysis-dashboard-footer">
+          <button className="footer-btn primary" onClick={onClose}>
+            <span>←</span>
+            Back to Dashboard
           </button>
         </div>
       </div>

@@ -438,8 +438,3 @@ def run_react_analysis(ticker: str) -> Dict:
             "timestamp": datetime.now().isoformat()
         }
 
-
-if __name__ == '__main__':
-    test_ticker = "TSLA"
-    result = run_react_analysis(test_ticker)
-    print(result)
