@@ -178,20 +178,6 @@ input::placeholder, textarea::placeholder {
   color: #777;
 }
 
-button {
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-button:hover:not(:disabled) {
-  background: #333;
-}
-
 /* Focus styles */
 *:focus-visible {
   outline: 2px solid #2979FF;
@@ -203,197 +189,6 @@ button:hover:not(:disabled) {
    LOGIN PAGE STYLES
    =========================================== */
 
-.login-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  position: relative;
-}
-
-.login-card {
-  background: #1E1E1E;
-  border: 1px solid #333;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-  max-width: 450px;
-  width: 100%;
-  padding: 3rem 2rem;
-  text-align: center;
-  transition: all 0.3s ease;
-}
-
-.login-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
-}
-
-.dark .login-card {
-  background: #1E1E1E;
-  border: 1px solid #333;
-}
-
-.login-header {
-  margin-bottom: 2rem;
-}
-
-.login-title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin: 0 0 0.5rem 0;
-  color: #FFFFFF;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.login-subtitle {
-  font-size: 1.1rem;
-  color: #CCCCCC;
-  margin: 0 0 2rem 0;
-  font-weight: 400;
-}
-
-.login-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.google-signin-button {
-  background: #2979FF;
-  color: #FFFFFF;
-  border: none;
-  border-radius: 12px;
-  padding: 1rem 2rem;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(41, 121, 255, 0.3);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 250px;
-  justify-content: center;
-}
-
-.google-signin-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(41, 121, 255, 0.4);
-  background: #1976D2;
-}
-
-.google-signin-button:active {
-  transform: translateY(0);
-}
-
-.dark .google-signin-button {
-  background: #2979FF;
-  color: #FFFFFF;
-}
-
-.google-icon {
-  width: 24px;
-  height: 24px;
-}
-
-.hero-text {
-  line-height: 1.6;
-  margin-bottom: 1.5rem;
-  text-align: center;
-}
-
-.features-list {
-  margin-bottom: 2rem;
-  text-align: left;
-}
-
-.feature {
-  display: flex;
-  align-items: center;
-  margin-bottom: 0.75rem;
-  color: #555;
-  justify-content: flex-start;
-}
-
-.feature-icon {
-  margin-right: 0.75rem;
-  font-size: 1.2rem;
-  width: 24px;
-  text-align: center;
-}
-
-.google-login-button {
-  width: 100%;
-  max-width: 300px;
-  padding: 1rem;
-  background: white;
-  border: none;
-  border-radius: 12px;
-  color: #1e3c72;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  min-height: 50px;
-  margin: 2rem auto 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.google-login-button:hover:not(:disabled) {
-  background: #f8f9fa;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transform: translateY(-1px);
-}
-
-.google-login-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.google-icon {
-  width: 20px;
-  height: 20px;
-}
-
-.error-message {
-  background: rgba(254, 226, 226, 0.95);
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  padding: 0.75rem;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #dc2626;
-  font-size: 0.9rem;
-  text-align: center;
-  width: 100%;
-  max-width: 300px;
-  backdrop-filter: blur(10px);
-}
-
-.error-icon {
-  margin-right: 0.5rem;
-  flex-shrink: 0;
-}
-
-.login-footer {
-  margin-top: 1rem;
-  text-align: center;
-}
-
-.login-footer p {
-  font-size: 0.8rem;
-  color: #9ca3af;
-  margin: 0;
-}
 
 /* ===========================================
    DASHBOARD STYLES
@@ -1705,28 +1500,8 @@ button:hover:not(:disabled) {
   opacity: 0.8;
 }
 
-.logout-button {
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #EF4444, #DC2626);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 3px 12px rgba(239, 68, 68, 0.3);
-}
 
-.logout-button:hover {
-  background: linear-gradient(135deg, #DC2626, #B91C1C);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.4);
-}
 
-.logout-button:active {
-  transform: translateY(0);
-}
 
 /* ===========================================
    RESPONSIVE DESIGN
@@ -1778,10 +1553,7 @@ button:hover:not(:disabled) {
     font-size: 0.8125rem;
   }
   
-  .logout-button {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.8125rem;
-  }
+  
   
   .dashboard-main {
     padding: 1rem;
@@ -4578,7 +4350,7 @@ button:hover:not(:disabled) {
   justify-content: center;
 }
 
-.btn-primary,
+/* .btn-primary,
 .btn-secondary {
   display: flex;
   align-items: center;
@@ -4620,7 +4392,7 @@ button:hover:not(:disabled) {
 
 .btn-icon {
   font-size: 1.2rem;
-}
+} */
 
 /* Animations */
 @keyframes slideInScale {

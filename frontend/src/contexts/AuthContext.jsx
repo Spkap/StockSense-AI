@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, googleProvider } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { authAPI } from '../services/api';
+import { authAPI } from '../services/api/authAPI';
 
 const AuthContext = createContext();
 

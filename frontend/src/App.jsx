@@ -1,8 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-import { ToastProvider } from './components/ToastProvider';
-import ProtectedRoute from './components/ProtectedRoute';
+import { ToastProvider } from './components/ui/ToastProvider';
+import ProtectedRoute from './components/layout/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 

@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useToast } from '../components/ToastProvider';
-import { watchlistAPI, stockAPI, analysisAPI } from '../services/api';
-import Header from '../components/Header';
-import WatchlistCard from '../components/WatchlistCard';
-import AnalysisDashboard from '../components/AnalysisDashboard';
-import SimpleAnalysisTest from '../components/SimpleAnalysisTest';
+import { useToast } from '../components/ui/ToastProvider';
+import { watchlistAPI } from '../services/api/watchlistAPI';
+import { stockAPI } from '../services/api/stockAPI';
+import { analysisAPI } from '../services/api/analysisAPI';
+import Header from '../components/layout/Header';
+import WatchlistCard from '../components/watchlist/WatchlistCard';
+import AddStockModal from '../components/watchlist/AddStockModal';
+import AnalysisDashboard from '../components/analysis/AnalysisDashboard';
+import NewsCard from '../components/news/NewsCard';
+import SimpleAnalysisTest from '../components/analysis/SimpleAnalysisTest';
+import StockChartDashboard from '../components/analysis/StockChartDashboard';
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
@@ -29,7 +34,7 @@ const Dashboard = () => {
     try {
       setLoading(true);
       const data = await watchlistAPI.getWatchlist();
-      console.log('Fetched watchlist data:', data); // Debug log
+      console.log('Fetched watchlist data:', data);
       setWatchlist(data);
     } catch (err) {
       showError(`Failed to load watchlist: ${err.message}`);
@@ -133,8 +138,6 @@ const Dashboard = () => {
     setAnalyzingStock(null);
     setAnalysisLoading(false);
     
-    // Ensure we stay on dashboard by not navigating anywhere
-    // The modal will just close and reveal the dashboard underneath
     console.log('Analysis modal closed, should show dashboard');
   };
 
@@ -149,144 +152,85 @@ const Dashboard = () => {
   }, [showAnalysis]);
 
   return (
-    <div className="dashboard-container">
+    <div className="min-h-screen bg-black">
       <Header />
 
       {/* Main Content - Always visible */}
-      <main className="dashboard-main">
-        <div className="dashboard-content">
-          {/* Welcome Section */}
-          <section className="welcome-section">
-            <div className="welcome-content">
-              <h2>Welcome back, {currentUser?.displayName?.split(' ')[0] || 'User'}!</h2>
-              <p>Get AI-powered market insights.</p>
-            </div>
-          </section>
+      <main className="px-6 py-8">
+        <div className="space-y-6">
+          
 
-          {/* Watchlist Section */}
-          <section className="watchlist-section">
-            <div className="watchlist-content">
+          <div className="grid grid-cols-1 xl:grid-cols-10 gap-6">
+            <div className="xl:col-span-7 pl-2">
+              <StockChartDashboard />
+            </div>
+
+            <div className="xl:col-span-3 space-y-6 pr-2">
               {loading ? (
-                <div className="loading-state">
-                  <div className="spinner-container">
-                    <div className="spinner-large"></div>
-                  </div>
-                  <div className="loading-text">
-                    <h4>Loading your watchlist...</h4>
-                    <p>Fetching the latest market data</p>
+                <div className="card bg-base-100 shadow-xl">
+                  <div className="card-body">
+                    <div className="flex flex-col items-center justify-center py-16">
+                      <span className="loading loading-spinner loading-lg"></span>
+                      <div className="text-center mt-4">
+                        <h4 className="text-lg font-semibold">Loading your watchlist...</h4>
+                        <p className="text-base-content/70">Fetching the latest market data</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : !watchlist ? (
-                <div className="empty-state">
-                  <div className="empty-icon"></div>
-                  <h4>Watchlist Not Found</h4>
-                  <p>Unable to load your watchlist. Please try again.</p>
-                  <button onClick={fetchWatchlist} className="retry-button secondary-button">
-                    <span className="button-icon">↻</span>
-                    <span>Try Again</span>
-                  </button>
+                <div className="card bg-black shadow-xl">
+                  <div className="card-body">
+                    <div className="flex flex-col items-center justify-center py-16">
+                      <h4 className="text-lg font-semibold mb-2">Watchlist Not Found</h4>
+                      <p className="text-base-content/70 mb-6">Unable to load your watchlist. Please try again.</p>
+                      <button onClick={fetchWatchlist} className="btn btn-outline btn-sm gap-2">
+                        <span>↻</span>
+                        Try Again
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="watchlist-container">
-                  <WatchlistCard
-                    watchlist={watchlist}
-                    onAddStock={openAddStockModal}
-                    onRemoveStock={handleRemoveStock}
-                    onAnalyzeStock={handleAnalyzeStock}
-                    actionLoading={actionLoading}
-                    showDeleteButton={false}
-                  />
+                <WatchlistCard
+                  watchlist={watchlist}
+                  onAddStock={openAddStockModal}
+                  onRemoveStock={handleRemoveStock}
+                  onAnalyzeStock={handleAnalyzeStock}
+                  actionLoading={actionLoading}
+                  showDeleteButton={false}
+                />
+              )}
+
+              {/* News Section */}
+              {!loading && watchlist && (
+                <NewsCard />
+              )}
+              {/* Show placeholder if no watchlist */}
+              {!loading && !watchlist && (
+                <div className="bg-black border border-white rounded-lg p-6 h-fit">
+                  <h2 className="text-white text-xl font-bold mb-4">News</h2>
+                  <div className="text-center py-8">
+                    <p className="text-white/70">Add stocks to your watchlist to see related news</p>
+                  </div>
                 </div>
               )}
             </div>
-          </section>        
+          </div>
         </div>
       </main>
 
       {/* Add Stock Modal */}
-      {showAddStockModal && (
-        <div className="modal-overlay" onClick={() => setShowAddStockModal(false)}>
-          <div className="modal-content add-stock-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title">
-                <h3>Add Stock to Watchlist</h3>
-                <p>Search and add stocks to track their performance</p>
-              </div>
-              <button 
-                className="close-button"
-                onClick={() => setShowAddStockModal(false)}
-                aria-label="Close modal"
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="modal-body">
-              <div className="form-group">
-                <label htmlFor="stock-search">Search Stocks</label>
-                <div className="search-input-container">
-                  <input
-                    id="stock-search"
-                    type="text"
-                    value={stockSearch}
-                    onChange={(e) => {
-                      setStockSearch(e.target.value);
-                      handleSearchStocks(e.target.value);
-                    }}
-                    placeholder="Search by symbol or name (e.g., AAPL, Apple)..."
-                    autoFocus
-                    className="search-input"
-                  />
-                  <div className="search-icon"></div>
-                </div>
-              </div>
-              
-              {searchResults.length > 0 && (
-                <div className="search-results">
-                  <h4 className="results-title">Search Results</h4>
-                  <div className="results-list">
-                    {searchResults.slice(0, 10).map(stock => (
-                      <div key={stock.id} className="search-result-item">
-                        <div className="stock-info">
-                          <div className="stock-details">
-                            <span className="stock-symbol">{stock.symbol}</span>
-                            <span className="stock-name">{stock.name}</span>
-                          </div>
-                        </div>
-                        <button
-                          className="add-button primary-button small"
-                          onClick={() => handleAddStock(stock)}
-                          disabled={actionLoading}
-                        >
-                          {actionLoading ? (
-                            <span className="spinner-small"></span>
-                          ) : (
-                            <>
-                              <span className="button-icon">+</span>
-                              <span>Add</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div className="modal-footer">
-              <button 
-                type="button" 
-                className="cancel-button secondary-button"
-                onClick={() => setShowAddStockModal(false)}
-                disabled={actionLoading}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddStockModal
+        isOpen={showAddStockModal}
+        onClose={() => setShowAddStockModal(false)}
+        stockSearch={stockSearch}
+        setStockSearch={setStockSearch}
+        searchResults={searchResults}
+        onSearchStocks={handleSearchStocks}
+        onAddStock={handleAddStock}
+        actionLoading={actionLoading}
+      />
 
       {/* Analysis Dashboard Modal */}
       {showAnalysis && analyzingStock && (

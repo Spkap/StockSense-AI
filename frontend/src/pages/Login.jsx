@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import Button from '../components/ui/Button';
 
 const Login = () => {
-  const { signInWithGoogle, loading, error } = useAuth();
+  const { signInWithGoogle, loading } = useAuth();
   const navigate = useNavigate();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -11,54 +12,35 @@ const Login = () => {
     try {
       setIsLoggingIn(true);
       await signInWithGoogle();
-      navigate('/dashboard'); // Redirect to dashboard after successful login
+      navigate('/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
-      // Error is already handled in AuthContext
     } finally {
       setIsLoggingIn(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <div className="login-header">
-          <h1 className="login-title">
-            StockSense
-          </h1>
-          <p className="login-subtitle">
-            AI-Powered Stock Analysis 
+    <div className="hero bg-black min-h-screen">
+      <div className="hero-content text-center">
+        <div className="max-w-md">
+          <h1 className="text-5xl font-bold text-white">StockSense</h1>
+          <p className="py-6 text-white">
+            AI-Powered Stock Analysis for Smarter Investments
           </p>
 
-          {error && (
-            <div className="error-message">
-              <span className="error-icon"></span>
-              {error}
-            </div>
-          )}
-
-          <button
+          <Button
             onClick={handleGoogleLogin}
             disabled={loading || isLoggingIn}
-            className="google-login-button"
+            className="btn bg-white text-black border-[#e5e5e5]"
           >
-            {isLoggingIn ? (
-              <>
-                <div className="spinner"></div>
-                <span>Signing in...</span>
-              </>
-            ) : (
-              <>
-                <img 
-                  src="https://developers.google.com/identity/images/g-logo.png" 
-                  alt="Google" 
-                  className="google-icon"
-                />
-                <span>Continue with Google</span>
-              </>
-            )}
-          </button>
+            <img
+              src="https://www.svgrepo.com/show/355037/google.svg"
+              alt="Google logo"
+              className="w-5 h-5"
+            />
+            <span className='text-black'>Login With Google</span>
+          </Button>
         </div>
       </div>
     </div>

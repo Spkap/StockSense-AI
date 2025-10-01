@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import PriceChart from './PriceChart';
-import './AnalysisDashboard.css';
+// import PriceChart from './PriceChart'; // File not found
+// import './AnalysisDashboard.css'; // File not found
 
 const AnalysisDashboard = ({ stock, onClose, analysisData }) => {
   const [modalKey, setModalKey] = useState(0);
