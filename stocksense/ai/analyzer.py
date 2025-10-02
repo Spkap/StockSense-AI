@@ -19,7 +19,7 @@ def analyze_sentiment_of_headlines(news: List[Dict]) -> str:
             return "No headlines provided for analysis."
 
         llm = get_chat_llm(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             temperature=0.3,
             max_output_tokens=2048
         )

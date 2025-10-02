@@ -109,9 +109,16 @@ const Dashboard = () => {
   const handleAnalyzeStock = async (stock) => {
     try {
       console.log('Starting analysis for stock:', stock);
+      
+      // Clear any previous analysis data first
+      setAnalysisData(null);
+      
+      // Set loading states immediately
       setAnalyzingStock(stock);
       setAnalysisLoading(true);
       setShowAnalysis(true);
+      
+      console.log('Analysis states set - loading:', true, 'showAnalysis:', true, 'stock:', stock);
       
       showSuccess(`Starting AI analysis for ${stock.symbol}...`);
       
@@ -124,9 +131,10 @@ const Dashboard = () => {
     } catch (err) {
       console.error('Analysis error:', err);
       showError(`Failed to analyze ${stock.symbol}: ${err.message}`);
-      setShowAnalysis(false);
-      console.error('Failed to analyze stock:', err);
+      // Don't close the modal immediately, keep it open to show the error
+      // setShowAnalysis(false);
     } finally {
+      console.log('Setting analysis loading to false');
       setAnalysisLoading(false);
     }
   };
@@ -143,13 +151,13 @@ const Dashboard = () => {
 
   // Ensure body has proper styling (in case modal messed it up)
   useEffect(() => {
-    document.body.style.overflow = showAnalysis ? 'hidden' : 'auto';
+    document.body.style.overflow = (showAnalysis || analysisLoading) ? 'hidden' : 'auto';
     document.body.style.backgroundColor = '#121212';
     
     return () => {
       document.body.style.overflow = 'auto';
     };
-  }, [showAnalysis]);
+  }, [showAnalysis, analysisLoading]);
 
   return (
     <div className="min-h-screen bg-black">
@@ -233,9 +241,9 @@ const Dashboard = () => {
       />
 
       {/* Analysis Dashboard Modal */}
-      {showAnalysis && analyzingStock && (
+      {analyzingStock && (showAnalysis || analysisLoading) && (
         <AnalysisDashboard
-          key={`analysis-${analyzingStock.symbol}-${Date.now()}`} // Force remount
+          key={`analysis-${analyzingStock.symbol}-${Date.now()}`} 
           analysisData={analysisData}
           stock={analyzingStock}
           onClose={closeAnalysis}

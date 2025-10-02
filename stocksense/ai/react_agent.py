@@ -175,7 +175,7 @@ tools = [
 def create_react_agent() -> StateGraph:
 
     llm = get_chat_llm(
-        model="gemini-1.5-flash",
+        model="gemini-2.5-flash",
         temperature=0.1,
         max_output_tokens=1024
     )

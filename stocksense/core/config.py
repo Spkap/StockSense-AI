@@ -27,7 +27,7 @@ def get_google_api_key() -> str:
     return api_key
 
 
-def get_llm(model: str = "gemini-1.5-flash",
+def get_llm(model: str = "gemini-2.5-flash",
            temperature: float = 0.3,
            max_output_tokens: int = 2048) -> GoogleGenerativeAI:
     """Get configured Google Generative AI LLM instance."""
@@ -41,7 +41,7 @@ def get_llm(model: str = "gemini-1.5-flash",
     )
 
 
-def get_chat_llm(model: str = "gemini-1.5-flash",
+def get_chat_llm(model: str = "gemini-2.5-flash",
                 temperature: float = 0.1,
                 max_output_tokens: int = 1024) -> ChatGoogleGenerativeAI:
     """Get configured Google Generative AI Chat LLM instance."""
@@ -82,7 +82,7 @@ def validate_configuration() -> bool:
     return True
 
 
-DEFAULT_MODEL = "gemini-1.5-flash"
+DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_TEMPERATURE = 0.3
 DEFAULT_MAX_TOKENS = 2048
 DEFAULT_CHAT_TEMPERATURE = 0.1

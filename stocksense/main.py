@@ -62,14 +62,6 @@ async def root() -> Dict[str, Any]:
     """Root endpoint with API information."""
     return {
         "message": "StockSense AI Analysis API",
-        "description": "Get comprehensive stock analysis with data sources",
-        "endpoints": [
-            "GET /analyze/{ticker} - Get complete stock analysis",
-            "GET /health - Check API status", 
-            "GET /docs - API documentation"
-        ],
-        "version": "2.0.0",
-        "status": "active"
     }
 
 
@@ -154,7 +146,7 @@ async def analyze_stock(ticker: str) -> Dict[str, Any]:
                     "chart_data": price_data  # Full price data for charting
                 },
                 "ai_analysis": {
-                    "model": "Google Gemini 1.5 Flash",
+                    "model": "Google Gemini 2.5 Flash",
                     "reasoning_steps": len(reasoning_steps),
                     "tools_used": tools_used,
                     "iterations": analysis_result.get("iterations", 0),
