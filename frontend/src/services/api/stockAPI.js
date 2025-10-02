@@ -1,5 +1,9 @@
 import apiClient from './client.js';
 
+
+const BASE_URL = 'https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY';
+const API_KEY = import.meta.env.ALPHAVANTAGE_API_KEY 
+
 // Stock API calls
 export const stockAPI = {
   // Get all stocks with optional search
@@ -23,57 +27,23 @@ export const stockAPI = {
     }
   },
 
-  // Get stock by symbol
-  getStockBySymbol: async (symbol) => {
-    try {
-      const response = await apiClient.get(`/stocks/symbol/${symbol}/`);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.detail || 'Failed to get stock by symbol');
+ 
+  getPriceData: async (symbol, interval = '1min') => {
+   try{
+      const url = `${BASE_URL}&symbol=${encodeURIComponent(symbol)}&interval=${interval}&apikey=${API_KEY}`;
+      const header = { 'User-Agent': 'request' };
+      const response = await fetch(url, { method: 'GET', headers: header });
+      const data = await response.json();
+      console.log(data);
+      return data;
+
+   } catch (error) {
+      console.error('Error fetching price data:', error);
+      throw new Error(error.response?.data?.message || 'Failed to fetch price data');
     }
-  },
+ 
 
-  // Create new stock
-  createStock: async (stockData) => {
-    try {
-      const response = await apiClient.post('/stocks/', stockData);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.detail || 'Failed to create stock');
-    }
-  },
+  }
 
-  // Update stock
-  updateStock: async (stockId, stockData) => {
-    try {
-      const response = await apiClient.put(`/stocks/${stockId}/`, stockData);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.detail || 'Failed to update stock');
-    }
-  },
-
-  // Delete stock
-  deleteStock: async (stockId) => {
-    try {
-      await apiClient.delete(`/stocks/${stockId}/`);
-      return { success: true };
-    } catch (error) {
-      throw new Error(error.response?.data?.detail || 'Failed to delete stock');
-    }
-  },
-
-  // Get stock price history
-  getStockHistory: async (symbol, period = '1y') => {
-    try {
-      const response = await apiClient.get(`/stocks/${symbol}/history/?period=${period}`);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.detail || 'Failed to get stock history');
-    }
-  },
-
-  
-};
-
+}
 export default stockAPI;
