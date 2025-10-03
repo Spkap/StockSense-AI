@@ -1,4 +1,4 @@
-name: backend CI
+name: backend CI/DB
 
 on:
   push:
@@ -68,3 +68,40 @@ jobs:
         working-directory: backend
         run: |
           python manage.py test --noinput
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install SSH Client
+        run: sudo apt-get install -y openssh-client
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Deploy to EC2
+        env:
+          ECR_REPO: ${{ secrets.ECR_REPO }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            # Login to AWS ECR
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
+
+            # Pull latest image
+            docker pull $ECR_REPO/harshitr2004/stocksense:latest
+
+            # Stop old container if running
+            docker stop stocksense || true
+            docker rm stocksense || true
+
+            # Run new container
+            docker run -d -p 8000:8000 --name stocksense $ECR_REPO/harshitr2004/stocksense:latest
+          EOF
