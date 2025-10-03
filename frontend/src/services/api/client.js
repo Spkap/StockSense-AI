@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8001/api';
+const API_BASE_URL = 'https://stocksense-api-d22u.onrender.com/api'; // Update with your backend API URL
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
