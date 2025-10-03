@@ -22,7 +22,6 @@ class WatchlistStock(models.Model):
     watchlist = models.ForeignKey(Watchlist, on_delete=models.CASCADE)
     stock = models.ForeignKey('stocks.Stock', on_delete=models.CASCADE)
     
-    # When user added this stock to watchlist
     added_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
