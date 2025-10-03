@@ -5,3 +5,4 @@ firebase-admin==6.2.0
 python-decouple==3.8
 python-dotenv==1.0.0
 psycopg2-binary==2.9.7
+dj-database-url==3.0.1

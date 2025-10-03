@@ -1,15 +1,53 @@
 import firebase_admin
 from firebase_admin import credentials, auth
 import os
-from pathlib import Path
+from dotenv import load_dotenv
 
-# Get the correct path to Firebase service account file
-BASE_DIR = Path(__file__).resolve().parent
-FIREBASE_KEY_PATH = BASE_DIR.parent / "stocksense-e7226-firebase-adminsdk-fbsvc-b8cae3c098.json"
+# Load environment variables from .env file
+load_dotenv()
 
-# Initialize Firebase app only once
+# Required Firebase environment variables
+required_env_vars = [
+    'FIREBASE_PROJECT_ID',
+    'FIREBASE_PRIVATE_KEY_ID', 
+    'FIREBASE_PRIVATE_KEY',
+    'FIREBASE_CLIENT_EMAIL',
+    'FIREBASE_CLIENT_ID',
+    'FIREBASE_CLIENT_X509_CERT_URL'
+]
+
+# Check if all required environment variables are present
+missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+if missing_vars:
+    raise EnvironmentError(f"Missing required Firebase environment variables: {', '.join(missing_vars)}")
+
+# Get Firebase configuration from environment variables ONLY
+firebase_config = {
+    "type": os.getenv('FIREBASE_TYPE', 'service_account'),
+    "project_id": os.getenv('FIREBASE_PROJECT_ID'),
+    "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+    "private_key": os.getenv('FIREBASE_PRIVATE_KEY'),
+    "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
+    "client_id": os.getenv('FIREBASE_CLIENT_ID'),
+    "auth_uri": os.getenv('FIREBASE_AUTH_URI', 'https://accounts.google.com/o/oauth2/auth'),
+    "token_uri": os.getenv('FIREBASE_TOKEN_URI', 'https://oauth2.googleapis.com/token'),
+    "auth_provider_x509_cert_url": os.getenv('FIREBASE_AUTH_PROVIDER_X509_CERT_URL', 'https://www.googleapis.com/oauth2/v1/certs'),
+    "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL'),
+    "universe_domain": os.getenv('FIREBASE_UNIVERSE_DOMAIN', 'googleapis.com')
+}
+
+FIREBASE_STORAGE_BUCKET = os.getenv('FIREBASE_STORAGE_BUCKET', 'stocksense-e7226.appspot.com')
+
+# Initialize Firebase app only once using ONLY environment variables
 if not firebase_admin._apps:
-    cred = credentials.Certificate(str(FIREBASE_KEY_PATH))
-    firebase_admin.initialize_app(cred)
+    try:
+        cred = credentials.Certificate(firebase_config)
+        firebase_admin.initialize_app(cred, {
+            'projectId': firebase_config['project_id'],
+            'storageBucket': FIREBASE_STORAGE_BUCKET
+        })
+        print("Firebase initialized successfully using environment variables")
+    except Exception as e:
+        raise Exception(f"Failed to initialize Firebase using environment variables: {str(e)}")
 
 

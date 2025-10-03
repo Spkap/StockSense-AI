@@ -16,8 +16,29 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from datetime import datetime
+import json
+
+def health_check(request):
+    """Simple health check endpoint"""
+    try:
+        return JsonResponse({
+            'status': 'healthy',
+            'message': 'StockSense Backend API is running',
+            'timestamp': datetime.now().isoformat(),
+        }, status=200)
+    except Exception as e:
+        return JsonResponse({
+            'status': 'unhealthy',
+            'message': f'Health check failed: {str(e)}',
+            'service': 'StockSense Backend',
+            'timestamp': datetime.now().isoformat()
+        }, status=503)
 
 urlpatterns = [
+    path('', health_check, name='health_check'),
     path('admin/', admin.site.urls),
     path('api/users/', include('users.urls')),
     path('api/watchlists/', include('watchlists.urls')),
