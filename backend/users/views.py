@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from firebase_admin import auth
-import firebase_utils  # This ensures Firebase is initialized
+import firebase_utils
 
 
 User = get_user_model()

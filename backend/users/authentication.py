@@ -3,7 +3,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from firebase_admin import auth
 from django.contrib.auth import get_user_model
 import os
-import firebase_utils  # Import to ensure Firebase is initialized
+import firebase_utils  
 
 User = get_user_model()
 
