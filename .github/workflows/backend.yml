@@ -3,11 +3,13 @@ name: backend CI
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'backend/**'
   pull_request:
     branches: [ main ]
-  optional: only trigger if backend changes
-  paths:
-    - 'backend/**'
+    paths:
+      - 'backend/**'
+
 
 jobs:
   test:
