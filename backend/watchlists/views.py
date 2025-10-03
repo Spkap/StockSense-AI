@@ -36,7 +36,6 @@ class WatchlistStockView(APIView):
     
     def post(self, request):
         """Add stock to user's watchlist"""
-        # Get or create user's watchlist
         watchlist, created = Watchlist.objects.get_or_create(
             user=request.user,
             defaults={'name': 'My Watchlist'}

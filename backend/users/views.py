@@ -12,7 +12,7 @@ User = get_user_model()
 
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(APIView):
-    # Explicitly allow any user to access this endpoint
+    
     authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
