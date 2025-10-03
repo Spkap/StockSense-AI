@@ -30,7 +30,7 @@ if missing_vars and not is_testing:
 
 # Skip Firebase initialization if we're in testing mode and variables are missing
 if missing_vars and is_testing:
-    print("⚠️  Skipping Firebase initialization in test environment - Firebase variables not set")
+    print("Skipping Firebase initialization in test environment - Firebase variables not set")
     firebase_config = None
     FIREBASE_STORAGE_BUCKET = None
 else:
