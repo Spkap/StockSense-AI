@@ -3,7 +3,6 @@ from firebase_admin import credentials, auth
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
 # Required Firebase environment variables
