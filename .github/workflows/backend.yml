@@ -31,10 +31,11 @@ jobs:
 
     env:
       # Django environment variables for test
-      DJANGO_SETTINGS_MODULE: backend.settings  # ⚠️ update if different
+      DJANGO_SETTINGS_MODULE: backend.settings  #  update if different
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
       SECRET_KEY: test-secret
       DEBUG: "0"
+      TESTING: "true"  # Flag to indicate we're in test environment
 
     steps:
       - name: Checkout code
