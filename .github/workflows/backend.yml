@@ -10,7 +10,6 @@ on:
     paths:
       - 'backend/**'
 
-
 jobs:
   test:
     runs-on: ubuntu-latest
