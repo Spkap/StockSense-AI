@@ -52,7 +52,6 @@ const StockChart = ({ ticker }) => {
     console.log('Setting loading to true for ticker:', ticker);
     setIsLoading(true);
 
-    // Clear any existing chart
     if (chartRef.current) {
       try {
         chartRef.current.remove();
@@ -62,10 +61,8 @@ const StockChart = ({ ticker }) => {
       chartRef.current = null;
     }
 
-    // Clear container
     chartContainerRef.current.innerHTML = '';
 
-    // Create unique container ID
     const containerId = `tradingview-chart-${ticker}-${Date.now()}`;
     chartContainerRef.current.id = containerId;
 
