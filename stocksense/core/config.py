@@ -5,7 +5,6 @@ from langchain_google_genai import GoogleGenerativeAI, ChatGoogleGenerativeAI
 
 load_dotenv()
 
-
 class ConfigurationError(Exception):
     pass
 
