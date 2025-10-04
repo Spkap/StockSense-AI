@@ -19,7 +19,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "\
             export AWS_REGION=${{ secrets.AWS_REGION }} && \
-            export ECR_REPO=384471040052.dkr.ecr.eu-north-1.amazonaws.com/harshitr2004/stocksense-ai && \
+            export ECR_REPO=${{ secrets.ECR_REPO }} && \
             aws ecr get-login-password --region \$AWS_REGION | docker login --username AWS --password-stdin \$ECR_REPO && \
             docker pull \$ECR_REPO:latest && \
             docker stop stocksense-ai || true && docker rm stocksense-ai || true && \
