@@ -80,8 +80,7 @@ jobs:
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
-        with:
-          region: ${{ secrets.AWS_REGION }}
+       
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
