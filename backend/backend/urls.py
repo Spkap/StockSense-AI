@@ -25,7 +25,6 @@ def health_check(request):
     """Simple health check endpoint"""
     try:
         return JsonResponse({
-            'status': 'healthy',
             'message': 'StockSense Backend API is running',
             'timestamp': datetime.now().isoformat(),
         }, status=200)
