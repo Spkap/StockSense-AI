@@ -28,6 +28,7 @@ def health_check(request):
             'message': 'StockSense Backend API is running',
             'timestamp': datetime.now().isoformat(),
         }, status=200)
+        
     except Exception as e:
         return JsonResponse({
             'status': 'unhealthy',
