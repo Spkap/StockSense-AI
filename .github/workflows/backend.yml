@@ -70,33 +70,42 @@ jobs:
           python manage.py test --noinput
 
   deploy:
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      runs-on: ubuntu-latest
+      needs: test
+      if: github.ref == 'refs/heads/main'
 
-  
-      - name: Build Docker image
-        run: |
-          docker build -t stocksense:latest backend/
-          docker tag stocksense:latest ${{ secrets.ECR_REPO }}:latest
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
 
-      - name: Install SSH Client
-        run: sudo apt-get install -y openssh-client
+        - name: Build Docker image
+          run: |
+            docker build -t stocksense:latest backend/
+            docker tag stocksense:latest ${{ secrets.ECR_REPO }}:latest
 
-      - name: Setup SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+        - name: Login to Amazon ECR
+          run: |
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
+              | docker login --username AWS --password-stdin ${{ secrets.ECR_REPO }}
 
-      - name: Deploy to EC2
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "\
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPO }} && \
-            docker push ${{ secrets.ECR_REPO }}:latest && \
-            docker stop stocksense || true && \
-            docker rm stocksense || true && \
-            docker run -d -p 8000:8000 --name stocksense ${{ secrets.ECR_REPO }}:latest"
+        - name: Push image to ECR
+          run: |
+            docker push ${{ secrets.ECR_REPO }}:latest
+
+        - name: Install SSH Client
+          run: sudo apt-get install -y openssh-client
+
+        - name: Setup SSH Key
+          run: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.EC2_KEY }}" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+
+        - name: Deploy to EC2
+          run: |
+            ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "\
+              docker pull ${{ secrets.ECR_REPO }}:latest && \
+              docker stop stocksense || true && \
+              docker rm stocksense || true && \
+              docker run -d -p 8000:8000 --name stocksense ${{ secrets.ECR_REPO }}:latest"
+
