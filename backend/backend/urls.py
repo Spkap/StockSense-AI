@@ -31,9 +31,7 @@ def health_check(request):
         
     except Exception as e:
         return JsonResponse({
-            'status': 'unhealthy',
             'message': f'Health check failed: {str(e)}',
-            'service': 'StockSense Backend',
             'timestamp': datetime.now().isoformat()
         }, status=503)
 
