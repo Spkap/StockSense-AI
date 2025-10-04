@@ -77,6 +77,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPO }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t stocksense:latest backend/
+          docker tag stocksense:latest ${{ secrets.ECR_REPO }}:latest
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ secrets.ECR_REPO }}:latest
+
       - name: Install SSH Client
         run: sudo apt-get install -y openssh-client
 
@@ -89,12 +109,7 @@ jobs:
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "\
-            export AWS_REGION=${{ secrets.AWS_REGION }} && \
-            export ECR_REPO=${{ secrets.ECR_REPO }} && \
-            aws ecr get-login-password --region \$AWS_REGION | docker login --username AWS --password-stdin \$ECR_REPO && \
-            docker pull \$ECR_REPO:latest && \
-            docker stop stocksense || true && docker rm stocksense || true && \
-            docker run -d -p 8000:8000 --name stocksense \$ECR_REPO:latest"
-
-        
-
+            docker pull ${{ secrets.ECR_REPO }}:latest && \
+            docker stop stocksense || true && \
+            docker rm stocksense || true && \
+            docker run -d -p 8000:8000 --name stocksense ${{ secrets.ECR_REPO }}:latest"
