@@ -22,7 +22,7 @@ const Toast = ({ message, type = 'info', duration = 4000, onClose }) => {
         return '';
     }
   };
-
+  
   return (
     <div className={`toast toast-${type}`}>
       <div className="toast-content">
