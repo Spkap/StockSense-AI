@@ -21,9 +21,11 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+        working-directory: frontend
 
       - name: Build app
         run: npm run build
+        working-directory: frontend
 
       - name: Trigger Render deployment
         run: curl -X POST "$RENDER_DEPLOY_HOOK"
