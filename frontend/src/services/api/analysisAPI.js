@@ -6,7 +6,7 @@ export const analysisAPI = {
   analyzeStock: async (ticker) => {
     try {
       // Use the StockSense AI API endpoint
-      const aiApiUrl = import.meta.env.VITE_AI_API_URL || 'http://localhost:8001';
+      const aiApiUrl = import.meta.env.VITE_AI_API_URL;
       const response = await axios.get(`${aiApiUrl}/analyze/${ticker}`);
       return response.data;
     } catch (error) {
