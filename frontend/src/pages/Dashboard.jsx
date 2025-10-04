@@ -2,14 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../components/ui/ToastProvider';
 import { watchlistAPI } from '../services/api/watchlistAPI';
-import { stockAPI } from '../services/api/stockAPI';
 import { analysisAPI } from '../services/api/analysisAPI';
 import Header from '../components/layout/Header';
 import WatchlistCard from '../components/watchlist/WatchlistCard';
-import AddStockModal from '../components/watchlist/AddStockModal';
 import AnalysisDashboard from '../components/analysis/AnalysisDashboard';
 import NewsCard from '../components/news/NewsCard';
-import SimpleAnalysisTest from '../components/analysis/SimpleAnalysisTest';
 import StockChartDashboard from '../components/analysis/StockChartDashboard';
 
 const Dashboard = () => {
@@ -17,10 +14,6 @@ const Dashboard = () => {
   const { showSuccess, showError } = useToast();
   const [watchlist, setWatchlist] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showAddStockModal, setShowAddStockModal] = useState(false);
-  const [stockSearch, setStockSearch] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [actionLoading, setActionLoading] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisData, setAnalysisData] = useState(null);
   const [analyzingStock, setAnalyzingStock] = useState(null);
@@ -42,68 +35,6 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSearchStocks = async (query) => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    try {
-      const results = await stockAPI.getStocks(query);
-      setSearchResults(results);
-    } catch (err) {
-      console.error('Failed to search stocks:', err);
-      setSearchResults([]);
-    }
-  };
-
-  const handleAddStock = async (stock) => {
-    try {
-      setActionLoading(true);
-      const addedStock = await watchlistAPI.addStock({
-        stock_id: stock.id
-      });
-      
-      setStockSearch('');
-      setSearchResults([]);
-      setShowAddStockModal(false);
-      showSuccess(`${stock.symbol} added to watchlist!`);
-      
-      // Refresh the watchlist data
-      await fetchWatchlist();
-      
-    } catch (err) {
-      showError(`Failed to add stock: ${err.message}`);
-      console.error('Failed to add stock:', err);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRemoveStock = async (stockId) => {
-    try {
-      setActionLoading(true);
-      await watchlistAPI.removeStock(stockId);
-      
-      showSuccess('Stock removed from watchlist!');
-      
-      // Refresh the watchlist data
-      await fetchWatchlist();
-      
-    } catch (err) {
-      showError(`Failed to remove stock: ${err.message}`);
-      console.error('Failed to remove stock:', err);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const openAddStockModal = () => {
-    setShowAddStockModal(true);
-    setStockSearch('');
-    setSearchResults([]);
   };
 
   const handleAnalyzeStock = async (stock) => {
@@ -131,8 +62,6 @@ const Dashboard = () => {
     } catch (err) {
       console.error('Analysis error:', err);
       showError(`Failed to analyze ${stock.symbol}: ${err.message}`);
-      // Don't close the modal immediately, keep it open to show the error
-      // setShowAnalysis(false);
     } finally {
       console.log('Setting analysis loading to false');
       setAnalysisLoading(false);
@@ -174,41 +103,32 @@ const Dashboard = () => {
             </div>
 
             <div className="xl:col-span-3 space-y-6 pr-2">
-              {loading ? (
-                <div className="card bg-base-100 shadow-xl">
-                  <div className="card-body">
-                    <div className="flex flex-col items-center justify-center py-16">
+              <div className="relative">
+                {!watchlist ? (
+                  loading ? (
+                    <div className="card bg-black shadow-xl">
                       <span className="loading loading-spinner loading-lg"></span>
-                      <div className="text-center mt-4">
-                        <h4 className="text-lg font-semibold">Loading your watchlist...</h4>
-                        <p className="text-base-content/70">Fetching the latest market data</p>
-                      </div>
+                      <h4>Loading your watchlist...</h4>
                     </div>
-                  </div>
-                </div>
-              ) : !watchlist ? (
-                <div className="card bg-black shadow-xl">
-                  <div className="card-body">
-                    <div className="flex flex-col items-center justify-center py-16">
-                      <h4 className="text-lg font-semibold mb-2">Watchlist Not Found</h4>
-                      <p className="text-base-content/70 mb-6">Unable to load your watchlist. Please try again.</p>
-                      <button onClick={fetchWatchlist} className="btn btn-outline btn-sm gap-2">
-                        <span>↻</span>
-                        Try Again
-                      </button>
+                  ) : (
+                    <div className="card bg-black shadow-xl">
+                      <h4>Watchlist Not Found</h4>
+                      <button onClick={fetchWatchlist}>Try Again</button>
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <WatchlistCard
-                  watchlist={watchlist}
-                  onAddStock={openAddStockModal}
-                  onRemoveStock={handleRemoveStock}
-                  onAnalyzeStock={handleAnalyzeStock}
-                  actionLoading={actionLoading}
-                  showDeleteButton={false}
-                />
-              )}
+                  )
+                ) : (
+                  <>
+                    <WatchlistCard
+                      watchlist={watchlist}
+                      onAnalyzeStock={handleAnalyzeStock}
+                      onWatchlistUpdate={fetchWatchlist}
+                      showDeleteButton={false}
+                      isLoading={loading} 
+                    />
+                    
+                  </>
+                )}
+              </div>
 
               {/* News Section */}
               {!loading && watchlist && (
@@ -227,18 +147,6 @@ const Dashboard = () => {
           </div>
         </div>
       </main>
-
-      {/* Add Stock Modal */}
-      <AddStockModal
-        isOpen={showAddStockModal}
-        onClose={() => setShowAddStockModal(false)}
-        stockSearch={stockSearch}
-        setStockSearch={setStockSearch}
-        searchResults={searchResults}
-        onSearchStocks={handleSearchStocks}
-        onAddStock={handleAddStock}
-        actionLoading={actionLoading}
-      />
 
       {/* Analysis Dashboard Modal */}
       {analyzingStock && (showAnalysis || analysisLoading) && (

@@ -17,7 +17,7 @@ const WatchlistHeader = ({
   };
 
   return (
-    <div className="flex justify-between items-start mb-4">
+    <div className="card-title flex justify-between items-start mb-4">
       <div className="flex-1">
         <h2 className="card-title text-xl text-white font-bold">{watchlist.name}</h2>
       </div>
