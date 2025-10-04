@@ -50,7 +50,11 @@ This project uses **GitHub Actions** for CI/CD:
 - **Automated Deployment**: Deploys on every push to `main` branch affecting `frontend/**`
 - **Build Process**: Uses Vite for optimized production builds with asset bundling
 - **Environment Configuration**: Manages Firebase and API keys through Render environment variables
-- **Static Site Hosting**: Serves React SPA with proper routing fallbacks on Render
+
+### AI-Service CI/CD Pipeline
+- **Automated Deployment**: Triggers on changes to `stocksense/**` directory structure
+- **FastAPI Integration**: Deploys Python-based AI microservice.
+- **EC2 Deployment**: Automatically Deploys to AWS EC2 instance for AI processing workloads
 
 
 ## Usage
