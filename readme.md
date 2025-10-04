@@ -36,14 +36,15 @@ A modern full-stack application that combines AI analysis with real-time market 
 
 ## CI/CD Pipeline
 
-This project uses **GitHub Actions** for continuous integration and **Render** for deployment:
+This project uses **GitHub Actions** for CI/CD:
 
-### Backend CI Pipeline
+### Backend CI/CD Pipeline
 - **Automated Testing**: Runs on every push/PR to `main` branch affecting `backend/**`
 - **Environment Setup**: Configures Python 3.11 and PostgreSQL test database
 - **Dependency Management**: Installs requirements and runs database migrations
 - **Test Execution**: Runs Django test suite with coverage reporting
 - **Firebase Integration**: Handles Firebase configuration for test environments
+- **EC2 Deployment**: Automatically deploys to AWS EC2 instances after successful testing
 
 ### Frontend CI/CD Pipeline
 - **Automated Deployment**: Deploys on every push to `main` branch affecting `frontend/**`
