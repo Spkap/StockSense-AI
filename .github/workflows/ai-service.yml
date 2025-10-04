@@ -1,0 +1,27 @@
+name: AI Service CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'stocksense/**'
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: SSH into EC2 and Deploy FastAPI Container
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "\
+            export AWS_REGION=${{ secrets.AWS_REGION }} && \
+            export ECR_REPO=384471040052.dkr.ecr.eu-north-1.amazonaws.com/harshitr2004/stocksense-ai && \
+            aws ecr get-login-password --region \$AWS_REGION | docker login --username AWS --password-stdin \$ECR_REPO && \
+            docker pull \$ECR_REPO:latest && \
+            docker stop stocksense-ai || true && docker rm stocksense-ai || true && \
+            docker run -d -p 8001:8080 --name stocksense-ai \$ECR_REPO:latest \
+          "

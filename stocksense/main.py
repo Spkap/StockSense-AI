@@ -51,11 +51,6 @@ app.add_middleware(
 )
 
 
-@app.get("/health")
-async def health_check() -> Dict[str, str]:
-    """Health check endpoint."""
-    return {"status": "healthy", "service": "StockSense AI"}
-
 
 @app.get("/")
 async def root() -> Dict[str, Any]:
@@ -116,9 +111,7 @@ async def analyze_stock(ticker: str) -> Dict[str, Any]:
                 detail="Analysis completed but insufficient data generated"
             )
 
-        print(f"Analysis completed successfully for {ticker}")
 
-        # Return comprehensive response with sources
         return {
             "success": True,
             "ticker": ticker,
@@ -143,7 +136,7 @@ async def analyze_stock(ticker: str) -> Dict[str, Any]:
                         "low": min([p["Low"] for p in price_data]) if price_data else None
                     },
                     "source": "Yahoo Finance",
-                    "chart_data": price_data  # Full price data for charting
+                    "chart_data": price_data 
                 },
                 "ai_analysis": {
                     "model": "Google Gemini 2.5 Flash",
