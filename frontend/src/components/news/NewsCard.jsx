@@ -81,11 +81,9 @@ const NewsCard = () => {
         return 'Invalid date';
       }
       
-      // Format the date to be more readable
       const now = new Date();
       const diffInHours = Math.abs(now - date) / (1000 * 60 * 60);
       
-      // If less than 24 hours ago, show relative time
       if (diffInHours < 24) {
         const diffInMinutes = Math.floor(diffInHours * 60);
         if (diffInMinutes < 60) {
