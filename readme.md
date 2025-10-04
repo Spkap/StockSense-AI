@@ -32,16 +32,24 @@ A modern full-stack application that combines AI analysis with real-time market 
 **DevOps:**
 - GitHub Actions (CI/CD)
 - Docker containerization
+- Render platform deployment
 
 ## CI/CD Pipeline
 
-This project uses **GitHub Actions** for continuous integration and deployment:
+This project uses **GitHub Actions** for continuous integration and **Render** for deployment:
 
 ### Backend CI Pipeline
 - **Automated Testing**: Runs on every push/PR to `main` branch affecting `backend/**`
 - **Environment Setup**: Configures Python 3.11 and PostgreSQL test database
+- **Dependency Management**: Installs requirements and runs database migrations
 - **Test Execution**: Runs Django test suite with coverage reporting
 - **Firebase Integration**: Handles Firebase configuration for test environments
+
+### Frontend CI/CD Pipeline
+- **Automated Deployment**: Deploys on every push to `main` branch affecting `frontend/**`
+- **Build Process**: Uses Vite for optimized production builds with asset bundling
+- **Environment Configuration**: Manages Firebase and API keys through Render environment variables
+- **Static Site Hosting**: Serves React SPA with proper routing fallbacks on Render
 
 
 ## Usage
