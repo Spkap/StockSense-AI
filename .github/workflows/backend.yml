@@ -78,6 +78,11 @@ jobs:
         - name: Checkout code
           uses: actions/checkout@v4
 
+        - name: Install Docker
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y docker.io
+
         - name: Build Docker image
           run: |
             docker build -t stocksense:latest backend/
@@ -104,6 +109,7 @@ jobs:
         - name: Deploy to EC2
           run: |
             ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "\
+              aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPO }} < /dev/null && \
               docker pull ${{ secrets.ECR_REPO }}:latest && \
               docker stop stocksense || true && \
               docker rm stocksense || true && \
