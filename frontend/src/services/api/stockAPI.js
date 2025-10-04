@@ -1,7 +1,7 @@
 import apiClient from './client.js';
 
 
-const BASE_URL = 'https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY';
+const BASE_URL = import.meta.env.VITE_STOCK_API_URL || 'https://www.alphavantage.co/query';
 const API_KEY = import.meta.env.ALPHAVANTAGE_API_KEY 
 
 // Stock API calls

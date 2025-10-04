@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { watchlistAPI } from './watchlistAPI.js';
 
-const BASE_URL = "https://api.marketaux.com/v1/news/all";
-const API_KEY = import.meta.env.VITE_NEWS_API_KEY || "6yyYvWSSdkRBahc8YO8Uusz9zM03hea3ebrQVSuY";
+const BASE_URL = import.meta.env.VITE_NEWS_API_URL;
+const API_KEY = import.meta.env.VITE_NEWS_API_KEY;
 
 // Get user's watchlist stock symbols
 const getUserWatchlistSymbols = async () => {
