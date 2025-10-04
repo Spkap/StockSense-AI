@@ -8,8 +8,8 @@ ai_dir = os.path.dirname(current_dir)
 stocksense_dir = os.path.dirname(ai_dir)
 sys.path.append(stocksense_dir)
 
-from stocksense.core.config import get_chat_llm, ConfigurationError
-from stocksense.data.collectors.data_collectors import get_news
+from core.config import get_chat_llm, ConfigurationError
+from data.collectors.data_collectors import get_news
 
 
 def analyze_sentiment_of_headlines(news: List[Dict]) -> str:

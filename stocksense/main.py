@@ -11,8 +11,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from stocksense.core.config import validate_configuration, ConfigurationError
-from stocksense.ai.react_agent import run_react_analysis
+from core.config import validate_configuration, ConfigurationError
+from ai.react_agent import run_react_analysis
 
 
 @asynccontextmanager
@@ -169,12 +169,3 @@ async def analyze_stock(ticker: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-if __name__ == "__main__":
-    print("Starting StockSense AI Analysis API server...")
-    uvicorn.run(
-        app,  
-        host="localhost",
-        port=8000,
-        reload=False, 
-        log_level="info"
-    )

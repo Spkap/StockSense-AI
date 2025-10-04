@@ -5,6 +5,7 @@ export const watchlistAPI = {
   getWatchlist: async () => {
     try {
       const response = await apiClient.get('/watchlists/');
+      console.log('Watchlist response:', response.data);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.detail || 'Failed to get watchlist');

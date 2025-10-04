@@ -1,0 +1,25 @@
+# FastAPI and web server dependencies
+fastapi==0.115.13
+uvicorn==0.34.3
+
+# Data collection dependencies
+yfinance==0.2.63
+newsapi-python==0.2.7
+
+# AI and LangChain dependencies
+langchain-google-genai==2.0.10
+langchain-core==0.3.65
+langgraph==0.4.8
+
+# Configuration and utilities
+python-dotenv==1.1.0
+
+# Google AI dependencies (required by langchain-google-genai)
+google-generativeai==0.8.5
+google-api-core==2.25.1
+google-auth==2.40.3
+
+# Core dependencies (automatically included by above packages)
+pydantic==2.11.7
+typing-extensions==4.14.0
+requests==2.32.4

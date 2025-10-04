@@ -1,0 +1,11 @@
+# .dockerignore - for development builds
+Dockerfile
+.git
+.gitignore
+README.md
+__pycache__
+*.pyc
+.pytest_cache
+node_modules
+.vscode
+.idea

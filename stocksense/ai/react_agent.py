@@ -14,9 +14,9 @@ ai_dir = os.path.dirname(current_dir)
 stocksense_dir = os.path.dirname(ai_dir)
 sys.path.append(stocksense_dir)
 
-from stocksense.core.config import get_chat_llm
-from stocksense.data.collectors.data_collectors import get_news, get_price_history
-from stocksense.ai.analyzer import analyze_sentiment_of_headlines
+from core.config import get_chat_llm
+from data.collectors.data_collectors import get_news, get_price_history
+from ai.analyzer import analyze_sentiment_of_headlines
 
 class AgentState(TypedDict):
     """
