@@ -25,14 +25,16 @@ A modern full-stack application that combines AI analysis with real-time market 
 - PostgreSQL database
 
 **AI Engine:**
+- LangChain Agents
 - Google Gemini AI
 - NewsAPI integration
 - Yahoo Finance data
 
 **DevOps:**
-- GitHub Actions (CI/CD)
-- Docker containerization
-- Render platform deployment
+- GitHub Actions
+- AWS ECR and ECS
+- Docker
+- Render 
 
 ## CI/CD Pipeline
 
