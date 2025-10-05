@@ -36,15 +36,18 @@ A modern full-stack application that combines AI analysis with real-time market 
 
 ## CI/CD Pipeline
 
-This project uses **GitHub Actions** for CI/CD:
+This project uses **GitHub Actions** for automated CI/CD with comprehensive testing and deployment:
 
 ### Backend CI/CD Pipeline
 - **Automated Testing**: Runs on every push/PR to `main` branch affecting `backend/**`
 - **Environment Setup**: Configures Python 3.11 and PostgreSQL test database
 - **Dependency Management**: Installs requirements and runs database migrations
 - **Test Execution**: Runs Django test suite with coverage reporting
-- **Firebase Integration**: Handles Firebase configuration for test environments
-- **EC2 Deployment**: Automatically deploys to AWS EC2 instances after successful testing
+- **Docker Containerization**: Builds Docker images and pushes to Amazon ECR
+- **EC2 Deployment**: Automatically deploys containerized backend to AWS EC2 instances
+- **Health Checks**: Validates deployment with automated health endpoint testing
+- **HTTPS Security**: Uses nginx reverse proxy to convert HTTP to HTTPS traffic
+- **Environment Configuration**: Manages Firebase and database secrets through GitHub Actions
 
 ### Frontend CI/CD Pipeline
 - **Automated Deployment**: Deploys on every push to `main` branch affecting `frontend/**`
@@ -53,8 +56,14 @@ This project uses **GitHub Actions** for CI/CD:
 
 ### AI-Service CI/CD Pipeline
 - **Automated Deployment**: Triggers on changes to `stocksense/**` directory structure
-- **FastAPI Integration**: Deploys Python-based AI microservice.
-- **EC2 Deployment**: Automatically Deploys to AWS EC2 instance for AI processing workloads
+- **FastAPI Integration**: Deploys Python-based AI microservice
+- **EC2 Deployment**: Automatically deploys to AWS EC2 instance for AI processing workloads
+
+### Infrastructure & Security
+- **nginx Reverse Proxy**: Converts HTTP traffic to HTTPS for secure communication
+- **Docker Images**: All services run as containerized applications for consistency
+- **AWS Integration**: Uses ECR for image storage and EC2 for compute resources
+- **Secrets Management**: Secure handling of API keys and credentials via GitHub Secrets
 
 
 ## Usage
