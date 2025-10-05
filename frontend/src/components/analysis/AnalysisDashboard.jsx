@@ -17,13 +17,10 @@ const AnalysisDashboard = ({ stock, onClose, analysisData, loading }) => {
           background: 'rgba(0, 0, 0, 0.7)'
         }}
       >
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-600 shadow-2xl max-w-lg w-full p-8">
+        <div className="bg-black border border-white rounded-2xl shadow-2xl max-w-md w-full p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                {stock?.symbol}
-              </div>
               <div>
                 <h3 className="text-xl font-bold text-white">AI Stock Analysis</h3>
                 <p className="text-slate-400 text-sm">Analysis in Progress</p>
@@ -48,53 +45,10 @@ const AnalysisDashboard = ({ stock, onClose, analysisData, loading }) => {
               </div>
             </div>
             
-            {/* Progress Indicator */}
-            <div className="mb-6">
-              <div className="flex justify-center mb-3">
-                <span className="text-blue-400 text-sm font-medium">GATHERING NEWS SENTIMENT</span>
-              </div>
-              <div className="w-full bg-slate-700 rounded-full h-2">
-                <div className="bg-gradient-to-r from-pink-500 to-blue-500 h-2 rounded-full animate-pulse" style={{width: '70%'}}></div>
-              </div>
-            </div>
-            
-            {/* Status Steps */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-green-400">Market Data Collected</span>
-                </div>
-                <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-green-400">News Analysis Complete</span>
-                </div>
-                <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                  <span className="text-blue-400">Processing AI Analysis</span>
-                </div>
-                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            </div>
             
             <div className="mt-8">
               <p className="text-white font-semibold mb-1">
                 Analyzing {stock?.symbol}...
-              </p>
-              <p className="text-slate-400 text-sm">
-                Generating comprehensive market insights
               </p>
             </div>
           </div>
@@ -123,7 +77,7 @@ const AnalysisDashboard = ({ stock, onClose, analysisData, loading }) => {
             background: 'rgba(0, 0, 0, 0.7)'
           }}
         >
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-600 shadow-2xl max-w-lg w-full p-8">
+          <div className = "bg-black border border-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
                 <div className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
@@ -441,21 +395,16 @@ const AnalysisDashboard = ({ stock, onClose, analysisData, loading }) => {
         background: 'rgba(0, 0, 0, 0.7)'
       }}
     >
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-600 shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-black border border-white centered-modal rounded-2xl shadow-2xl w-full max-w-4xl" key={modalKey}>
         {/* Header - Always at top */}
 
         {/* Scrollable Content */}
         <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
           <div className="p-6 space-y-6">
           {/* Investment Verdict Card */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-700 rounded-xl border border-slate-600 shadow-lg">
+          <div className="bg-black rounded-xl border border-white shadow-lg">
             <div className="p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                </div>
                 <h3 className="text-xl font-bold text-white">Investment Verdict</h3>
               </div>
               <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
@@ -485,14 +434,9 @@ const AnalysisDashboard = ({ stock, onClose, analysisData, loading }) => {
 
           {/* AI Analysis Summary Card - Moved to top */}
           {analysisData?.analysis?.summary && (
-            <div className="bg-gradient-to-br from-slate-800 to-slate-700 rounded-xl border border-slate-600 shadow-lg">
+            <div className="bg-black rounded-xl border border-white shadow-lg">
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
                   <h3 className="text-xl font-bold text-white">AI Analysis Summary</h3>
                 </div>
                 <div className="text-slate-200 leading-relaxed">
@@ -511,15 +455,9 @@ const AnalysisDashboard = ({ stock, onClose, analysisData, loading }) => {
 
           {/* Market Sentiment Card */}
           {analysisData?.analysis?.sentiment_report && (
-            <div className="bg-gradient-to-br from-slate-800 to-slate-700 rounded-xl border border-slate-600 shadow-lg">
+            <div className="bg-black rounded-xl border border-white shadow-lg">
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
-                      <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
-                    </svg>
-                  </div>
                   <h3 className="text-xl font-bold text-white">Market Sentiment</h3>
                 </div>
                 <div className="text-slate-200 leading-relaxed">
@@ -531,15 +469,9 @@ const AnalysisDashboard = ({ stock, onClose, analysisData, loading }) => {
 
           {/* Recent Headlines Card */}
           {analysisData?.data_sources?.news_headlines?.headlines && (
-            <div className="bg-gradient-to-br from-slate-800 to-slate-700 rounded-xl border border-slate-600 shadow-lg">
+            <div className="bg-black rounded-xl border border-white shadow-lg">
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-orange-600 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M2 5a2 2 0 012-2h8a2 2 0 012 2v10a2 2 0 002 2H4a2 2 0 01-2-2V5zm3 1h6v4H5V6zm6 6H5v2h6v-2z" clipRule="evenodd" />
-                      <path d="M15 7h1a2 2 0 012 2v5.5a1.5 1.5 0 01-3 0V7z" />
-                    </svg>
-                  </div>
                   <h3 className="text-xl font-bold text-white">Recent News Headlines</h3>
                 </div>
                 <div className="space-y-4">
