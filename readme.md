@@ -52,6 +52,7 @@ This project uses **GitHub Actions** for automated CI/CD with comprehensive test
 ### Frontend CI/CD Pipeline
 - **Automated Deployment**: Deploys on every push to `main` branch affecting `frontend/**`
 - **Build Process**: Uses Vite for optimized production builds with asset bundling
+- **Deploy Hook Automation**: GitHub Actions workflow automatically triggers Render deployment using secure deploy hooks
 - **Environment Configuration**: Manages Firebase and API keys through Render environment variables
 
 ### AI-Service CI/CD Pipeline
