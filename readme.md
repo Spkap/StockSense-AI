@@ -13,28 +13,6 @@ A modern full-stack application that combines AI analysis with real-time market 
 - **Django REST API** - Robust backend with comprehensive endpoints
 - **CI/CD Pipeline** - Automated testing and deployment with GitHub Actions
 
-## Tech Stack
-
-**Frontend:**
-- React + Vite
-- Firebase Authentication
-
-**Backend:**
-- Django REST Framework
-- Firebase Admin SDK
-- PostgreSQL database
-
-**AI Engine:**
-- LangChain Agents
-- Google Gemini AI
-- NewsAPI integration
-- Yahoo Finance data
-
-**DevOps:**
-- GitHub Actions
-- AWS ECR and ECS
-- Docker
-- Render 
 
 ## CI/CD Pipeline
 
@@ -67,6 +45,40 @@ This project uses **GitHub Actions** for automated CI/CD with comprehensive test
 - **Docker Images**: All services run as containerized applications for consistency
 - **AWS Integration**: Uses ECR for image storage and EC2 for compute resources
 - **Secrets Management**: Secure handling of API keys and credentials via GitHub Secrets
+
+## AI Agent Architecture
+
+The StockSense AI Agent is built using the **ReAct (Reasoning + Acting) pattern** with **LangGraph** for sophisticated stock analysis workflows.
+
+### Core Components
+
+**ReAct Agent Engine**
+- **LangGraph State Management**: Maintains conversation state and tool execution history
+- **Google Gemini 2.5 Flash**: Primary LLM for reasoning and analysis
+- **Tool Orchestration**: Systematically executes analysis tools in logical sequence
+- **Iterative Reasoning**: Up to 8 reasoning cycles for comprehensive analysis
+
+**Data Collection Tools**
+- **News Headlines Fetcher**: Retrieves recent news articles using NewsAPI
+- **Price Data Collector**: Fetches historical stock prices via Yahoo Finance
+- **Sentiment Analyzer**: AI-powered sentiment analysis of news headlines
+
+**Analysis Workflow**
+1. **News Collection**: Fetches recent headlines (7-day lookback)
+2. **Price Data Retrieval**: Gathers historical price movements
+3. **Sentiment Analysis**: Analyzes news sentiment with detailed justifications
+4. **Comprehensive Summary**: Generates final investment recommendation
+
+
+### Analysis Output
+
+Each AI analysis provides:
+- **Investment Recommendation**: Clear BUY/SELL/HOLD decision
+- **Sentiment Report**: Detailed news sentiment breakdown
+- **Price Trend Analysis**: Historical price movement insights
+- **Reasoning Steps**: Transparent decision-making process
+- **Tool Usage Tracking**: Complete audit trail of analysis steps
+- **Confidence Metrics**: Analysis quality indicators
 
 
 ## Usage
