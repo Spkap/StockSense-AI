@@ -13,6 +13,76 @@ A modern full-stack application that combines AI analysis with real-time market 
 - **Django REST API** - Robust backend with comprehensive endpoints
 - **CI/CD Pipeline** - Automated testing and deployment with GitHub Actions
 
+##  Architecture
+
+StockSense follows a **microservices architecture** with three main services working together to deliver comprehensive stock analysis capabilities.
+
+### System Overview
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │   Backend API   │    │   AI Service    │
+│   (React)       │◄──►│   (Django)      │◄──►│   (FastAPI)     │
+│                 │    │                 │    │                 │
+│ • React 18      │    │ • Django REST   │    │ • Google Gemini │
+│ • Vite          │    │ • PostgreSQL    │    │ • LangGraph     │
+│ • TailwindCSS   │    │ • Firebase Auth │    │ • NewsAPI       │
+│ • Axios         │    │ • CORS          │    │ • Yahoo Finance │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Render        │    │   AWS EC2       │    │   AWS EC2       │
+│   (Frontend)    │    │   (Backend)     │    │   (AI Agent)    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### Architecture Components
+
+**Frontend Layer (React + Vite)**
+- **User Interface**: Modern React 18 application with responsive design
+- **State Management**: Context API for global state and user authentication
+- **Routing**: React Router for single-page application navigation
+- **Styling**: TailwindCSS for utility-first styling and dark/light themes
+- **API Communication**: Axios for HTTP requests to backend services
+- **Authentication**: Firebase SDK for user management and session handling
+
+**Backend API Layer (Django REST Framework)**
+- **RESTful API**: Comprehensive endpoints for user data, watchlists, and stock management
+- **Database**: PostgreSQL for reliable data persistence and ACID compliance
+- **Authentication**: Firebase Admin SDK for token verification and user validation
+- **CORS Configuration**: Cross-origin resource sharing for frontend communication
+- **Data Models**: User profiles, watchlists, stock symbols, and analysis history
+- **Business Logic**: Portfolio management, user preferences, and data aggregation
+
+**AI Service Layer (FastAPI + LangGraph)**
+- **ReAct Agent**: Sophisticated reasoning and acting pattern for stock analysis
+- **LLM Integration**: Google Gemini 2.5 Flash for natural language processing
+- **Data Sources**: 
+  - NewsAPI for real-time financial news
+  - Yahoo Finance for historical stock data
+  - Sentiment analysis for market sentiment
+- **Workflow Engine**: LangGraph for managing complex analysis workflows
+- **Tool Orchestration**: Coordinated execution of data collection and analysis tools
+
+
+### Deployment Architecture
+
+**Multi-Environment Deployment**
+- **Frontend**: Deployed on Render with automatic GitHub integration
+- **Backend**: Containerized Django app on AWS EC2 with nginx reverse proxy
+- **AI Service**: Containerized FastAPI app on separate AWS EC2 instance
+- **Database**: AWS RDS PostgreSQL for production data storage
+- **Storage**: AWS ECR for Docker image management
+
+**Infrastructure Features**
+- **Load Balancing**: nginx for HTTPS termination and request routing
+- **Containerization**: Docker for consistent deployment environments
+- **CI/CD Integration**: GitHub Actions for automated testing and deployment
+- **Security**: Environment variables and secrets management via GitHub Actions
+- **Monitoring**: Health checks and logging across all services
+
+
 
 ## CI/CD Pipeline
 
