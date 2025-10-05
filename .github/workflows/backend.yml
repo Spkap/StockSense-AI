@@ -94,7 +94,24 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
         with:
           registry-type: private
-       
+      
+      - name: Create .env file
+        run: |
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> backend/.env
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> backend/.env
+          echo "DEBUG=${{ secrets.DEBUG }}" >> backend/.env
+          echo "FIREBASE_TYPE=${{ secrets.FIREBASE_TYPE }}" >> backend/.env
+          echo "FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> backend/.env
+          echo "FIREBASE_PRIVATE_KEY_ID=${{ secrets.FIREBASE_PRIVATE_KEY_ID }}" >> backend/.env
+          echo "FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}" >> backend/.env
+          echo "FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}" >> backend/.env
+          echo "FIREBASE_CLIENT_ID=${{ secrets.FIREBASE_CLIENT_ID }}" >> backend/.env
+          echo "FIREBASE_AUTH_URI=${{ secrets.FIREBASE_AUTH_URI }}" >> backend/.env
+          echo "FIREBASE_TOKEN_URI=${{ secrets.FIREBASE_TOKEN_URI }}" >> backend/.env
+          echo "FIREBASE_AUTH_PROVIDER_X509_CERT_URL=${{ secrets.FIREBASE_AUTH_PROVIDER_X509_CERT_URL }}" >> backend/.env
+          echo "FIREBASE_CLIENT_X509_CERT_URL=${{ secrets.FIREBASE_CLIENT_X509_CERT_URL }}" >> backend/.env
+          echo "FIREBASE_UNIVERSE_DOMAIN=${{ secrets.FIREBASE_UNIVERSE_DOMAIN }}" >> backend/.env
+          echo "FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> backend/.env
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -118,4 +135,40 @@ jobs:
             docker pull ${{ secrets.ECR_REPO }}:latest && \
             docker stop stocksense || true && \
             docker rm stocksense || true && \
-            docker run -d -p 8000:8000 --name stocksense ${{ secrets.ECR_REPO }}:latest"
+            docker run -d -p 8000:8000 --name stocksense \
+            -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
+            -e SECRET_KEY='${{ secrets.SECRET_KEY }}' \
+            -e DEBUG='${{ secrets.DEBUG }}' \
+            -e FIREBASE_TYPE='${{ secrets.FIREBASE_TYPE }}' \
+            -e FIREBASE_PROJECT_ID='${{ secrets.FIREBASE_PROJECT_ID }}' \
+            -e FIREBASE_PRIVATE_KEY_ID='${{ secrets.FIREBASE_PRIVATE_KEY_ID }}' \
+            -e FIREBASE_PRIVATE_KEY='${{ secrets.FIREBASE_PRIVATE_KEY }}' \
+            -e FIREBASE_CLIENT_EMAIL='${{ secrets.FIREBASE_CLIENT_EMAIL }}' \
+            -e FIREBASE_CLIENT_ID='${{ secrets.FIREBASE_CLIENT_ID }}' \
+            -e FIREBASE_AUTH_URI='${{ secrets.FIREBASE_AUTH_URI }}' \
+            -e FIREBASE_TOKEN_URI='${{ secrets.FIREBASE_TOKEN_URI }}' \
+            -e FIREBASE_AUTH_PROVIDER_X509_CERT_URL='${{ secrets.FIREBASE_AUTH_PROVIDER_X509_CERT_URL }}' \
+            -e FIREBASE_CLIENT_X509_CERT_URL='${{ secrets.FIREBASE_CLIENT_X509_CERT_URL }}' \
+            -e FIREBASE_UNIVERSE_DOMAIN='${{ secrets.FIREBASE_UNIVERSE_DOMAIN }}' \
+            -e FIREBASE_STORAGE_BUCKET='${{ secrets.FIREBASE_STORAGE_BUCKET }}' \
+            ${{ secrets.ECR_REPO }}:latest"
+
+      - name: Health Check
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "\
+            echo 'Waiting for container to start...' && \
+            sleep 30 && \
+            echo 'Checking container status...' && \
+            docker ps | grep stocksense && \
+            echo 'Testing health endpoint...' && \
+            RESPONSE=\$(curl -s -w '%{http_code}' http://localhost:8000/ 2>/dev/null); \
+            HTTP_CODE=\${RESPONSE: -3}; \
+            BODY=\${RESPONSE%???}; \
+            if [ \"\$HTTP_CODE\" = \"200\" ]; then \
+              echo 'Health check passed!'; \
+              echo 'Response: '\$BODY; \
+            else \
+              echo 'Health check failed (HTTP \$HTTP_CODE)'; \
+              docker logs stocksense --tail 50; \
+              exit 1; \
+            fi"
