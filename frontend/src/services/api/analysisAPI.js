@@ -27,7 +27,7 @@ export const analysisAPI = {
   // Get historical analysis
   getAnalysisHistory: async (ticker, limit = 10) => {
     try {
-      const aiApiUrl = import.meta.env.VITE_AI_API_URL || 'http://localhost:8001';
+      const aiApiUrl = import.meta.env.VITE_AI_API_URL;
       const response = await axios.get(`${aiApiUrl}/analysis/history/${ticker}?limit=${limit}`);
       return response.data;
     } catch (error) {
@@ -39,7 +39,7 @@ export const analysisAPI = {
   // Get analysis status
   getAnalysisStatus: async (analysisId) => {
     try {
-      const aiApiUrl = import.meta.env.VITE_AI_API_URL || 'http://localhost:8001';
+      const aiApiUrl = import.meta.env.VITE_AI_API_URL;
       const response = await axios.get(`${aiApiUrl}/analysis/status/${analysisId}`);
       return response.data;
     } catch (error) {
@@ -51,7 +51,7 @@ export const analysisAPI = {
   // Cancel ongoing analysis
   cancelAnalysis: async (analysisId) => {
     try {
-      const aiApiUrl = import.meta.env.VITE_AI_API_URL || 'http://localhost:8001';
+      const aiApiUrl = import.meta.env.VITE_AI_API_URL;
       const response = await axios.post(`${aiApiUrl}/analysis/cancel/${analysisId}`);
       return response.data;
     } catch (error) {
@@ -63,7 +63,7 @@ export const analysisAPI = {
   // Get market summary analysis
   getMarketSummary: async () => {
     try {
-      const aiApiUrl = import.meta.env.VITE_AI_API_URL || 'http://localhost:8001';
+      const aiApiUrl = import.meta.env.VITE_AI_API_URL;
       const response = await axios.get(`${aiApiUrl}/market/summary`);
       return response.data;
     } catch (error) {
