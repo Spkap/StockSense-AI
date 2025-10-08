@@ -42,6 +42,7 @@ def fetch_news_headlines(ticker: str, days: int = 7) -> Dict:
         Dictionary with headlines and metadata
     """
     try:
+        ticker = ticker.upper().strip()
         headlines = get_news(ticker, days=days)
         return {
             "success": True,
@@ -55,7 +56,9 @@ def fetch_news_headlines(ticker: str, days: int = 7) -> Dict:
             "success": False,
             "error": str(e),
             "headlines": [],
-            "count": 0
+            "count": 0,
+            "ticker": ticker.upper().strip() if isinstance(ticker, str) else None,
+            "days": days
         }
 
 
@@ -72,13 +75,18 @@ def fetch_price_data(ticker: str, period: str = "1mo") -> Dict:
         Dictionary with structured price data and metadata
     """
     try:
+        ticker = ticker.upper().strip()
         df = get_price_history(ticker, period=period)
-        
+
         if df is None or df.empty:
             return {
                 "success": False,
                 "error": "No price data available",
-                "price_data": []
+                "price_data": [],
+                "ticker": ticker,
+                "period": period,
+                "data_points": 0,
+                "has_data": False
             }
         
         # Convert DataFrame to list of dictionaries with structured OHLCV data
@@ -110,7 +118,11 @@ def fetch_price_data(ticker: str, period: str = "1mo") -> Dict:
         return {
             "success": False,
             "error": str(e),
-            "price_data": []
+            "price_data": [],
+            "ticker": ticker.upper().strip() if isinstance(ticker, str) else None,
+            "period": period,
+            "data_points": 0,
+            "has_data": False
         }
 
 
@@ -186,7 +198,7 @@ tools = [
 def create_react_agent() -> StateGraph:
 
     llm = get_chat_llm(
-        model="gemini-1.5-flash",
+        model="gemini-2.5-flash-lite",
         temperature=0.1,
         max_output_tokens=1024
     )
