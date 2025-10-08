@@ -13,14 +13,14 @@ StockSense is an autonomous stock analysis system implementing the **ReAct (Reas
 
 ## Overview
 
-StockSense demonstrates an applied AI agent architecture using LangGraph + LangChain tools. It combines recent news headlines (NewsAPI) and historical market data (Yahoo Finance via yfinance) with Gemini-based sentiment analysis to produce a lightweight research snapshot. The agent maintains internal state (messages, tool usage, reasoning steps) across iterations until completion criteria are met or a max-iteration limit is reached.
+StockSense demonstrates an applied AI agent architecture using LangGraph + LangChain tools. It combines recent news headlines (NewsAPI) and historical market data (Yahoo Finance via yfinance) with Gemini-based sentiment analysis (Gemini 2.0 Flash Lite) to produce a lightweight research snapshot. The agent maintains internal state (messages, tool usage, reasoning steps) across iterations until completion criteria are met or a max-iteration limit is reached.
 
 ### Key Characteristics
 
 - **ReAct Agent**: Iterative reasoning cycle with tool calls (news, price data, sentiment, persistence)
 - **Backend API**: FastAPI service exposing analysis endpoints and cached result retrieval
 - **Frontend App**: Streamlit dashboard for interactive analysis + visualization
-- **LLM Integration**: Google Gemini 1.5 Flash (chat + text variants) via `langchain-google-genai`
+- **LLM Integration**: Google Gemini 2.0 Flash Lite (chat + text variants) via `langchain-google-genai`
 - **Stateful Orchestration**: LangGraph `StateGraph` with conditional continuation
 - **Caching Layer**: Lightweight SQLite persistence (custom functions, no ORM layer)
 
@@ -28,16 +28,16 @@ StockSense demonstrates an applied AI agent architecture using LangGraph + LangC
 
 ### Technology Stack
 
-| Layer            | Technology                              | Purpose                             |
-| ---------------- | --------------------------------------- | ----------------------------------- |
-| **LLM / AI**     | Google Gemini 1.5 Flash (LangChain)     | Sentiment & reasoning               |
-| **Agent Graph**  | LangGraph (StateGraph)                  | Iterative reasoning & tool routing  |
-| **Tool Layer**   | LangChain `@tool` functions             | News, price, sentiment, persistence |
-| **Backend**      | FastAPI + Uvicorn                       | REST API (analysis, cache, health)  |
-| **Frontend**     | Streamlit                               | Interactive dashboard & charts      |
-| **Persistence**  | SQLite (custom helper functions)        | Cached analyses                     |
-| **Data Sources** | NewsAPI + yfinance (Yahoo Finance data) | Headlines + OHLCV price history     |
-| **Config / Env** | `python-dotenv`                         | API key management                  |
+| Layer            | Technology                               | Purpose                             |
+| ---------------- | ---------------------------------------- | ----------------------------------- |
+| **LLM / AI**     | Google Gemini 2.0 Flash Lite (LangChain) | Sentiment & reasoning               |
+| **Agent Graph**  | LangGraph (StateGraph)                   | Iterative reasoning & tool routing  |
+| **Tool Layer**   | LangChain `@tool` functions              | News, price, sentiment, persistence |
+| **Backend**      | FastAPI + Uvicorn                        | REST API (analysis, cache, health)  |
+| **Frontend**     | Streamlit                                | Interactive dashboard & charts      |
+| **Persistence**  | SQLite (custom helper functions)         | Cached analyses                     |
+| **Data Sources** | NewsAPI + yfinance (Yahoo Finance data)  | Headlines + OHLCV price history     |
+| **Config / Env** | `python-dotenv`                          | API key management                  |
 
 ### ReAct Agent Workflow
 
@@ -93,7 +93,7 @@ Note: No Dockerfiles or docker-compose file are present in the repository at thi
 
 - Recent headline aggregation (NewsAPI)
 - Historical OHLCV price retrieval (yfinance)
-- Per-headline sentiment request + overall summary (Gemini 1.5 Flash)
+- Per-headline sentiment request + overall summary (Gemini 2.0 Flash Lite)
 - Fallback keyword-based sentiment visualization heuristic
 
 ### Infrastructure
