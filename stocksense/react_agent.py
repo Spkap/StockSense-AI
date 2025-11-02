@@ -42,20 +42,35 @@ def fetch_news_headlines(ticker: str, days: int = 7) -> Dict:
         Dictionary with headlines and metadata
     """
     try:
+        ticker = ticker.upper().strip()
         headlines = get_news(ticker, days=days)
-        return {
-            "success": True,
-            "headlines": headlines,
-            "count": len(headlines),
-            "ticker": ticker,
-            "days": days
-        }
+
+        # Consider retrieval successful only if we have at least one headline.
+        if headlines:
+            return {
+                "success": True,
+                "headlines": headlines,
+                "count": len(headlines),
+                "ticker": ticker,
+                "days": days
+            }
+        else:
+            return {
+                "success": False,
+                "error": "No headlines found",
+                "headlines": [],
+                "count": 0,
+                "ticker": ticker,
+                "days": days
+            }
     except Exception as e:
         return {
             "success": False,
             "error": str(e),
             "headlines": [],
-            "count": 0
+            "count": 0,
+            "ticker": ticker.upper().strip() if isinstance(ticker, str) else None,
+            "days": days
         }
 
 
@@ -72,13 +87,18 @@ def fetch_price_data(ticker: str, period: str = "1mo") -> Dict:
         Dictionary with structured price data and metadata
     """
     try:
+        ticker = ticker.upper().strip()
         df = get_price_history(ticker, period=period)
-        
+
         if df is None or df.empty:
             return {
                 "success": False,
                 "error": "No price data available",
-                "price_data": []
+                "price_data": [],
+                "ticker": ticker,
+                "period": period,
+                "data_points": 0,
+                "has_data": False
             }
         
         # Convert DataFrame to list of dictionaries with structured OHLCV data
@@ -110,7 +130,11 @@ def fetch_price_data(ticker: str, period: str = "1mo") -> Dict:
         return {
             "success": False,
             "error": str(e),
-            "price_data": []
+            "price_data": [],
+            "ticker": ticker.upper().strip() if isinstance(ticker, str) else None,
+            "period": period,
+            "data_points": 0,
+            "has_data": False
         }
 
 
@@ -186,7 +210,7 @@ tools = [
 def create_react_agent() -> StateGraph:
 
     llm = get_chat_llm(
-        model="gemini-2.0-flash-lite",
+        model="gemini-2.5-flash-lite",
         temperature=0.1,
         max_output_tokens=1024
     )
@@ -401,8 +425,21 @@ The ReAct agent completed analysis using {len(set(state.get('tools_used', [])))}
     return workflow
 
 
-react_workflow = create_react_agent()
-react_app = react_workflow.compile()
+_cached_react_app = None
+
+
+def get_react_app():
+    """Lazily create and compile the ReAct workflow app.
+
+    This avoids constructing the LLM and binding tools at import time so unit
+    tests that only require the tool functions (news/price fetchers) can import
+    this module without needing Google API keys or the optional LLM dependency.
+    """
+    global _cached_react_app
+    if _cached_react_app is None:
+        workflow = create_react_agent()
+        _cached_react_app = workflow.compile()
+    return _cached_react_app
 
 
 def run_react_analysis(ticker: str) -> Dict:
@@ -423,7 +460,8 @@ def run_react_analysis(ticker: str) -> Dict:
     }
 
     try:
-        # Run the ReAct agent
+        # Run the ReAct agent (create/compile lazily to avoid import-time LLM init)
+        react_app = get_react_app()
         final_state = react_app.invoke(initial_state)
 
         # Extract final results

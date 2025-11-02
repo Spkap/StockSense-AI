@@ -10,7 +10,7 @@ def analyze_sentiment_of_headlines(headlines: List[str]) -> str:
             return "No headlines provided for analysis."
 
         llm = get_llm(
-            model="gemini-2.0-flash-lite",
+            model="gemini-2.5-flash-lite",
             temperature=0.3,
             max_output_tokens=2048
         )

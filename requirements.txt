@@ -17,3 +17,4 @@ python-dotenv==1.1.1
 # Additional streamlit dependencies
 altair==5.5.0
 pillow==11.3.0
+SQLAlchemy==2.0.43

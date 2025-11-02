@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from pathlib import Path
 import os
-import sqlite3
+from stocksense.database import init_db
 PLOTLY_AVAILABLE = True
 
 st.set_page_config(
@@ -250,19 +250,58 @@ def check_backend_status() -> bool:
 
 
 def create_styled_header():
-    st.markdown("""
-    <div style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-                padding: 2rem 1rem; border-radius: 10px; margin-bottom: 2rem;">
-        <h1 style="color: white; text-align: center; margin: 0;
-                   text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
-            📈 StockSense AI Agent
-        </h1>
-        <p style="color: #f0f0f0; text-align: center; margin: 0.5rem 0 0 0;
-                  font-size: 1.1rem; opacity: 0.9;">
-            AI-Powered Stock Analysis Using Reasoning & Action
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Use components.html to render raw HTML reliably (avoids Streamlit auto-escaping/formatting)
+    try:
+        import streamlit.components.v1 as components
+
+        header_html = (
+            '<div style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); padding: 1.6rem 1rem; border-radius: 10px; margin-bottom: 1.6rem; position: relative;">'
+            '<div style="position: absolute; top: 0.8rem; right: 0.8rem; display: flex; gap: 0.45rem;">'
+            # Developer profile icon (premium avatar) - link to profile
+            '<a href="https://github.com/spkap" target="_blank" rel="noopener noreferrer" '
+            'title="spkap — GitHub profile" aria-label="GitHub profile (spkap)" role="link" tabindex="0" '
+            'style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; padding:6px; border-radius:20px; background: rgba(255,255,255,0.02); transition: transform 0.12s ease, background 0.12s ease;" '
+            'onmouseover="this.style.background=\'rgba(255,255,255,0.12)\'; this.style.transform=\'scale(1.06)\'" '
+            'onmouseout="this.style.background=\'rgba(255,255,255,0.02)\'; this.style.transform=\'none\'" '
+            'onfocus="this.style.background=\'rgba(255,255,255,0.16)\'; this.style.transform=\'scale(1.06)\'" '
+            'onblur="this.style.background=\'rgba(255,255,255,0.02)\'; this.style.transform=\'none\'">'
+            '<svg width="28" height="28" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+            '<defs><linearGradient id="profgrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1E3A8A"/><stop offset="100%" stop-color="#1E3A8A"/></linearGradient></defs>'
+            '<circle cx="18" cy="18" r="16" fill="url(#profgrad)" />'
+            '<g fill="#ffffff" transform="translate(0,0)" >'
+            '<circle cx="18" cy="13" r="4" />'
+            '<path d="M10 25c1-4 5-6 8-6s7 2 8 6" />'
+            '</g>'
+            '</svg></a>'
+
+            # Repo icon: GitHub mark (octocat) linking to repository
+            '<a href="https://github.com/Spkap/StockSense-AI" target="_blank" rel="noopener noreferrer" '
+            'title="StockSense-AI — repository" aria-label="Repository StockSense-AI" role="link" tabindex="0" '
+            'style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; padding:6px; border-radius:8px; background: rgba(255,255,255,0.02); transition: transform 0.12s ease, background 0.12s ease;" '
+            'onmouseover="this.style.background=\'rgba(255,255,255,0.12)\'; this.style.transform=\'scale(1.06)\'" '
+            'onmouseout="this.style.background=\'rgba(255,255,255,0.02)\'; this.style.transform=\'none\'" '
+            'onfocus="this.style.background=\'rgba(255,255,255,0.14)\'; this.style.transform=\'scale(1.06)\'" '
+            'onblur="this.style.background=\'rgba(255,255,255,0.02)\'; this.style.transform=\'none\'">'
+            '<svg width="20" height="20" viewBox="0 0 16 16" fill="white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+            '<path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />'
+            '</svg></a>'
+
+            '</div>'
+            '<h1 style="color: white; text-align: center; margin: 0; font-size: 1.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">📈 StockSense AI Agent</h1>'
+            '<p style="color: #f0f0f0; text-align: center; margin: 0.35rem 0 0 0; font-size: 1rem; opacity: 0.92;">AI-Powered Stock Analysis Using Reasoning & Action</p>'
+            '</div>'
+        )
+
+        components.html(header_html, height=120)
+    except Exception:
+        # Fallback to the previous safe-styled markdown if components aren't available
+        st.markdown(
+            '<div style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); padding: 1.6rem 1rem; border-radius: 10px; margin-bottom: 1.6rem;">'
+            '<h1 style="color: white; text-align: center; margin: 0; font-size: 1.5rem;">📈 StockSense AI Agent</h1>'
+            '<p style="color: #f0f0f0; text-align: center; margin: 0.35rem 0 0 0; font-size: 1rem;">AI-Powered Stock Analysis Using Reasoning & Action</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
 
 def display_hero_section():
@@ -604,7 +643,7 @@ def display_enhanced_analysis_results(data: Dict[str, Any], ticker: str):
                     sentiment = item.get('sentiment', 'N/A')
                     justification = item.get('justification', 'N/A')
                     
-                    with st.expander(f"� Article {i}: {headline[:80]}..."):
+                    with st.expander(f" Article {i}: {headline[:80]}..."):
                         st.markdown(f"**Headline:** {headline}")
                         st.markdown(f"**Sentiment:** {sentiment}")
                         st.markdown(f"**Analysis:** {justification}")
@@ -897,151 +936,14 @@ def display_key_metrics(ticker: str):
         st.error(f"❌ Unable to fetch real market data for {ticker}")
         st.info("Please verify the ticker symbol and try again.")
 
-
-def clear_database_cache() -> tuple[bool, int | str]:
-    """Clear all cached analysis results from the database.
-
-    Returns (success, rows_deleted_or_error_message)
-    """
-    try:
-        # For Streamlit Cloud, we can't clear the backend database directly
-        # This function is mainly for local development
-        import sqlite3
-        from stocksense.database import _resolve_db_path  # type: ignore
-        db_path = _resolve_db_path()
-        
-        if os.path.exists(db_path):
-            with sqlite3.connect(db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute('DELETE FROM analysis_cache')
-                rows_deleted = cursor.rowcount
-                conn.commit()
-            return True, rows_deleted
-        else:
-            # If no local database exists, assume success (nothing to clear)
-            return True, 0
-            
-    except Exception as e:
-        return False, str(e)
-
-
-def get_cache_stats() -> dict:
-    """Get statistics about cached analysis results via backend API."""
-    try:
-        # Try to get data from backend API first (for Streamlit Cloud)
-        try:
-            response = requests.get(f"{BACKEND_URL}/cached-tickers", timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                tickers = data.get('tickers', [])
-                unique_tickers = len(tickers)
-                total_analyses = sum(ticker.get('count', 1) for ticker in tickers if isinstance(ticker, dict))
-                
-                return {
-                    "total_analyses": total_analyses,
-                    "unique_tickers": unique_tickers,
-                    "db_size_mb": 0,  # Not available via API
-                    "source": "backend_api",
-                    "debug": {"method": "backend_api", "backend_url": BACKEND_URL}
-                }
-        except Exception as api_error:
-            # Fall back to direct database access (for local development)
-            pass
-        
-        # Fallback to direct database access
-        import sqlite3
-        import os
-        from stocksense.database import _resolve_db_path  # type: ignore
-        db_path = _resolve_db_path()
-        
-        # Debug info for troubleshooting
-        debug_info = {
-            "method": "direct_db",
-            "db_path": db_path,
-            "path_exists": os.path.exists(db_path),
-            "file_size_bytes": os.path.getsize(db_path) if os.path.exists(db_path) else 0
-        }
-        
-        if not os.path.exists(db_path):
-            return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": 0, "source": "direct_db", "debug": debug_info}
-        
-        # Get file size
-        db_size_mb = round(os.path.getsize(db_path) / (1024 * 1024), 2)
-        
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            
-            # Check if table exists
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_cache'")
-            if not cursor.fetchone():
-                return {"total_analyses": 0, "unique_tickers": 0, "db_size_mb": db_size_mb, "source": "direct_db", "debug": debug_info}
-            
-            # Get total analyses
-            cursor.execute('SELECT COUNT(*) FROM analysis_cache')
-            total_analyses = cursor.fetchone()[0]
-            
-            # Get unique tickers
-            cursor.execute('SELECT COUNT(DISTINCT ticker) FROM analysis_cache')
-            unique_tickers = cursor.fetchone()[0]
-            
-            return {
-                "total_analyses": total_analyses,
-                "unique_tickers": unique_tickers,
-                "db_size_mb": db_size_mb,
-                "source": "direct_db",
-                "debug": debug_info
-            }
-            
-    except Exception as e:
-        return {
-            "total_analyses": 0, 
-            "unique_tickers": 0, 
-            "db_size_mb": 0, 
-            "error": str(e), 
-            "source": "error",
-            "debug": {"method": "error", "error": str(e)}
-        }
-
-
 def get_cached_tickers() -> list:
     """Get list of all cached ticker symbols via backend API."""
     try:
-        # Try to get data from backend API first (for Streamlit Cloud)
-        try:
-            response = requests.get(f"{BACKEND_URL}/cached-tickers", timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('tickers', [])
-        except Exception:
-            # Fall back to direct database access (for local development)
-            pass
-        
-        # Fallback to direct database access
-        import sqlite3
-        from stocksense.database import _resolve_db_path  # type: ignore
-        db_path = _resolve_db_path()
-        
-        if not os.path.exists(db_path):
-            return []
-        
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            
-            # Check if table exists
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_cache'")
-            if not cursor.fetchone():
-                return []
-            
-            cursor.execute('''
-                SELECT DISTINCT ticker, MAX(timestamp) as latest_timestamp, COUNT(*) as analysis_count
-                FROM analysis_cache 
-                GROUP BY ticker 
-                ORDER BY latest_timestamp DESC
-            ''')
-            
-            results = cursor.fetchall()
-            return [{"ticker": result[0], "latest": result[1], "count": result[2]} for result in results]
-            
+        response = requests.get(f"{BACKEND_URL}/cached-tickers", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('tickers', [])
+        return []
     except Exception as e:
         return []
 
@@ -1106,100 +1008,6 @@ def display_sidebar():
 
         st.markdown("---")
         
-        # Cache Management Section
-        st.markdown("### 💾 Cache Management")
-        
-        # Force refresh cache stats (no @st.cache_data to ensure fresh data)
-        if st.button("🔄 Refresh Cache Stats", help="Force refresh cache statistics"):
-            st.rerun()
-        
-        # Get cache statistics
-        cache_stats = get_cache_stats()
-        
-        if cache_stats.get("error"):
-            st.error(f"❌ Cache error: {cache_stats['error']}")
-        else:
-            # Display cache statistics in a nice format
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("📊 Total Analyses", cache_stats["total_analyses"])
-            with col2:
-                st.metric("🎯 Unique Stocks", cache_stats["unique_tickers"])
-            
-            if cache_stats["db_size_mb"] > 0:
-                st.metric("💾 Database Size", f"{cache_stats['db_size_mb']} MB")
-            
-            # Show debug info in expandable section
-            debug_info = cache_stats.get("debug", {})
-            source = cache_stats.get("source", "unknown")
-            with st.expander("🔍 Debug Info", expanded=False):
-                st.code(f"""
-Data Source: {source}
-Method: {debug_info.get('method', 'unknown')}
-Backend URL: {debug_info.get('backend_url', BACKEND_URL)}
-Database Path: {debug_info.get('db_path', 'N/A')}
-Path Exists: {debug_info.get('path_exists', 'N/A')}
-File Size: {debug_info.get('file_size_bytes', 0)} bytes
-                """.strip())
-            
-            # Clear cache section
-            if cache_stats["total_analyses"] > 0:
-                with st.expander("🗑️ Clear Cache", expanded=False):
-                    source = cache_stats.get("source", "unknown")
-                    
-                    if source == "backend_api":
-                        st.warning("⚠️ **Streamlit Cloud Limitation**: Cache clearing is not available when using the backend API. The cache is managed by the backend service and will expire automatically over time.")
-                        st.info("💡 **Note**: The backend cache helps improve performance by avoiding repeated API calls for the same stock analysis.")
-                    else:
-                        st.markdown(f"""
-                        **Current Cache Status:**
-                        - {cache_stats['total_analyses']} cached analyses
-                        - {cache_stats['unique_tickers']} different stocks
-                        - {cache_stats['db_size_mb']} MB database size
-                        """)
-                        
-                        # Show cached tickers
-                        cached_tickers = get_cached_tickers()
-                        if cached_tickers:
-                            st.markdown("**Cached Stocks:**")
-                            ticker_display = ", ".join([f"`{item['ticker']}`" for item in cached_tickers[:10]])
-                            if len(cached_tickers) > 10:
-                                ticker_display += f" *(+{len(cached_tickers)-10} more)*"
-                            st.markdown(ticker_display)
-                        
-                        st.markdown("""
-                        ⚠️ **Warning:** This will permanently delete all cached analysis results.
-                        Fresh analyses will take longer but will use the latest data.
-                        """)
-                        
-                        # Confirmation checkbox
-                        confirm_clear = st.checkbox("I understand this action cannot be undone", key="confirm_cache_clear")
-                        
-                        # Clear button (only enabled when confirmed)
-                        if st.button(
-                            "🗑️ Clear All Cached Results", 
-                            type="secondary",
-                            disabled=not confirm_clear,
-                            help="Permanently delete all cached analysis results",
-                            use_container_width=True
-                        ):
-                            with st.spinner("Clearing cache..."):
-                                success, result = clear_database_cache()
-                                
-                            if success:
-                                st.success(f"✅ Successfully cleared {result} cached analyses!")
-                                # Also clear session state
-                                st.session_state.analysis_result = None
-                                st.session_state.analysis_history = []
-                                time.sleep(1)  # Brief pause to show success message
-                                st.rerun()
-                            else:
-                                st.error(f"❌ Failed to clear cache: {result}")
-            else:
-                st.info("📭 No cached results to clear")
-
-        st.markdown("---")
-        
         if st.button("🗑️ Clear Session Data", help="Clear current analysis results and history from this session only"):
             st.session_state.analysis_result = None
             st.session_state.analysis_history = []
@@ -1207,6 +1015,7 @@ File Size: {debug_info.get('file_size_bytes', 0)} bytes
 
 def main():
     """Main function for the Streamlit application."""
+    init_db()
     display_hero_section()
     display_sidebar()
 
