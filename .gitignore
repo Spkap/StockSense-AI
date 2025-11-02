@@ -99,6 +99,9 @@ stocksense.db
 # Streamlit secrets (never commit live backend URLs or keys)
 .streamlit/secrets.toml
 
+# DevContainer (personal development environment)
+.devcontainer/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 .Project_description.md
