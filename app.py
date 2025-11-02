@@ -128,7 +128,7 @@ st.markdown("""
         animation: fadeIn 0.6s ease-out;
     }
 </style>
-", unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 def initialize_session_state():
     if 'analysis_result' not in st.session_state:
