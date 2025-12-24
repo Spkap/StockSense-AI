@@ -1,20 +1,24 @@
-# Requirements for Streamlit Cloud Deployment
-# Frontend dependencies only
+# Requirements for Backend Deployment
+# Backend + React frontend dependencies
 
-streamlit==1.49.0
-requests==2.32.5
-plotly==6.3.0
-pandas==2.3.2
-numpy==2.2.6
-yfinance==0.2.65
+# Core API
+fastapi>=0.116.0
+uvicorn>=0.35.0
+requests>=2.32.0
 
-# News API for news data collection
-newsapi-python==0.2.7
+# Auth & Database
+supabase>=2.0.0
+
+# Data Sources
+yfinance>=0.2.65
+newsapi-python>=0.2.7
+
+# Data Processing
+pandas>=2.3.0
+numpy>=2.2.0
 
 # Environment variables support
-python-dotenv==1.1.1
+python-dotenv>=1.1.0
 
-# Additional streamlit dependencies
-altair==5.5.0
-pillow==11.3.0
-SQLAlchemy==2.0.43
+# Database
+SQLAlchemy>=2.0.0

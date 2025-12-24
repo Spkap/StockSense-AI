@@ -1,22 +1,30 @@
 # =============================================================================
+# StockSense Agent - .gitignore
+# =============================================================================
+
 # =============================================================================
 # -- Project-Specific Files --
 # =============================================================================
 
-# Ignore all .env files...
+# Environment files (never commit secrets)
 .env
 .env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # ...but DO commit the example template file.
-!/.env.example
+!.env.example
 
 # Local database files
 *.db
 *.sqlite
 *.sqlite3
+stocksense.db
 
 # =============================================================================
-# -- Python & Virtual Environments --
+# -- Python --
 # =============================================================================
 
 # Byte-compiled / optimized / C extensions
@@ -69,20 +77,38 @@ pytestdebug.log
 # C extensions
 *.so
 
-# Environments (Conda & venv)
-.venv
+# Virtual Environments
+.venv/
 venv/
 env/
-.env/
-/env/
-/venv/
 .conda/
-deploy_test_env/
-docker-compose.override.yml
 
-# Local database (explicit)
-stocksense.db
-*.db
+# =============================================================================
+# -- Node.js / Frontend --
+# =============================================================================
+
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+frontend/dist/
+frontend/build/
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
 
 # =============================================================================
 # -- Editor & IDE Files --
@@ -96,25 +122,39 @@ stocksense.db
 !.vscode/extensions.json
 *.code-workspace
 
-# Streamlit secrets (never commit live backend URLs or keys)
-.streamlit/secrets.toml
+# JetBrains IDEs
+.idea/
 
-# DevContainer (personal development environment)
+# DevContainer
 .devcontainer/
 
 # Jupyter Notebook
-.ipynb_checkpoints
+.ipynb_checkpoints/
+
+# Project notes (local only)
 .Project_description.md
 
 # =============================================================================
-# -- General & OS-Specific Files --
+# -- OS-Specific Files --
 # =============================================================================
 
-# OS-generated files
+# macOS
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
+.AppleDouble
+.LSOverride
+
+# Windows
 ehthumbs.db
 Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.Trash-*
+.nfs*

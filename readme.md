@@ -6,7 +6,7 @@ StockSense is an autonomous stock analysis system implementing the **ReAct (Reas
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.116+-green.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.49+-red.svg)](https://streamlit.io/)
+[![React](https://img.shields.io/badge/React-18+-61DAFB.svg)](https://react.dev/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.6+-purple.svg)](https://langchain-ai.github.io/langgraph/)
 [![LangChain](https://img.shields.io/badge/LangChain-0.3.x-blue.svg)](https://python.langchain.com/)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
@@ -19,10 +19,10 @@ StockSense demonstrates an applied AI agent architecture using LangGraph + LangC
 
 - **ReAct Agent**: Iterative reasoning cycle with tool calls (news, price data, sentiment, persistence)
 - **Backend API**: FastAPI service exposing analysis endpoints and cached result retrieval
-- **Frontend App**: Streamlit dashboard for interactive analysis + visualization
+- **Frontend App**: React + TypeScript modern dashboard with thesis tracking
 - **LLM Integration**: Google Gemini 2.0 Flash Lite (chat + text variants) via `langchain-google-genai`
 - **Stateful Orchestration**: LangGraph `StateGraph` with conditional continuation
-- **Caching Layer**: Lightweight SQLite persistence (custom functions, no ORM layer)
+- **User Belief System**: Investment thesis tracking with Supabase authentication
 
 ## Architecture
 
@@ -34,8 +34,8 @@ StockSense demonstrates an applied AI agent architecture using LangGraph + LangC
 | **Agent Graph**  | LangGraph (StateGraph)                   | Iterative reasoning & tool routing  |
 | **Tool Layer**   | LangChain `@tool` functions              | News, price, sentiment, persistence |
 | **Backend**      | FastAPI + Uvicorn                        | REST API (analysis, cache, health)  |
-| **Frontend**     | Streamlit                                | Interactive dashboard & charts      |
-| **Persistence**  | SQLite (custom helper functions)         | Cached analyses                     |
+| **Frontend**     | React + TypeScript + Vite                | Modern interactive dashboard        |
+| **Persistence**  | SQLite + Supabase                        | Cached analyses + User data         |
 | **Data Sources** | NewsAPI + yfinance (Yahoo Finance data)  | Headlines + OHLCV price history     |
 | **Config / Env** | `python-dotenv`                          | API key management                  |
 
@@ -59,33 +59,39 @@ graph TD
 
 ```
 StockSense-Agent/
-├── app.py                  # Streamlit UI
-├── requirements.txt        # Frontend/minimal dependency set
-├── requirements-backend.txt# Backend + agent + LLM dependencies (pin-locked)
-├── nasdaq_screener.csv     # Reference ticker list (auxiliary)
-├── DEPLOYMENT.md           # Backend (Render) & frontend (Streamlit Cloud) instructions
-├── stocksense/
-│   ├── main.py             # FastAPI server (analysis + cache endpoints)
+├── frontend/               # React + TypeScript frontend
+│   ├── src/
+│   │   ├── components/     # UI components (ResultsTabs, ThesisEditor, etc.)
+│   │   ├── pages/          # Page components (ThesesPage)
+│   │   ├── api/            # API hooks and clients
+│   │   ├── context/        # React contexts (Auth, Sidebar, Theme)
+│   │   └── types/          # TypeScript type definitions
+│   └── package.json
+├── stocksense/             # Python backend
+│   ├── main.py             # FastAPI server (analysis + cache + auth endpoints)
 │   ├── react_agent.py      # LangGraph ReAct agent implementation
 │   ├── data_collectors.py  # NewsAPI + yfinance helper functions
 │   ├── analyzer.py         # Sentiment analysis (Gemini prompt)
+│   ├── skeptic.py          # Skeptic analysis (contrarian view)
 │   ├── database.py         # SQLite caching helpers
+│   ├── supabase_client.py  # Supabase client for user data
+│   ├── auth_routes.py      # User authentication & thesis APIs
 │   └── config.py           # Configuration & LLM/chat factories
-├── data/                   # Created at runtime if DB path resolves here
+├── supabase/
+│   └── schema.sql          # Database schema for user data
 ├── tests/
-│   ├── test_api.py         # API integration tests (optional server running)
+│   ├── test_api.py         # API integration tests
 │   └── test_tools.py       # Tool logic tests
-└── readme.md               # Project documentation
+├── requirements.txt        # Backend dependencies
+└── requirements-backend.txt# Pin-locked backend dependencies
 ```
-
-Note: No Dockerfiles or docker-compose file are present in the repository at this time.
 
 ## Features
 
 ### Autonomous Agent
 
 - Iterative reasoning loop via LangGraph (agent → tools → agent)
-- Dynamic tool usage: news, price data, sentiment analysis, save
+- Dynamic tool usage: news, price data, sentiment analysis, skeptic critique, save
 - Prevents redundant tool calls (checks existing state)
 - Max iteration guard (default 8)
 
@@ -93,70 +99,70 @@ Note: No Dockerfiles or docker-compose file are present in the repository at thi
 
 - Recent headline aggregation (NewsAPI)
 - Historical OHLCV price retrieval (yfinance)
-- Per-headline sentiment request + overall summary (Gemini 2.0 Flash Lite)
-- Fallback keyword-based sentiment visualization heuristic
+- Per-headline sentiment analysis + overall summary (Gemini 2.0 Flash Lite)
+- Skeptic analysis providing contrarian views and bear cases
+
+### User Belief System
+
+- User authentication via Supabase
+- Investment thesis creation and tracking
+- Kill criteria definition
+- Thesis history and evolution tracking
 
 ### Infrastructure
 
-- FastAPI backend (analysis trigger, cached retrieval, health)
-- Streamlit dashboard (interactive charts + summaries)
+- FastAPI backend (analysis trigger, cached retrieval, health, auth)
+- React frontend (interactive dashboard, thesis management)
 - SQLite caching (automatic path fallback resolution)
-- Simple environment-based configuration validation
+- Supabase for user data persistence
 
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.10+
+- Node.js 18+ (for frontend)
 - [Google Gemini API Key](https://aistudio.google.com/app/apikey)
 - [NewsAPI Key](https://newsapi.org/register)
+- [Supabase Project](https://supabase.com/) (optional, for user features)
 
 ### Installation
-
-Choose environment scope:
-
-1. Frontend only (Streamlit + basic data fetch) – `requirements.txt`
-2. Full backend + agent (FastAPI, LangGraph, Gemini) – `requirements-backend.txt`
 
 ```bash
 git clone https://github.com/Spkap/StockSense-Agent.git
 cd StockSense-Agent
 
-# Option A: Frontend only
+# Backend setup
 python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Option B: Full backend + agent
-python -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements-backend.txt
 
-# Environment variables (required for analysis)
-echo "GOOGLE_API_KEY=your_actual_google_api_key_here" >> .env
-echo "NEWSAPI_KEY=your_actual_newsapi_key_here" >> .env
+# Frontend setup
+cd frontend
+npm install  # or pnpm install
+cd ..
 
-# (Optional) Pre-create SQLite DB (auto-created on first save)
-python -c "from stocksense.database import init_db; init_db()"
+# Environment variables
+cat > .env << EOF
+GOOGLE_API_KEY=your_google_api_key
+NEWSAPI_KEY=your_newsapi_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+EOF
 ```
 
-### Usage Options
-
-#### Full Stack
+### Running the Application
 
 ```bash
-# Terminal 1 – backend API
+# Terminal 1 – Backend API
 python -m stocksense.main  # http://127.0.0.1:8000
 
-# Terminal 2 – frontend UI
-streamlit run app.py       # http://localhost:8501
+# Terminal 2 – Frontend
+cd frontend
+npm run dev  # http://localhost:5173
 ```
 
-#### (No Docker Artifacts Present)
-
-Docker instructions removed (no Dockerfiles / compose file currently in repo).
-
-#### REST API
+### REST API
 
 ```bash
 # Trigger ReAct agent analysis
@@ -172,33 +178,21 @@ curl "http://localhost:8000/health"
 curl "http://localhost:8000/cached-tickers"
 ```
 
-#### Command Line
-
-```bash
-python -m stocksense.main
-```
-
-### Example Analysis Output (Illustrative)
+### Example Analysis Output
 
 ```json
 {
   "ticker": "AAPL",
-  "summary": "Apple Inc. demonstrates strong market sentiment with positive outlook...",
+  "summary": "Apple Inc. demonstrates strong market sentiment...",
   "sentiment_report": "Overall Sentiment: Positive ...",
   "headlines_count": 18,
-  "reasoning_steps": [
-    "Analyzing request for AAPL stock",
-    "Fetching recent news headlines (7 days)",
-    "Collecting historical price data (30 days)",
-    "Performing AI sentiment analysis",
-    "Generating comprehensive summary"
-  ],
-  "tools_used": [
-    "fetch_news_headlines",
-    "fetch_price_data",
-    "analyze_sentiment"
-  ],
-  "iterations": 3,
+  "overall_sentiment": "Bullish",
+  "overall_confidence": 0.78,
+  "key_themes": [...],
+  "skeptic_report": "While sentiment is positive, consider...",
+  "reasoning_steps": [...],
+  "tools_used": ["fetch_news_headlines", "fetch_price_data", "analyze_sentiment", "generate_skeptic_critique"],
+  "iterations": 4,
   "agent_type": "ReAct"
 }
 ```
@@ -213,19 +207,10 @@ python -m stocksense.main
 | GET    | `/results/{ticker}` | Latest cached summary & sentiment          |
 | GET    | `/cached-tickers`   | List all cached tickers                    |
 | GET    | `/health`           | Basic health status                        |
-| GET    | `/`                 | Welcome metadata                           |
+| GET    | `/api/me`           | Current user profile (auth required)       |
+| GET    | `/api/theses`       | User's investment theses (auth required)   |
+| POST   | `/api/theses`       | Create thesis (auth required)              |
 | GET    | `/docs`             | Swagger UI                                 |
-| GET    | `/redoc`            | ReDoc docs                                 |
-
-### Python Integration
-
-```python
-from stocksense.react_agent import run_react_analysis
-
-result = run_react_analysis("AAPL")
-print(result["summary"][:400])
-print("Tools used:", result["tools_used"])
-```
 
 ## Testing
 
@@ -239,40 +224,33 @@ pytest tests/test_tools.py -v
 
 # Optional coverage
 pytest --cov=stocksense --cov-report=term-missing
-
-# Component quick runs
-python -m stocksense.react_agent
-python -m stocksense.analyzer
 ```
-
-### Test Scope
-
-- ReAct reasoning & tool orchestration
-- FastAPI endpoints (health, cached tickers, root)
-- Response structure & basic latency expectations
-- Tool data formatting (headline list, OHLCV serialization)
 
 ## Deployment
 
-See `DEPLOYMENT.md` for Render + Streamlit Cloud instructions. No container artifacts currently provided.
+### Backend (Render)
+
+Deploy the FastAPI backend to Render using the `render.yaml` configuration.
+
+### Frontend (Vercel/Netlify)
+
+The React frontend can be deployed to any static hosting service:
+
+```bash
+cd frontend
+npm run build  # Produces dist/ folder
+```
+
+Set `VITE_API_URL` environment variable to your backend URL.
 
 ## Technical Highlights
-
-### Implementation Notes
 
 - LangGraph workflow: agent node + tool node + conditional edge
 - State tracks tools used, reasoning steps, iterations, messages
 - Redundant tool invocations avoided (sentiment/news/price dedupe)
 - SQLite path resolver with environment override + graceful fallbacks
 - Gemini rate limit handling produces user-friendly summary
-- OHLCV serialization for frontend charts
-
-### Potential Enhancements
-
-- Add Docker & CI workflows
-- Structured sentiment parsing / scoring normalization
-- Additional analytical metrics (volatility, volume anomalies)
-- Enhanced test coverage for failure branches
+- Epistemic honesty: confidence scores, information gaps, skeptic critique
 
 ### Disclaimer
 

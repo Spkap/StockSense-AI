@@ -1,0 +1,38 @@
+# GitHub Actions workflow to keep Supabase free tier active
+# Runs every 5 days to prevent project pausing
+
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Run at 00:00 UTC every 5 days
+    - cron: '0 0 */5 * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Project
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "Pinging Supabase to keep project active..."
+          
+          # Simple health check query
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET "${SUPABASE_URL}/rest/v1/" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+          
+          if [ "$RESPONSE" = "200" ] || [ "$RESPONSE" = "401" ]; then
+            echo "✅ Supabase project is active (HTTP $RESPONSE)"
+          else
+            echo "⚠️ Unexpected response: HTTP $RESPONSE"
+            exit 1
+          fi
+          
+      - name: Log Success
+        run: |
+          echo "Keep-alive ping completed at $(date)"

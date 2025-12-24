@@ -1,7 +1,8 @@
 import os
+import json
 import logging
 from datetime import datetime
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
@@ -72,14 +73,28 @@ def init_db() -> None:
         raise
 
 
-def save_analysis(ticker: str, summary: str, sentiment_report: str) -> None:
-    """Save analysis results to the database cache."""
+def save_analysis(
+    ticker: str,
+    summary: str,
+    sentiment_report: str,
+    price_data: Optional[List[Dict[str, Any]]] = None,
+    headlines: Optional[List[str]] = None,
+    reasoning_steps: Optional[List[str]] = None,
+    tools_used: Optional[List[str]] = None,
+    iterations: int = 0
+) -> None:
+    """Save analysis results with full data to the database cache."""
     session = SessionLocal()
     try:
         new_analysis = AnalysisCache(
             ticker=ticker.upper(),
             analysis_summary=summary,
             sentiment_report=sentiment_report,
+            price_data_json=json.dumps(price_data or []),
+            headlines_json=json.dumps(headlines or []),
+            reasoning_steps_json=json.dumps(reasoning_steps or []),
+            tools_used_json=json.dumps(tools_used or []),
+            iterations=iterations,
             timestamp=datetime.utcnow()
         )
         session.add(new_analysis)
@@ -92,8 +107,8 @@ def save_analysis(ticker: str, summary: str, sentiment_report: str) -> None:
         session.close()
 
 
-def get_latest_analysis(ticker: str) -> Optional[Dict[str, str]]:
-    """Retrieve the most recent analysis for a given ticker."""
+def get_latest_analysis(ticker: str) -> Optional[Dict[str, Any]]:
+    """Retrieve the most recent analysis with full data for a given ticker."""
     session = SessionLocal()
     try:
         analysis = (
@@ -108,12 +123,34 @@ def get_latest_analysis(ticker: str) -> Optional[Dict[str, str]]:
                 'ticker': analysis.ticker,
                 'analysis_summary': analysis.analysis_summary,
                 'sentiment_report': analysis.sentiment_report,
+                'price_data': json.loads(analysis.price_data_json or '[]'),
+                'headlines': json.loads(analysis.headlines_json or '[]'),
+                'reasoning_steps': json.loads(analysis.reasoning_steps_json or '[]'),
+                'tools_used': json.loads(analysis.tools_used_json or '[]'),
+                'iterations': analysis.iterations or 0,
                 'timestamp': analysis.timestamp.isoformat(),
             }
         return None
     except SQLAlchemyError as e:
         logging.error(f"Error getting latest analysis: {e}")
         return None
+    finally:
+        session.close()
+
+
+def delete_cached_analysis(ticker: str) -> bool:
+    """Delete all cached analyses for a given ticker. Returns True if any were deleted."""
+    session = SessionLocal()
+    try:
+        result = session.query(AnalysisCache).filter(
+            AnalysisCache.ticker == ticker.upper()
+        ).delete()
+        session.commit()
+        return result > 0
+    except SQLAlchemyError as e:
+        session.rollback()
+        logging.error(f"Error deleting cached analysis: {e}")
+        return False
     finally:
         session.close()
 
@@ -136,6 +173,45 @@ def get_all_cached_tickers() -> List[str]:
         session.close()
 
 
+def get_all_cached_tickers_with_timestamps() -> List[Dict[str, Any]]:
+    """
+    Get a list of all tickers with their most recent analysis timestamps.
+    Returns list of dicts with 'symbol' and 'timestamp' keys.
+    """
+    session = SessionLocal()
+    try:
+        from sqlalchemy import func
+        
+        # Get the most recent analysis for each ticker
+        subquery = (
+            session.query(
+                AnalysisCache.ticker,
+                func.max(AnalysisCache.timestamp).label('latest_timestamp')
+            )
+            .group_by(AnalysisCache.ticker)
+            .subquery()
+        )
+        
+        results = (
+            session.query(subquery.c.ticker, subquery.c.latest_timestamp)
+            .order_by(subquery.c.latest_timestamp.desc())
+            .all()
+        )
+        
+        return [
+            {
+                "symbol": row[0],
+                "timestamp": row[1].isoformat() if row[1] else None
+            }
+            for row in results
+        ]
+    except SQLAlchemyError as e:
+        logging.error(f"Error getting cached tickers with timestamps: {e}")
+        return []
+    finally:
+        session.close()
+
+
 if __name__ == '__main__':
     init_db()
     sample_ticker = "AAPL"
@@ -148,3 +224,5 @@ if __name__ == '__main__':
     print(f"Non-existent data: {non_existent}")
     cached_tickers = get_all_cached_tickers()
     print(f"Cached tickers: {cached_tickers}")
+    cached_with_ts = get_all_cached_tickers_with_timestamps()
+    print(f"Cached tickers with timestamps: {cached_with_ts}")

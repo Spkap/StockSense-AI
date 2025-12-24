@@ -12,6 +12,12 @@ class AnalysisCache(Base):
     ticker = Column(String, nullable=False)
     analysis_summary = Column(Text)
     sentiment_report = Column(Text)
+    # New columns for full analysis data storage
+    price_data_json = Column(Text)       # JSON-serialized OHLCV array
+    headlines_json = Column(Text)        # JSON-serialized headlines array
+    reasoning_steps_json = Column(Text)  # JSON-serialized reasoning steps
+    tools_used_json = Column(Text)       # JSON-serialized tools used
+    iterations = Column(Integer, default=0)
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (

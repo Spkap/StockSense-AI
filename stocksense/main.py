@@ -1,50 +1,107 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import uvicorn
-from typing import Dict, Any
-from datetime import datetime
+"""
+StockSense ReAct Agent API
+AI-powered autonomous stock analysis using ReAct pattern
+"""
+import logging
 import os
+import time
+from collections import defaultdict
+from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Any, Dict
 
-from .config import validate_configuration, ConfigurationError
-from .database import init_db, get_latest_analysis, get_all_cached_tickers
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from .config import validate_configuration, ConfigurationError, get_google_api_key, get_newsapi_key
+from .database import init_db, get_latest_analysis, get_all_cached_tickers_with_timestamps, delete_cached_analysis
 from .react_agent import run_react_analysis
+from .validation import validate_ticker
+
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger("stocksense.api")
+
+
+# Simple in-memory rate limiter
+class RateLimiter:
+    """Simple token bucket rate limiter."""
+    
+    def __init__(self, requests_per_minute: int = 10):
+        self.requests_per_minute = requests_per_minute
+        self.requests: Dict[str, list] = defaultdict(list)
+    
+    def is_allowed(self, client_id: str) -> bool:
+        """Check if request is allowed for given client."""
+        now = time.time()
+        minute_ago = now - 60
+        
+        # Clean old requests
+        self.requests[client_id] = [
+            req_time for req_time in self.requests[client_id] 
+            if req_time > minute_ago
+        ]
+        
+        # Check limit
+        if len(self.requests[client_id]) >= self.requests_per_minute:
+            return False
+        
+        # Record request
+        self.requests[client_id].append(now)
+        return True
+    
+    def get_remaining(self, client_id: str) -> int:
+        """Get remaining requests for client."""
+        now = time.time()
+        minute_ago = now - 60
+        recent = [r for r in self.requests[client_id] if r > minute_ago]
+        return max(0, self.requests_per_minute - len(recent))
+
+
+# Initialize rate limiter (10 analysis requests per minute per IP)
+rate_limiter = RateLimiter(requests_per_minute=10)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Application lifespan manager."""
     # Startup
-    print("Starting StockSense ReAct Agent API...")
+    logger.info("Starting StockSense ReAct Agent API...")
 
     try:
-        print("Validating configuration...")
+        logger.info("Validating configuration...")
         validate_configuration()
-        print("Configuration validation successful")
+        logger.info("Configuration validation successful")
     except ConfigurationError as e:
-        print(f"Configuration error: {str(e)}")
+        logger.error(f"Configuration error: {str(e)}")
         raise
 
-    print("Initializing database...")
+    logger.info("Initializing database...")
     try:
         init_db()
-        print("Database initialized successfully")
+        logger.info("Database initialized successfully")
     except Exception as e:
-        print(f"Error initializing database: {str(e)}")
+        logger.error(f"Error initializing database: {str(e)}")
         raise
 
-    print("StockSense ReAct Agent API ready to serve requests!")
+    logger.info("StockSense ReAct Agent API ready to serve requests!")
 
     yield
 
     # Shutdown
-    print("Shutting down StockSense ReAct Agent API...")
+    logger.info("Shutting down StockSense ReAct Agent API...")
 
 
 app = FastAPI(
     title="StockSense ReAct Agent API",
     description="AI-powered autonomous stock analysis using ReAct pattern",
-    version="2.0.0",
+    version="3.0.0",  # Stage 3: User Belief System
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan
@@ -58,14 +115,70 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Register auth routes (Stage 3: User Belief System)
+try:
+    from .auth_routes import router as auth_router
+    app.include_router(auth_router)
+    logger.info("Auth routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Auth routes not available: {e}")
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
 
 @app.get("/health")
-async def health_check() -> Dict[str, str]:
-    return {"status": "ok"}
+async def health_check() -> Dict[str, Any]:
+    """
+    Enhanced health check with dependency status.
+    Returns detailed health information for monitoring.
+    """
+    health_status = {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "2.1.0",
+        "checks": {}
+    }
+    
+    # Check Google API key
+    try:
+        get_google_api_key()
+        health_status["checks"]["google_api_key"] = {"status": "ok"}
+    except ConfigurationError as e:
+        health_status["checks"]["google_api_key"] = {"status": "error", "message": str(e)}
+        health_status["status"] = "degraded"
+    
+    # Check NewsAPI key
+    try:
+        get_newsapi_key()
+        health_status["checks"]["newsapi_key"] = {"status": "ok"}
+    except ConfigurationError as e:
+        health_status["checks"]["newsapi_key"] = {"status": "error", "message": str(e)}
+        health_status["status"] = "degraded"
+    
+    # Check database
+    try:
+        from .database import get_all_cached_tickers_with_timestamps
+        tickers = get_all_cached_tickers_with_timestamps()
+        health_status["checks"]["database"] = {
+            "status": "ok",
+            "cached_analyses": len(tickers)
+        }
+    except Exception as e:
+        health_status["checks"]["database"] = {"status": "error", "message": str(e)}
+        health_status["status"] = "degraded"
+    
+    return health_status
 
 
 @app.get("/")
 async def root() -> Dict[str, str]:
+    """Root endpoint with API information."""
     return {
         "message": "Welcome to StockSense ReAct Agent API",
         "description": "AI-powered autonomous stock analysis using ReAct pattern",
@@ -75,42 +188,79 @@ async def root() -> Dict[str, str]:
 
 
 @app.post("/analyze/{ticker}")
-async def analyze_stock(ticker: str) -> Dict[str, Any]:
-    """Analyze stock using the ReAct Agent (Reasoning + Action) pattern."""
+async def analyze_stock(ticker: str, request: Request, force: bool = False) -> Dict[str, Any]:
+    """
+    Analyze stock using the ReAct Agent (Reasoning + Action) pattern.
+    
+    Args:
+        ticker: Stock ticker symbol
+        force: If True, bypass cache and run fresh analysis
+    
+    Includes ticker validation and rate limiting.
+    """
+    # Rate limiting
+    client_ip = get_client_ip(request)
+    if not rate_limiter.is_allowed(client_ip):
+        remaining = rate_limiter.get_remaining(client_ip)
+        logger.warning(f"Rate limit exceeded for {client_ip}")
+        raise HTTPException(
+            status_code=429, 
+            detail=f"Rate limit exceeded. Please wait before making more requests. Remaining: {remaining}"
+        )
+    
     try:
-        # Validate and normalize ticker
+        # Validate ticker format and existence
         ticker = ticker.upper().strip()
-        if not ticker:
-            raise HTTPException(status_code=400, detail="Ticker cannot be empty")
+        is_valid, error_msg = validate_ticker(ticker)
+        if not is_valid:
+            logger.info(f"Invalid ticker rejected: {ticker} - {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
 
-        print(f"ReAct Agent analysis request received for ticker: {ticker}")
+        logger.info(f"Analysis request received for ticker: {ticker} from {client_ip} (force={force})")
 
-        # Check for cached analysis first
-        print(f"Checking cache for existing analysis of {ticker}...")
-        cached_analysis = get_latest_analysis(ticker)
+        # Check for cached analysis first (unless force=True)
+        if not force:
+            logger.debug(f"Checking cache for existing analysis of {ticker}...")
+            cached_analysis = get_latest_analysis(ticker)
 
-        if cached_analysis:
-            print(f"Found cached analysis for {ticker}")
-            return {
-                "message": "Analysis retrieved from cache",
-                "ticker": ticker,
-                "data": {
-                    "id": cached_analysis["id"],
-                    "ticker": cached_analysis["ticker"],
-                    "summary": cached_analysis["analysis_summary"],
-                    "sentiment_report": cached_analysis["sentiment_report"],
-                    "timestamp": cached_analysis["timestamp"],
-                    "source": "cache",
-                    "agent_type": "ReAct",
-                    "price_data": [],  # Cached results don't have structured price data
-                    "reasoning_steps": ["Retrieved from cache - no detailed steps available"],
-                    "tools_used": ["cache_lookup"],
-                    "iterations": 0
+            if cached_analysis:
+                logger.info(f"Found cached analysis for {ticker}")
+                
+                # Calculate cache age
+                cache_age_hours = None
+                if cached_analysis.get("timestamp"):
+                    try:
+                        cached_time = datetime.fromisoformat(cached_analysis["timestamp"])
+                        age_seconds = (datetime.utcnow() - cached_time).total_seconds()
+                        cache_age_hours = round(age_seconds / 3600, 1)
+                    except (ValueError, TypeError):
+                        pass
+                
+                return {
+                    "message": "Analysis retrieved from cache",
+                    "ticker": ticker,
+                    "data": {
+                        "id": cached_analysis["id"],
+                        "ticker": cached_analysis["ticker"],
+                        "summary": cached_analysis["analysis_summary"],
+                        "sentiment_report": cached_analysis["sentiment_report"],
+                        "timestamp": cached_analysis["timestamp"],
+                        "cache_age_hours": cache_age_hours,
+                        "source": "cache",
+                        "agent_type": "ReAct",
+                        "price_data": cached_analysis.get("price_data", []),
+                        "headlines": cached_analysis.get("headlines", []),
+                        "headlines_count": len(cached_analysis.get("headlines", [])),
+                        "reasoning_steps": cached_analysis.get("reasoning_steps", []),
+                        "tools_used": cached_analysis.get("tools_used", []),
+                        "iterations": cached_analysis.get("iterations", 0)
+                    }
                 }
-            }
+        else:
+            logger.info(f"Force refresh requested for {ticker}, skipping cache")
 
-        # No cached data found, run fresh ReAct analysis
-        print(f"No cached data found for {ticker}, running fresh ReAct analysis...")
+        # No cached data found or force=True, run fresh ReAct analysis
+        logger.info(f"Running fresh ReAct analysis for {ticker}...")
 
         # Run the ReAct agent
         try:
@@ -119,7 +269,7 @@ async def analyze_stock(ticker: str) -> Dict[str, Any]:
             # Check if the ReAct agent completed successfully
             if final_state.get("error"):
                 error_msg = final_state["error"]
-                print(f"ReAct Agent error for {ticker}: {error_msg}")
+                logger.error(f"ReAct Agent error for {ticker}: {error_msg}")
                 raise HTTPException(
                     status_code=500,
                     detail=f"ReAct Agent analysis failed: {error_msg}"
@@ -129,22 +279,31 @@ async def analyze_stock(ticker: str) -> Dict[str, Any]:
             summary = final_state.get("summary", "")
             sentiment_report = final_state.get("sentiment_report", "")
 
-            if (not summary or summary.startswith("Analysis failed")):
+            if not summary or summary.startswith("Analysis failed"):
                 raise HTTPException(
                     status_code=500,
                     detail="ReAct Agent completed but produced insufficient data"
                 )
 
-            # Save the analysis results to database
+            # Save the analysis results to database with full data
             try:
                 from .database import save_analysis
-                save_analysis(ticker, summary, sentiment_report)
-                print(f"Analysis results saved to database for {ticker}")
+                save_analysis(
+                    ticker=ticker,
+                    summary=summary,
+                    sentiment_report=sentiment_report,
+                    price_data=final_state.get("price_data", []),
+                    headlines=final_state.get("headlines", []),
+                    reasoning_steps=final_state.get("reasoning_steps", []),
+                    tools_used=final_state.get("tools_used", []),
+                    iterations=final_state.get("iterations", 0)
+                )
+                logger.info(f"Analysis results saved to database for {ticker}")
             except Exception as e:
-                print(f"Warning: Failed to save analysis to database: {str(e)}")
+                logger.warning(f"Failed to save analysis to database: {str(e)}")
                 # Don't fail the request if database save fails
 
-            print(f"ReAct Agent analysis completed successfully for {ticker}")
+            logger.info(f"ReAct Agent analysis completed successfully for {ticker}")
 
             return {
                 "message": "ReAct Agent analysis complete and saved",
@@ -153,55 +312,75 @@ async def analyze_stock(ticker: str) -> Dict[str, Any]:
                     "ticker": final_state["ticker"],
                     "summary": final_state["summary"],
                     "sentiment_report": final_state["sentiment_report"],
-                    "price_data": final_state.get("price_data", []),  # Include structured OHLCV data
+                    "price_data": final_state.get("price_data", []),
+                    "headlines": final_state.get("headlines", []),
                     "headlines_count": len(final_state.get("headlines", [])),
                     "reasoning_steps": final_state.get("reasoning_steps", []),
                     "tools_used": final_state.get("tools_used", []),
                     "iterations": final_state.get("iterations", 0),
                     "timestamp": final_state.get("timestamp"),
+                    "cache_age_hours": 0,  # Fresh analysis
                     "source": "react_analysis",
-                    "agent_type": "ReAct"
+                    "agent_type": "ReAct",
+                    # Stage 1: Structured sentiment fields
+                    "overall_sentiment": final_state.get("overall_sentiment", ""),
+                    "overall_confidence": final_state.get("overall_confidence", 0.0),
+                    "confidence_reasoning": final_state.get("confidence_reasoning", ""),
+                    "headline_analyses": final_state.get("headline_analyses", []),
+                    "key_themes": final_state.get("key_themes", []),
+                    "potential_impact": final_state.get("potential_impact", ""),
+                    "risks_identified": final_state.get("risks_identified", []),
+                    "information_gaps": final_state.get("information_gaps", []),
+                    # Stage 2: Skeptic analysis fields
+                    "skeptic_report": final_state.get("skeptic_report", ""),
+                    "skeptic_sentiment": final_state.get("skeptic_sentiment", ""),
+                    "skeptic_confidence": final_state.get("skeptic_confidence", 0.0),
+                    "primary_disagreement": final_state.get("primary_disagreement", ""),
+                    "critiques": final_state.get("critiques", []),
+                    "bear_cases": final_state.get("bear_cases", []),
+                    "hidden_risks": final_state.get("hidden_risks", []),
+                    "would_change_mind": final_state.get("would_change_mind", [])
                 }
             }
 
         except HTTPException:
-            # Re-raise HTTP exceptions
             raise
         except Exception as e:
             error_msg = f"ReAct Agent execution error: {str(e)}"
-            print(f"{error_msg}")
+            logger.error(error_msg, exc_info=True)
             raise HTTPException(status_code=500, detail=error_msg)
 
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         error_msg = f"Unexpected error analyzing {ticker}: {str(e)}"
-        print(f"{error_msg}")
+        logger.error(error_msg, exc_info=True)
         raise HTTPException(status_code=500, detail=error_msg)
 
 
 @app.get("/results/{ticker}")
 async def get_analysis_results(ticker: str) -> Dict[str, Any]:
+    """Get cached analysis results for a ticker."""
     try:
-        # Validate and normalize ticker
+        # Validate ticker format
         ticker = ticker.upper().strip()
-        if not ticker:
-            raise HTTPException(status_code=400, detail="Ticker cannot be empty")
+        is_valid, error_msg = validate_ticker(ticker, check_exists=False)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_msg)
 
-        print(f"Results request for ticker: {ticker}")
+        logger.debug(f"Results request for ticker: {ticker}")
 
         # Get the latest analysis from database
         analysis = get_latest_analysis(ticker)
 
         if not analysis:
-            print(f"No analysis found for {ticker}")
+            logger.debug(f"No analysis found for {ticker}")
             raise HTTPException(
                 status_code=404,
                 detail=f"No analysis found for ticker: {ticker}"
             )
 
-        print(f"Analysis results retrieved for {ticker}")
+        logger.debug(f"Analysis results retrieved for {ticker}")
 
         return {
             "message": "Analysis results retrieved successfully",
@@ -211,27 +390,72 @@ async def get_analysis_results(ticker: str) -> Dict[str, Any]:
                 "ticker": analysis["ticker"],
                 "summary": analysis["analysis_summary"],
                 "sentiment_report": analysis["sentiment_report"],
-                "timestamp": analysis["timestamp"]
+                "price_data": analysis.get("price_data", []),
+                "headlines": analysis.get("headlines", []),
+                "headlines_count": len(analysis.get("headlines", [])),
+                "reasoning_steps": analysis.get("reasoning_steps", []),
+                "tools_used": analysis.get("tools_used", []),
+                "iterations": analysis.get("iterations", 0),
+                "timestamp": analysis["timestamp"],
+                "source": "cache",
+                "agent_type": "ReAct"
             }
         }
 
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         error_msg = f"Error retrieving results for {ticker}: {str(e)}"
-        print(f"{error_msg}")
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+@app.delete("/results/{ticker}")
+async def delete_analysis_results(ticker: str) -> Dict[str, str]:
+    """Delete cached analysis results for a ticker."""
+    try:
+        # Validate ticker format
+        ticker = ticker.upper().strip()
+        is_valid, error_msg = validate_ticker(ticker, check_exists=False)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_msg)
+
+        logger.info(f"Delete request for ticker: {ticker}")
+
+        deleted = delete_cached_analysis(ticker)
+
+        if not deleted:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No analysis found for ticker: {ticker}"
+            )
+
+        logger.info(f"Analysis deleted for {ticker}")
+        return {
+            "message": f"Analysis for {ticker} deleted successfully",
+            "ticker": ticker
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = f"Error deleting analysis for {ticker}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
         raise HTTPException(status_code=500, detail=error_msg)
 
 
 @app.get("/cached-tickers")
 async def get_cached_tickers() -> Dict[str, Any]:
+    """
+    Get list of cached tickers with timestamps.
+    Returns ticker symbols and when they were analyzed.
+    """
     try:
-        print("Retrieving list of cached tickers...")
+        logger.debug("Retrieving list of cached tickers...")
 
-        cached_tickers = get_all_cached_tickers()
+        cached_tickers = get_all_cached_tickers_with_timestamps()
 
-        print(f"Found {len(cached_tickers)} cached tickers")
+        logger.debug(f"Found {len(cached_tickers)} cached tickers")
 
         return {
             "message": "Cached tickers retrieved successfully",
@@ -241,7 +465,7 @@ async def get_cached_tickers() -> Dict[str, Any]:
 
     except Exception as e:
         error_msg = f"Error retrieving cached tickers: {str(e)}"
-        print(f"{error_msg}")
+        logger.error(error_msg, exc_info=True)
         raise HTTPException(status_code=500, detail=error_msg)
 
 
@@ -250,7 +474,7 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     reload_flag = os.getenv("UVICORN_RELOAD", "false").lower() == "true"
     log_level = os.getenv("LOG_LEVEL", "info")
-    print(f"Starting StockSense ReAct Agent FastAPI server on 0.0.0.0:{port} (reload={reload_flag}) ...")
+    logger.info(f"Starting StockSense ReAct Agent FastAPI server on 0.0.0.0:{port} (reload={reload_flag}) ...")
     uvicorn.run(
         "stocksense.main:app",
         host="0.0.0.0",

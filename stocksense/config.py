@@ -2,7 +2,7 @@ import os
 from typing import Optional
 from dotenv import load_dotenv
 
-# Optional import: frontend (Streamlit) deployment may not include backend LLM deps
+# Optional import: minimal deployment may not include backend LLM deps
 try:
     from langchain_google_genai import GoogleGenerativeAI, ChatGoogleGenerativeAI  # type: ignore
     _GENAI_AVAILABLE = True
