@@ -49,8 +49,8 @@ export function useAnalyzeStock() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ ticker, force = false }: { ticker: string; force?: boolean }) => 
-      api.analyzeStock(ticker, force),
+    mutationFn: ({ ticker, force = false, accessToken }: { ticker: string; force?: boolean; accessToken?: string }) => 
+      api.analyzeStock(ticker, force, accessToken),
     onSuccess: (data) => {
       // Update the results cache with the new analysis
       queryClient.setQueryData(queryKeys.results(data.ticker), data);

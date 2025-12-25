@@ -101,6 +101,22 @@ def get_newsapi_key() -> str:
     return api_key
 
 
+def get_supabase_url() -> str:
+    """Get Supabase URL from environment variables."""
+    url = os.getenv('SUPABASE_URL')
+    if not url:
+        raise ConfigurationError("SUPABASE_URL not found.")
+    return url
+
+
+def get_supabase_key() -> str:
+    """Get Supabase Anon Key from environment variables."""
+    key = os.getenv('SUPABASE_ANON_KEY')
+    if not key:
+        raise ConfigurationError("SUPABASE_ANON_KEY not found.")
+    return key
+
+
 def validate_configuration() -> bool:
     """Validate all required configuration is present and valid."""
     get_google_api_key()

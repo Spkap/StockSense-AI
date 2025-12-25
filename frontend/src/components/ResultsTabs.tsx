@@ -9,6 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import type { AnalysisData, PriceDataPoint } from '../types/api';
 import SentimentCard from './SentimentCard';
 import SkepticCard from './SkepticCard';
+import FundamentalsCard from './FundamentalsCard';
 import EmptyState from './EmptyState';
 import ThesisEditor from './ThesisEditor';
 import { useThesisForTicker } from '../api/theses';
@@ -237,9 +238,10 @@ const ResultsTabs = ({ result, onRefresh, isRefreshing }: ResultsTabsProps) => {
         </div>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
+          <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="chart">Chart</TabsTrigger>
+            <TabsTrigger value="fundamentals">Fund.</TabsTrigger>
             <TabsTrigger value="news">News</TabsTrigger>
             <TabsTrigger value="agent">Logic</TabsTrigger>
           </TabsList>
@@ -400,6 +402,21 @@ const ResultsTabs = ({ result, onRefresh, isRefreshing }: ResultsTabsProps) => {
                       <EmptyState type="no-chart" />
                    </div>
                 )}
+             </TabsContent>
+
+             <TabsContent value="fundamentals">
+               <Card>
+                 <CardContent className="pt-6">
+                   {result.fundamental_data ? (
+                     <FundamentalsCard data={result.fundamental_data} />
+                   ) : (
+                     <div className="py-12 md:py-20 text-center">
+                       <EmptyState type="no-data" />
+                       <p className="mt-4 text-muted-foreground">Fundamental data not available for this analysis.</p>
+                     </div>
+                   )}
+                 </CardContent>
+               </Card>
              </TabsContent>
 
              <TabsContent value="news">

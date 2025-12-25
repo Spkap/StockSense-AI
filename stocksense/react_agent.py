@@ -6,7 +6,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 
 from .config import get_chat_llm
-from .data_collectors import get_news, get_price_history
+from .data_collectors import get_news, get_price_history, get_fundamental_data
 from .analyzer import analyze_sentiment_of_headlines
 from .database import save_analysis
 
@@ -19,7 +19,8 @@ class AgentState(TypedDict):
     messages: List[BaseMessage]
     ticker: str
     headlines: List[str]
-    price_data: List[Dict[str, Any]]  # Updated to hold structured OHLCV data
+    price_data: List[Dict[str, Any]]
+    fundamental_data: Dict[str, Any]  # New: Financial statements and metrics
     sentiment_report: str
     summary: str
     reasoning_steps: List[str]
@@ -156,6 +157,42 @@ def fetch_price_data(ticker: str, period: str = "1mo") -> Dict:
             "has_data": False
         }
 
+
+@tool
+def fetch_fundamentals(ticker: str) -> Dict:
+    """
+    Fetch fundamental financial data (Income Statement, Balance Sheet, Cash Flow, Key Ratios).
+    Use this to verify quantitative claims (e.g. "revenue growth", "margins", "debt").
+
+    Args:
+        ticker: Stock ticker symbol
+
+    Returns:
+        Dictionary with financial statements and info
+    """
+    try:
+        ticker = ticker.upper().strip()
+        data = get_fundamental_data(ticker)
+
+        if not data or not data.get("info"):
+            return {
+                "success": False,
+                "error": "No fundamental data available",
+                "ticker": ticker
+            }
+        
+        return {
+            "success": True,
+            "data": data,
+            "ticker": ticker,
+            "message": "Successfully fetched fundamental data"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "ticker": ticker
+        }
 
 @tool
 def analyze_sentiment(headlines: List[str]) -> Dict:
@@ -340,6 +377,7 @@ def generate_skeptic_critique(ticker: str, headlines: List[str], primary_sentime
 tools = [
     fetch_news_headlines,
     fetch_price_data,
+    fetch_fundamentals,  # New tool
     analyze_sentiment,
     generate_skeptic_critique,
     save_analysis_results
@@ -380,16 +418,18 @@ Current situation:
 - Iteration: {iterations + 1}/{max_iterations}
 - Headlines collected: {len(state.get('headlines', []))}
 - Price data available: {len(state.get('price_data', [])) > 0}
+- Fundamentals available: {bool(state.get('fundamental_data'))}
 - Sentiment analyzed: {bool(state.get('sentiment_report'))}
 - Skeptic critique done: {bool(state.get('skeptic_report'))}
 - Tools used so far: {state.get('tools_used', [])}
 
 Available tools:
 1. fetch_news_headlines - Get recent news headlines
-2. fetch_price_data - Get price history data  
-3. analyze_sentiment - Analyze sentiment of headlines (returns structured confidence)
-4. generate_skeptic_critique - Challenge the primary analysis with bear cases and hidden risks
-5. save_analysis_results - Save final analysis
+2. fetch_price_data - Get price history data
+3. fetch_fundamentals - Get financial statements and key ratios (P/E, Revenue, Margins)
+4. analyze_sentiment - Analyze sentiment of headlines (returns structured confidence)
+5. generate_skeptic_critique - Challenge the primary analysis with bear cases and hidden risks
+6. save_analysis_results - Save final analysis
 
 REASONING: Think step by step about what you should do next:
 1. What information do I have?
@@ -398,8 +438,8 @@ REASONING: Think step by step about what you should do next:
 4. Am I ready to provide a final analysis?
 
 REQUIRED SEQUENCE:
-1. First: fetch_news_headlines
-2. Then: fetch_price_data  
+1. First: fetch_news_headlines AND fetch_price_data (can be ANY order)
+2. Then: fetch_fundamentals (Crucial for verifying kill criteria like 'Revenue slows down')
 3. Then: analyze_sentiment (requires headlines)
 4. Then: generate_skeptic_critique (requires sentiment - pass the overall_sentiment and overall_confidence from the sentiment result)
 5. Finally: Provide comprehensive summary
@@ -407,11 +447,13 @@ REQUIRED SEQUENCE:
 COMPLETION CRITERIA: You are ready to provide final analysis when you have:
 - Headlines collected (✓ if {len(state.get('headlines', []))} > 0)
 - Price data gathered (✓ if {len(state.get('price_data', [])) > 0})
+- Fundamentals gathered (✓ if {bool(state.get('fundamental_data'))})
 - Sentiment analysis completed (✓ if {bool(state.get('sentiment_report'))})
 - Skeptic critique generated (✓ if {bool(state.get('skeptic_report'))})
 
 ACTION: Based on your reasoning:
 - If ANY of the above criteria are missing, use the appropriate tool to gather that information
+- If the stock is an ETF or Index (e.g. SPY, QQQ), fundamentals might fail - that's acceptable, just proceed.
 - AFTER analyze_sentiment, you MUST call generate_skeptic_critique with the ticker, headlines, primary sentiment, and confidence
 - If ALL criteria are met, provide a comprehensive final summary WITHOUT calling any more tools
 
@@ -439,9 +481,11 @@ IMPORTANT: Once you have ALL required data including the skeptic critique, provi
 
             agent_response = response.content
 
+
             headlines = state.get('headlines', [])
             sentiment_report = state.get('sentiment_report', '')
             price_data = state.get('price_data', [])
+            fundamental_data = state.get('fundamental_data', {})
 
             if sentiment_report and headlines:
                 comprehensive_summary = f"""
@@ -452,6 +496,7 @@ Market Sentiment: Based on analysis of {len(headlines)} recent news headlines, t
 Key Findings:
 - News Coverage: {len(headlines)} articles analyzed from the past 7 days
 - Price Data: {'Available' if len(price_data) > 0 else 'Not available'} ({len(price_data)} data points)
+- Fundamentals: {'Available' if fundamental_data else 'Not available'}
 - Agent Reasoning: {agent_response}
 
 The ReAct agent completed analysis using {len(set(state.get('tools_used', [])))} different tools across {iterations + 1} reasoning iterations.
@@ -500,6 +545,12 @@ The ReAct agent completed analysis using {len(set(state.get('tools_used', [])))}
                     "price_data": state.get("price_data"),
                     "message": "Price data already fetched"
                 }
+            elif tool_name == "fetch_fundamentals" and state.get("fundamental_data"):
+                result = {
+                    "success": True,
+                    "data": state.get("fundamental_data"),
+                    "message": "Fundamental data already fetched"
+                }
             else:
                 tool_function = None
                 for tool_item in tools:
@@ -528,6 +579,10 @@ The ReAct agent completed analysis using {len(set(state.get('tools_used', [])))}
                 state["price_data"] = result.get("price_data", [])
                 data_points = len(state["price_data"]) if state["price_data"] else 0
                 reasoning_steps.append(f"Fetched price data with {data_points} data points")
+
+            elif tool_name == "fetch_fundamentals" and result.get("success"):
+                state["fundamental_data"] = result.get("data", {})
+                reasoning_steps.append("Fetched fundamental data (financials & ratios)")
 
             elif tool_name == "analyze_sentiment" and result.get("success"):
                 state["sentiment_report"] = result.get("sentiment_report", "")
@@ -620,6 +675,7 @@ def run_react_analysis(ticker: str) -> Dict:
         "ticker": ticker.upper(),
         "headlines": [],
         "price_data": [],
+        "fundamental_data": {},  # Init empty
         "sentiment_report": "",
         "summary": "",
         "reasoning_steps": [],
@@ -660,6 +716,7 @@ def run_react_analysis(ticker: str) -> Dict:
             "sentiment_report": final_state.get("sentiment_report", ""),
             "headlines": final_state.get("headlines", []),
             "price_data": final_state.get("price_data"),
+            "fundamental_data": final_state.get("fundamental_data"),
             "reasoning_steps": final_state.get("reasoning_steps", []),
             "tools_used": final_state.get("tools_used", []),
             "iterations": final_state.get("iterations", 0),
@@ -699,6 +756,7 @@ def run_react_analysis(ticker: str) -> Dict:
             "sentiment_report": f"Rate Limit Info: Google Gemini free tier quota exceeded. Try again tomorrow or upgrade for higher limits.",
             "headlines": [],
             "price_data": [],  # Changed from None to empty list
+            "fundamental_data": {},
             "reasoning_steps": [],
             "tools_used": [],
             "iterations": 0,

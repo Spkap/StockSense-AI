@@ -179,7 +179,7 @@ def get_user_theses(user_id: str, access_token: str, ticker: Optional[str] = Non
 
 
 def create_thesis(user_id: str, access_token: str, thesis_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Create a new thesis with kill criteria."""
+    """Create a new thesis with kill criteria and optional analysis linkage."""
     try:
         client = get_supabase_client()
         client.postgrest.auth(access_token)
@@ -196,6 +196,12 @@ def create_thesis(user_id: str, access_token: str, thesis_data: Dict[str, Any]) 
             "status": "active",
         }
         
+        # Stage 4: Analysis-Thesis Linkage
+        if thesis_data.get("origin_analysis_id"):
+            data["origin_analysis_id"] = thesis_data["origin_analysis_id"]
+        if thesis_data.get("origin_analysis_snapshot"):
+            data["origin_analysis_snapshot"] = thesis_data["origin_analysis_snapshot"]
+        
         response = client.table("theses").insert(data).execute()
         thesis = response.data[0] if response.data else None
         
@@ -207,6 +213,7 @@ def create_thesis(user_id: str, access_token: str, thesis_data: Dict[str, Any]) 
     except Exception as e:
         print(f"Thesis create error: {e}")
         return None
+
 
 
 def update_thesis(user_id: str, access_token: str, thesis_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:

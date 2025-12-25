@@ -4,6 +4,7 @@
 #
 #    pip-compile --output-file=requirements-backend.txt requirements-backend.in
 #
+APScheduler==3.11.0
 annotated-types==0.7.0
     # via pydantic
 anyio==4.10.0

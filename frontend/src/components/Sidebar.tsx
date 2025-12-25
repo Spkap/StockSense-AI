@@ -3,6 +3,7 @@ import {
   LayoutDashboard, 
   LineChart, 
   BookOpen,
+  Bell,
   ChevronLeft,
   X,
 } from 'lucide-react';
@@ -10,7 +11,7 @@ import { cn } from '../utils/cn';
 import { useSidebar } from '../context/SidebarContext';
 import { Button } from './ui/button';
 
-type ViewType = 'dashboard' | 'theses';
+type ViewType = 'dashboard' | 'theses' | 'alerts';
 
 const menuItems: Array<{
   icon: typeof LayoutDashboard;
@@ -20,6 +21,7 @@ const menuItems: Array<{
 }> = [
   { icon: LayoutDashboard, label: 'Dashboard', viewId: 'dashboard', implemented: true },
   { icon: BookOpen, label: 'My Theses', viewId: 'theses', implemented: true },
+  { icon: Bell, label: 'Alerts', viewId: 'alerts', implemented: true },
 ];
 
 // Secondary items removed - none are implemented

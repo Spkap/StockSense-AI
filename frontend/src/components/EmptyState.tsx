@@ -6,14 +6,15 @@ import {
   TrendingUp,
   Brain,
   Clock,
-  Command
+  Command,
+  Briefcase
 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { cn } from '../utils/cn';
 
 interface EmptyStateProps {
-  type: 'welcome' | 'no-chart' | 'no-news' | 'no-history';
+  type: 'welcome' | 'no-chart' | 'no-news' | 'no-history' | 'no-data';
   onAction?: () => void;
 }
 
@@ -43,6 +44,13 @@ const emptyStateConfig = {
     icon: Search,
     title: 'No History',
     description: "You haven't analyzed any stocks yet. Start by entering a ticker above.",
+    actionLabel: null,
+    showFeatures: false,
+  },
+  'no-data': {
+    icon: Briefcase,
+    title: 'No Data',
+    description: 'Fundamental data is not available for this ticker.',
     actionLabel: null,
     showFeatures: false,
   },

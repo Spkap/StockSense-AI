@@ -6,7 +6,9 @@ import TickerInput, { TickerInputRef } from './components/TickerInput';
 import QuickSelect from './components/QuickSelect';
 import AnalysisHistory from './components/AnalysisHistory';
 import ResultsTabs from './components/ResultsTabs';
-import AnalysisProgress from './components/AnalysisProgress';
+import StreamingAnalysisProgress from './components/StreamingAnalysisProgress';
+import KillAlertBanner from './components/KillAlertBanner';
+import AlertsCenter from './components/AlertsCenter';
 import EmptyState from './components/EmptyState';
 import ErrorBoundary from './components/ErrorBoundary';
 import ThesesPage from './pages/ThesesPage';
@@ -14,14 +16,15 @@ import { ThemeProvider } from './context/ThemeContext';
 import { SidebarProvider, useSidebar } from './context/SidebarContext';
 import { ToastProvider, useToast } from './components/ui/toast';
 import { useAppKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { useHealthCheck, useAnalyzeStock, useAnalysisResults } from './api/hooks';
-import type { AnalysisData } from './types/api';
+import { useHealthCheck, useAnalysisResults } from './api/hooks';
+import { useStreamingAnalysis } from './hooks/useStreamingAnalysis';
+import type { AnalysisData, KillAlert } from './types/api';
 import { AlertCircle } from 'lucide-react';
 import { cn } from './utils/cn';
 
 function AppContent() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'theses'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'theses' | 'alerts'>('dashboard');
   const { isCollapsed } = useSidebar();
   const { addToast } = useToast();
   const tickerInputRef = useRef<TickerInputRef>(null);
@@ -39,15 +42,21 @@ function AppContent() {
       ? 'offline' 
       : 'checking...';
   
-  // Analysis Logic
-  const analyzeMutation = useAnalyzeStock();
-  const { data: resultsData } = useAnalysisResults(selectedTicker);
+  // Streaming Analysis (Stage 4)
+  const streaming = useStreamingAnalysis();
+  const [killAlerts, setKillAlerts] = useState<KillAlert[]>([]);
+  
+  // Fetch cached results when ticker changes
+  const { data: resultsData, refetch: refetchResults } = useAnalysisResults(selectedTicker);
+  
+  // Use streaming final data or cached results
   const analysisData: AnalysisData | null = 
-    analyzeMutation.data?.data || resultsData?.data || null;
+    streaming.finalData || resultsData?.data || null;
 
-  const handleAnalyze = (ticker: string, force: boolean = false) => {
+  const handleAnalyze = (ticker: string, _force: boolean = false) => {
     setSelectedTicker(ticker);
-    analyzeMutation.mutate({ ticker, force });
+    setKillAlerts([]);
+    streaming.startAnalysis(ticker);
   };
 
   const handleRefresh = () => {
@@ -58,11 +67,11 @@ function AppContent() {
 
   const handleSelectHistory = (ticker: string) => {
     setSelectedTicker(ticker);
-    analyzeMutation.reset();
+    streaming.reset();
   };
 
   const handleCancel = () => {
-    analyzeMutation.reset();
+    streaming.stopAnalysis();
     setSelectedTicker(null);
     addToast({
       type: 'info',
@@ -71,8 +80,15 @@ function AppContent() {
     });
   };
 
-  const isLoading = analyzeMutation.isPending;
-  const error = analyzeMutation.error?.message || null;
+  // Refetch cached results when streaming completes
+  useEffect(() => {
+    if (streaming.finalData && selectedTicker) {
+      refetchResults();
+    }
+  }, [streaming.finalData, selectedTicker, refetchResults]);
+
+  const isLoading = streaming.isStreaming;
+  const error = streaming.error;
 
   // Show toast notification for errors
   useEffect(() => {
@@ -86,16 +102,16 @@ function AppContent() {
     }
   }, [error, addToast]);
 
-  // Show toast for successful analysis
+  // Show toast for successful streaming analysis
   useEffect(() => {
-    if (analyzeMutation.isSuccess && analyzeMutation.data?.data?.ticker) {
+    if (streaming.finalData?.ticker) {
       addToast({
         type: 'success',
         title: 'Analysis Complete',
-        message: `Successfully analyzed ${analyzeMutation.data.data.ticker}`,
+        message: `Successfully analyzed ${streaming.finalData.ticker}`,
       });
     }
-  }, [analyzeMutation.isSuccess, analyzeMutation.data, addToast]);
+  }, [streaming.finalData, addToast]);
 
   // Show toast when health check fails
   useEffect(() => {
@@ -121,6 +137,25 @@ function AppContent() {
         )}>
           <Header />
           <ThesesPage onBack={() => setCurrentView('dashboard')} />
+        </main>
+      </div>
+    );
+  }
+
+  // Render AlertsCenter if in alerts view
+  if (currentView === 'alerts') {
+    return (
+      <div className="flex min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-primary">
+        <Sidebar onNavigate={setCurrentView} currentView={currentView} />
+        <main className={cn(
+          "flex flex-1 flex-col transition-all duration-300 ease-in-out p-6",
+          "md:ml-64",
+          isCollapsed && "md:ml-16"
+        )}>
+          <Header />
+          <div className="flex-1 mt-6">
+             <AlertsCenter />
+          </div>
         </main>
       </div>
     );
@@ -182,7 +217,16 @@ function AppContent() {
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.3 }}
               >
-                <AnalysisProgress ticker={selectedTicker} onCancel={handleCancel} />
+                <StreamingAnalysisProgress 
+                  ticker={selectedTicker}
+                  isStreaming={streaming.isStreaming}
+                  progress={streaming.progress}
+                  currentTool={streaming.currentTool}
+                  events={streaming.events}
+                  partialData={streaming.partialData}
+                  error={streaming.error}
+                  onCancel={handleCancel}
+                />
               </motion.div>
             ) : !isLoading && analysisData ? (
               <motion.div
@@ -191,7 +235,21 @@ function AppContent() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
                 transition={{ duration: 0.4, type: "spring", stiffness: 100 }}
+                className="space-y-4"
               >
+                {/* Kill Alerts Banner */}
+                {killAlerts.length > 0 && (
+                  <KillAlertBanner
+                    alerts={killAlerts}
+                    onDismiss={(id) => setKillAlerts(prev => prev.filter(a => a.id !== id))}
+                    onAcknowledge={(id) => {
+                      setKillAlerts(prev => prev.filter(a => a.id !== id));
+                      addToast({ type: 'info', title: 'Alert Acknowledged', message: 'Review your thesis to take action.' });
+                    }}
+                    onViewThesis={() => setCurrentView('theses')}
+                  />
+                )}
+                
                 <ResultsTabs 
                   result={analysisData} 
                   onRefresh={handleRefresh}

@@ -61,6 +61,12 @@ export interface AnalysisData {
   summary: string;
   sentiment_report: string;
   price_data: PriceDataPoint[];
+  fundamental_data?: {
+    info?: Record<string, any>;
+    income_statement?: Record<string, any>;
+    balance_sheet?: Record<string, any>;
+    cash_flow?: Record<string, any>;
+  };
   headlines: string[];
   headlines_count: number;
   reasoning_steps: string[];
@@ -91,11 +97,28 @@ export interface AnalysisData {
 }
 
 /**
+ * Kill Criteria Alert (Stage 4)
+ */
+export interface KillAlert {
+  id: string;
+  thesis_id: string;
+  ticker: string;
+  triggered_criteria: string;
+  triggering_signal: string;
+  match_confidence: number;
+  analysis_sentiment?: string;
+  analysis_confidence?: number;
+  status: 'pending' | 'dismissed' | 'acknowledged' | 'acted';
+  created_at: string;
+}
+
+/**
  * Full API response wrapper for /analyze and /results endpoints
  */
 export interface AnalysisResponse {
   message: string;
   ticker: string;
+  kill_alerts?: KillAlert[];  // Stage 4: Kill criteria alerts
   data: AnalysisData;
 }
 

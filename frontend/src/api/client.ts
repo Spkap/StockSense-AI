@@ -46,13 +46,19 @@ export const api = {
     return data;
   },
 
-  // Analyze a stock ticker
-  async analyzeStock(ticker: string, force: boolean = false): Promise<AnalysisResponse> {
+  // Analyze a stock ticker (optionally with auth for kill criteria monitoring)
+  async analyzeStock(ticker: string, force: boolean = false, accessToken?: string): Promise<AnalysisResponse> {
     const params = force ? { force: 'true' } : {};
+    const headers: Record<string, string> = {};
+    
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    
     const { data } = await apiClient.post<AnalysisResponse>(
       `/analyze/${ticker.toUpperCase()}`,
       null,
-      { params }
+      { params, headers }
     );
     return data;
   },

@@ -10,7 +10,8 @@ import type {
   ThesesResponse, 
   CreateThesisRequest, 
   UpdateThesisRequest,
-  ThesisHistoryResponse 
+  ThesisHistoryResponse,
+  ThesisComparison
 } from '../types/thesis';
 import { supabase } from '../utils/supabase';
 
@@ -137,3 +138,21 @@ export function useThesisHistory(thesisId: string | null) {
     enabled: !!thesisId,
   });
 }
+
+/**
+ * Hook to compare thesis with current analysis (Stage 4)
+ */
+export function useThesisComparison(thesisId: string | null) {
+  return useQuery({
+    queryKey: ['thesis-comparison', thesisId],
+    queryFn: async () => {
+      if (!thesisId) return null;
+      const client = await createThesisClient();
+      const { data } = await client.get<ThesisComparison>(`/api/theses/${thesisId}/compare`);
+      return data;
+    },
+    enabled: !!thesisId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+

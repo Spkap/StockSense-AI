@@ -2,6 +2,7 @@
 StockSense ReAct Agent API
 AI-powered autonomous stock analysis using ReAct pattern
 """
+import json
 import logging
 import os
 import time
@@ -13,7 +14,7 @@ from typing import Any, Dict
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from .config import validate_configuration, ConfigurationError, get_google_api_key, get_newsapi_key
 from .database import init_db, get_latest_analysis, get_all_cached_tickers_with_timestamps, delete_cached_analysis
@@ -89,6 +90,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error initializing database: {str(e)}")
         raise
+
+    # Initialize Scheduler (Stage 5 Phase 2: The Watchman)
+    try:
+        from .scheduler import start_scheduler
+        start_scheduler()
+        logger.info("Background scheduler initialized")
+    except Exception as e:
+        logger.warning(f"Failed to start background scheduler: {e}")
 
     logger.info("StockSense ReAct Agent API ready to serve requests!")
 
@@ -188,13 +197,19 @@ async def root() -> Dict[str, str]:
 
 
 @app.post("/analyze/{ticker}")
-async def analyze_stock(ticker: str, request: Request, force: bool = False) -> Dict[str, Any]:
+async def analyze_stock(
+    ticker: str, 
+    request: Request, 
+    force: bool = False,
+    authorization: str = None
+) -> Dict[str, Any]:
     """
     Analyze stock using the ReAct Agent (Reasoning + Action) pattern.
     
     Args:
         ticker: Stock ticker symbol
         force: If True, bypass cache and run fresh analysis
+        authorization: Optional Bearer token for authenticated features (kill criteria alerts)
     
     Includes ticker validation and rate limiting.
     """
@@ -305,9 +320,37 @@ async def analyze_stock(ticker: str, request: Request, force: bool = False) -> D
 
             logger.info(f"ReAct Agent analysis completed successfully for {ticker}")
 
+            # Stage 4: Kill Criteria Monitoring
+            # Check if user is authenticated and run kill criteria check
+            kill_alerts_created = []
+            if authorization:
+                try:
+                    from .supabase_client import verify_user_token
+                    from .kill_criteria_monitor import check_kill_criteria_for_ticker
+                    
+                    # Parse Bearer token
+                    parts = authorization.split(" ")
+                    if len(parts) == 2 and parts[0].lower() == "bearer":
+                        access_token = parts[1]
+                        user = verify_user_token(access_token)
+                        
+                        if user:
+                            logger.info(f"Running kill criteria check for user {user['id']} on {ticker}")
+                            kill_alerts_created = check_kill_criteria_for_ticker(
+                                ticker=ticker,
+                                analysis_result=final_state,
+                                user_id=user["id"],
+                                access_token=access_token
+                            )
+                            if kill_alerts_created:
+                                logger.info(f"Created {len(kill_alerts_created)} kill alerts for {ticker}")
+                except Exception as e:
+                    logger.warning(f"Kill criteria check failed (non-fatal): {e}")
+
             return {
                 "message": "ReAct Agent analysis complete and saved",
                 "ticker": ticker,
+                "kill_alerts": kill_alerts_created,  # Stage 4: Include triggered alerts
                 "data": {
                     "ticker": final_state["ticker"],
                     "summary": final_state["summary"],
@@ -467,6 +510,91 @@ async def get_cached_tickers() -> Dict[str, Any]:
         error_msg = f"Error retrieving cached tickers: {str(e)}"
         logger.error(error_msg, exc_info=True)
         raise HTTPException(status_code=500, detail=error_msg)
+
+
+@app.get("/analyze/{ticker}/stream")
+async def analyze_stock_stream(ticker: str, request: Request):
+    """
+    Stream analysis using Server-Sent Events (SSE).
+    
+    Stage 4: Streaming Analysis with Progressive Rendering
+    
+    Yields events as each tool completes:
+    - started: Analysis initiated
+    - tool_started: Starting a specific tool
+    - tool_completed: Tool finished with partial data
+    - completed: Full analysis result
+    - error: If something goes wrong
+    """
+    from .streaming import run_streaming_analysis
+    
+    # Rate limiting
+    client_ip = get_client_ip(request)
+    if not rate_limiter.is_allowed(client_ip):
+        async def error_response():
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Rate limit exceeded'})}\n\n"
+        return StreamingResponse(
+            error_response(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+    
+    # Validate ticker
+    ticker = ticker.upper().strip()
+    is_valid, error_msg = validate_ticker(ticker)
+    if not is_valid:
+        async def error_response():
+            yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
+        return StreamingResponse(
+            error_response(),
+            media_type="text/event-stream"
+        )
+    
+    logger.info(f"Streaming analysis request for {ticker} from {client_ip}")
+    
+    async def event_generator():
+        """Generate SSE events from streaming analysis."""
+        import json
+        
+        try:
+            async for event in run_streaming_analysis(ticker):
+                yield event.to_sse()
+                
+                # If completed, also save to cache
+                if event.event_type.value == "completed" and event.data:
+                    try:
+                        from .database import save_analysis
+                        save_analysis(
+                            ticker=ticker,
+                            summary=event.data.get("summary", ""),
+                            sentiment_report=event.data.get("sentiment_report", ""),
+                            price_data=event.data.get("price_data", []),
+                            headlines=event.data.get("headlines", []),
+                            reasoning_steps=[],
+                            tools_used=event.data.get("tools_used", []),
+                            iterations=1
+                        )
+                        logger.info(f"Streaming analysis saved to cache for {ticker}")
+                    except Exception as e:
+                        logger.warning(f"Failed to save streaming analysis: {e}")
+                        
+        except Exception as e:
+            logger.error(f"Streaming error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
 
 
 if __name__ == "__main__":

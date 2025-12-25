@@ -72,6 +72,11 @@ CREATE TABLE IF NOT EXISTS theses (
     -- Kill criteria (Stage 3 core feature)
     kill_criteria TEXT[],  -- Array of conditions that would trigger exit
     
+    -- Analysis-Thesis Linkage (Stage 4)
+    origin_analysis_id INTEGER,               -- SQLite cache ID when thesis was created
+    origin_analysis_snapshot JSONB,           -- Snapshot of key metrics at thesis creation
+    -- Snapshot includes: {sentiment, confidence, key_themes, skeptic_verdict, timestamp}
+    
     -- Thesis metadata
     time_horizon TEXT CHECK (time_horizon IN ('short', 'medium', 'long')) DEFAULT 'medium',
     thesis_type TEXT CHECK (thesis_type IN ('growth', 'value', 'income', 'turnaround', 'special_situation')) DEFAULT 'growth',
@@ -106,6 +111,35 @@ CREATE TABLE IF NOT EXISTS thesis_history (
 );
 
 -- ============================================
+-- KILL ALERTS (Kill criteria monitoring - Stage 4)
+-- ============================================
+-- Alerts generated when analysis results may trigger kill criteria
+CREATE TABLE IF NOT EXISTS kill_alerts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    thesis_id UUID NOT NULL REFERENCES theses(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    ticker TEXT NOT NULL,
+    
+    -- What triggered the alert
+    triggered_criteria TEXT NOT NULL,           -- The kill criteria text that was matched
+    triggering_signal TEXT NOT NULL,            -- The signal from analysis that matched
+    match_confidence DECIMAL(3, 2),             -- 0.00-1.00 confidence in the match
+    
+    -- Analysis context
+    analysis_sentiment TEXT,                    -- Sentiment at time of alert
+    analysis_confidence DECIMAL(3, 2),          -- Confidence at time of alert
+    analysis_summary TEXT,                      -- Brief summary for context
+    
+    -- Alert status
+    status TEXT CHECK (status IN ('pending', 'dismissed', 'acknowledged', 'acted')) DEFAULT 'pending',
+    user_action TEXT,                           -- What action user took (if any)
+    
+    -- Timestamps
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    resolved_at TIMESTAMPTZ
+);
+
+-- ============================================
 -- ROW LEVEL SECURITY (RLS)
 -- ============================================
 -- Enable RLS on all tables
@@ -113,6 +147,7 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE positions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE theses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE thesis_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kill_alerts ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: Users can only see/edit their own profile
 CREATE POLICY "Users can view own profile" ON profiles
@@ -154,6 +189,19 @@ CREATE POLICY "Users can view own thesis history" ON thesis_history
 CREATE POLICY "Users can insert own thesis history" ON thesis_history
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+-- Kill Alerts: Users can see/manage their own alerts
+CREATE POLICY "Users can view own kill alerts" ON kill_alerts
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own kill alerts" ON kill_alerts
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own kill alerts" ON kill_alerts
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own kill alerts" ON kill_alerts
+    FOR DELETE USING (auth.uid() = user_id);
+
 -- ============================================
 -- INDEXES for performance
 -- ============================================
@@ -163,6 +211,10 @@ CREATE INDEX IF NOT EXISTS idx_theses_user_id ON theses(user_id);
 CREATE INDEX IF NOT EXISTS idx_theses_ticker ON theses(ticker);
 CREATE INDEX IF NOT EXISTS idx_theses_status ON theses(status);
 CREATE INDEX IF NOT EXISTS idx_thesis_history_thesis_id ON thesis_history(thesis_id);
+CREATE INDEX IF NOT EXISTS idx_kill_alerts_user_id ON kill_alerts(user_id);
+CREATE INDEX IF NOT EXISTS idx_kill_alerts_thesis_id ON kill_alerts(thesis_id);
+CREATE INDEX IF NOT EXISTS idx_kill_alerts_ticker ON kill_alerts(ticker);
+CREATE INDEX IF NOT EXISTS idx_kill_alerts_status ON kill_alerts(status);
 
 -- ============================================
 -- UPDATED_AT TRIGGER
