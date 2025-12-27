@@ -597,6 +597,71 @@ async def analyze_stock_stream(ticker: str, request: Request):
     )
 
 
+# ============================================================================
+# Phase 3: Adversarial Collaboration (Debate Analysis)
+# ============================================================================
+
+@app.get("/analyze/debate/{ticker}")
+async def analyze_stock_debate(ticker: str, request: Request) -> Dict[str, Any]:
+    """
+    Run adversarial collaboration analysis with Bull and Bear agents.
+    
+    Phase 3: The Debate Update
+    
+    Architecture:
+    1. Phase 1 (Parallel): Bull and Bear agents analyze data concurrently
+    2. Phase 2 (Rebuttal): Each agent critiques the other's draft
+    3. Phase 3 (Synthesis): Impartial judge produces probability-weighted verdict
+    
+    Returns:
+        SynthesizedVerdict with bull/base/bear scenario probabilities
+    """
+    from .react_agent import run_debate_analysis
+    
+    # Rate limiting (debate is more expensive - stricter limit)
+    client_ip = get_client_ip(request)
+    # Use same rate limiter but counts towards quota
+    if not rate_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Debate analysis is resource-intensive. Please wait."
+        )
+    
+    # Validate ticker
+    ticker = ticker.upper().strip()
+    is_valid, error_msg = validate_ticker(ticker)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+    
+    logger.info(f"Debate analysis request for {ticker} from {client_ip}")
+    
+    try:
+        # Run the adversarial analysis
+        result = await run_debate_analysis(ticker)
+        
+        if result.get("error"):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Debate analysis failed: {result['error']}"
+            )
+        
+        logger.info(f"Debate analysis completed for {ticker}")
+        
+        return {
+            "message": "Adversarial debate analysis completed",
+            "ticker": ticker,
+            "analysis_type": "adversarial_debate",
+            "data": result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = f"Debate analysis error for {ticker}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
 if __name__ == "__main__":
     # Support Render / other PaaS dynamic port assignment
     port = int(os.getenv("PORT", "8000"))

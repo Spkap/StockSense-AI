@@ -5,8 +5,8 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-    # Run at 00:00 UTC every 5 days
-    - cron: '0 0 */5 * *'
+    # Run at 00:00 UTC every 2 days (safe buffer for 7-day pause limit)
+    - cron: '0 0 */2 * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -18,21 +18,26 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "❌ Error: Secrets SUPABASE_URL or SUPABASE_ANON_KEY are not set."
+            exit 1
+          fi
+
           echo "Pinging Supabase to keep project active..."
-          
+
           # Simple health check query
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
             -X GET "${SUPABASE_URL}/rest/v1/" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
-          
+
           if [ "$RESPONSE" = "200" ] || [ "$RESPONSE" = "401" ]; then
             echo "✅ Supabase project is active (HTTP $RESPONSE)"
           else
             echo "⚠️ Unexpected response: HTTP $RESPONSE"
             exit 1
           fi
-          
+
       - name: Log Success
         run: |
           echo "Keep-alive ping completed at $(date)"

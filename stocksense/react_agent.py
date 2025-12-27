@@ -768,3 +768,159 @@ def run_react_analysis(ticker: str) -> Dict:
 if __name__ == '__main__':
     test_ticker = "AAPL"
     result = run_react_analysis(test_ticker)
+
+
+# ============================================================================
+# Phase 3: Adversarial Collaboration (Debate Analysis)
+# ============================================================================
+
+import asyncio
+from .agents import BullAnalyst, BearAnalyst, Synthesizer, SynthesizedVerdict
+from .analyzer import analyze_sentiment_of_headlines
+
+
+async def run_debate_analysis(ticker: str) -> Dict:
+    """
+    Run adversarial collaboration analysis with Bull and Bear agents.
+    
+    Architecture:
+    1. Phase 1 (Parallel): Bull and Bear agents analyze data concurrently
+    2. Phase 2 (Rebuttal): Each agent critiques the other's draft
+    3. Phase 3 (Synthesis): Impartial judge synthesizes final verdict
+    
+    Returns a SynthesizedVerdict with probability-weighted scenarios.
+    """
+    import logging
+    logger = logging.getLogger("stocksense.debate")
+    
+    ticker = ticker.upper()
+    logger.info(f"Starting debate analysis for {ticker}")
+    
+    try:
+        # Step 0: Collect data (shared by both agents)
+        fundamentals = await asyncio.to_thread(get_fundamental_data, ticker)
+        headlines = await asyncio.to_thread(get_news, ticker, 7)
+        price_data = await asyncio.to_thread(get_price_history, ticker, "1mo")
+        
+        # Analyze sentiment (shared context)
+        sentiment_analysis = {}
+        if headlines:
+            try:
+                sentiment_analysis = await asyncio.to_thread(
+                    analyze_sentiment_of_headlines, headlines
+                )
+            except Exception as e:
+                logger.warning(f"Sentiment analysis failed: {e}")
+                sentiment_analysis = {}
+        
+        # Step 1: Initialize agents
+        bull_agent = BullAnalyst()
+        bear_agent = BearAnalyst()
+        synthesizer = Synthesizer()
+        
+        # Step 2: Phase 1 - Parallel initial analysis
+        logger.info("Phase 1: Parallel Bull/Bear analysis")
+        
+        bull_task = bull_agent.analyze(
+            ticker, fundamentals, headlines, price_data, sentiment_analysis
+        )
+        bear_task = bear_agent.analyze(
+            ticker, fundamentals, headlines, price_data, sentiment_analysis
+        )
+        
+        # Run in parallel - reduces latency by ~50%
+        bull_case, bear_case = await asyncio.gather(bull_task, bear_task)
+        
+        # Convert to dicts for rebuttal phase
+        bull_dict = bull_case.to_dict()
+        bear_dict = bear_case.to_dict()
+        
+        logger.info(f"Bull confidence: {bull_case.confidence:.2f}, Bear confidence: {bear_case.confidence:.2f}")
+        
+        # Step 3: Phase 2 - Rebuttal Round (Anti-Sycophancy)
+        logger.info("Phase 2: Rebuttal Round")
+        
+        # Bear critiques Bull
+        bear_rebuttals = await bear_agent.generate_rebuttal(
+            bull_dict, bear_dict, fundamentals
+        )
+        
+        # Bull critiques Bear
+        bull_rebuttals = await bull_agent.generate_rebuttal(
+            bear_dict, bull_dict, fundamentals
+        )
+        
+        # Convert rebuttals to dicts
+        bear_rebuttals_dict = [
+            {
+                "target_claim": r.target_claim,
+                "counter_argument": r.counter_argument,
+                "counter_evidence": r.counter_evidence,
+                "strength": r.strength
+            }
+            for r in bear_rebuttals
+        ]
+        
+        bull_rebuttals_dict = [
+            {
+                "target_claim": r.target_claim,
+                "counter_argument": r.counter_argument,
+                "counter_evidence": r.counter_evidence,
+                "strength": r.strength
+            }
+            for r in bull_rebuttals
+        ]
+        
+        logger.info(f"Bear rebuttals: {len(bear_rebuttals_dict)}, Bull rebuttals: {len(bull_rebuttals_dict)}")
+        
+        # Step 4: Phase 3 - Synthesis with Evidence Grading
+        logger.info("Phase 3: Synthesis")
+        
+        verdict = await synthesizer.synthesize(
+            ticker,
+            bull_dict,
+            bear_dict,
+            bull_rebuttals_dict,
+            bear_rebuttals_dict,
+            fundamentals
+        )
+        
+        logger.info(f"Verdict: {verdict.recommendation} (conviction: {verdict.conviction:.2f})")
+        logger.info(f"Probabilities - Bull: {verdict.bull_probability:.2f}, Base: {verdict.base_probability:.2f}, Bear: {verdict.bear_probability:.2f}")
+        
+        # Return combined result
+        return {
+            "ticker": ticker,
+            "analysis_type": "adversarial_debate",
+            "verdict": verdict.to_dict(),
+            "bull_case": bull_dict,
+            "bear_case": bear_dict,
+            "rebuttals": {
+                "bear_to_bull": bear_rebuttals_dict,
+                "bull_to_bear": bull_rebuttals_dict
+            },
+            "fundamentals": fundamentals,
+            "headlines": headlines,
+            "timestamp": datetime.now().isoformat(),
+            "error": None
+        }
+        
+    except Exception as e:
+        logger.error(f"Debate analysis failed for {ticker}: {e}")
+        return {
+            "ticker": ticker,
+            "analysis_type": "adversarial_debate",
+            "verdict": None,
+            "bull_case": None,
+            "bear_case": None,
+            "rebuttals": None,
+            "fundamentals": None,
+            "headlines": None,
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
+
+
+def run_debate_analysis_sync(ticker: str) -> Dict:
+    """Synchronous wrapper for run_debate_analysis."""
+    return asyncio.run(run_debate_analysis(ticker))
