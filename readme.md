@@ -9,7 +9,24 @@ StockSense is an autonomous stock analysis system implementing the **ReAct (Reas
 [![React](https://img.shields.io/badge/React-18+-61DAFB.svg)](https://react.dev/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.6+-purple.svg)](https://langchain-ai.github.io/langgraph/)
 [![LangChain](https://img.shields.io/badge/LangChain-0.3.x-blue.svg)](https://python.langchain.com/)
-[![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [API Reference](#api-reference)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
+---
 
 ## Overview
 
@@ -23,6 +40,8 @@ StockSense demonstrates an applied AI agent architecture using LangGraph + LangC
 - **LLM Integration**: Google Gemini 2.0 Flash Lite (chat + text variants) via `langchain-google-genai`
 - **Stateful Orchestration**: LangGraph `StateGraph` with conditional continuation
 - **User Belief System**: Investment thesis tracking with Supabase authentication
+
+---
 
 ## Architecture
 
@@ -55,7 +74,7 @@ graph TD
     I --> J[Return Analysis]
 ```
 
-### Core Components
+### Project Structure
 
 ```
 StockSense-Agent/
@@ -104,37 +123,39 @@ StockSense-Agent/
 └── requirements-backend.txt # Pin-locked backend dependencies
 ```
 
+---
+
 ## Features
 
-### Autonomous Agent
+### 🤖 Autonomous Agent
 
 - Iterative reasoning loop via LangGraph (agent → tools → agent)
 - Dynamic tool usage: news, price data, sentiment analysis, skeptic critique, save
 - Prevents redundant tool calls (checks existing state)
 - Max iteration guard (default 8)
 
-### Market Data & Sentiment
+### 📊 Market Data & Sentiment
 
 - Recent headline aggregation (NewsAPI)
 - Historical OHLCV price retrieval (yfinance)
 - Per-headline sentiment analysis + overall summary (Gemini 2.0 Flash Lite)
 - Skeptic analysis providing contrarian views and bear cases
 
-### User Belief System
+### 📝 User Belief System
 
 - User authentication via Supabase
 - Investment thesis creation and tracking
 - Kill criteria definition
 - Thesis history and evolution tracking
 
-### Infrastructure
+### ⚙️ Infrastructure
 
 - FastAPI backend (analysis trigger, cached retrieval, health, auth)
 - React frontend (interactive dashboard, thesis management, debate visualization)
 - Supabase PostgreSQL for all persistent storage
 - Server-Sent Events (SSE) for real-time streaming
 
-### Adversarial Debate System (Phase 3)
+### ⚔️ Adversarial Debate System
 
 - **Bull Analyst**: Growth-focused agent prioritizing revenue, market expansion, forward P/E
 - **Bear Analyst**: Risk-focused agent prioritizing debt ratios, margins, valuation multiples
@@ -142,6 +163,8 @@ StockSense-Agent/
 - **Information Asymmetry**: Agents receive same data but with different priority ordering
 - **Rebuttal Round**: Anti-sycophancy mechanism where agents critique each other
 - **Probability-Weighted Verdict**: Bull/Base/Bear scenario probabilities
+
+---
 
 ## Quick Start
 
@@ -156,6 +179,7 @@ StockSense-Agent/
 ### Installation
 
 ```bash
+# Clone the repository
 git clone https://github.com/Spkap/StockSense-Agent.git
 cd StockSense-Agent
 
@@ -170,17 +194,17 @@ npm install  # or pnpm install
 cd ..
 
 # Environment variables
-cat > .env << EOF
-GOOGLE_API_KEY=your_google_api_key
-NEWSAPI_KEY=your_newsapi_key
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_KEY=your_supabase_service_key
-EOF
+cp .env.example .env
+# Edit .env with your actual API keys:
+# - GOOGLE_API_KEY
+# - NEWSAPI_KEY
+# - SUPABASE_URL
+# - SUPABASE_ANON_KEY
+# - SUPABASE_SERVICE_KEY
 
 # Apply Supabase migrations (run in Supabase SQL Editor)
-# - supabase/schema.sql
-# - supabase/migrations/003_analysis_cache.sql
+# 1. supabase/schema.sql
+# 2. supabase/migrations/003_analysis_cache.sql
 ```
 
 ### Running the Application
@@ -194,7 +218,7 @@ cd frontend
 npm run dev  # http://localhost:5173
 ```
 
-### REST API
+### Quick API Test
 
 ```bash
 # Trigger ReAct agent analysis
@@ -210,7 +234,7 @@ curl "http://localhost:8000/health"
 curl "http://localhost:8000/cached-tickers"
 ```
 
-### Example Analysis Output
+### Example Response
 
 ```json
 {
@@ -229,69 +253,77 @@ curl "http://localhost:8000/cached-tickers"
 }
 ```
 
+---
+
 ## API Reference
 
 ### Analysis Endpoints
 
-| Method | Path                           | Description                                           |
-| ------ | ------------------------------ | ----------------------------------------------------- |
-| POST   | `/analyze/{ticker}`            | Run ReAct agent analysis (fresh or cached)            |
-| GET    | `/analyze/{ticker}/stream`     | SSE stream of analysis progress                       |
-| GET    | `/analyze/debate/{ticker}`     | Run adversarial Bull/Bear debate analysis             |
-| GET    | `/analyze/debate/{ticker}/stream` | SSE stream of debate progress                      |
-| GET    | `/results/{ticker}`            | Latest cached summary & sentiment                     |
-| DELETE | `/results/{ticker}`            | Delete cached analysis                                |
-| GET    | `/cached-tickers`              | List all cached tickers                               |
+| Method | Path                              | Description                              |
+| ------ | --------------------------------- | ---------------------------------------- |
+| POST   | `/analyze/{ticker}`               | Run ReAct agent analysis (fresh/cached)  |
+| GET    | `/analyze/{ticker}/stream`        | SSE stream of analysis progress          |
+| GET    | `/analyze/debate/{ticker}`        | Run adversarial Bull/Bear debate         |
+| GET    | `/analyze/debate/{ticker}/stream` | SSE stream of debate progress            |
+| GET    | `/results/{ticker}`               | Latest cached summary & sentiment        |
+| DELETE | `/results/{ticker}`               | Delete cached analysis                   |
+| GET    | `/cached-tickers`                 | List all cached tickers                  |
 
 ### System Endpoints
 
-| Method | Path      | Description                                           |
-| ------ | --------- | ----------------------------------------------------- |
-| GET    | `/health` | Health check with dependency status                   |
-| GET    | `/`       | Root endpoint with API info                           |
-| GET    | `/docs`   | Swagger UI (OpenAPI)                                  |
+| Method | Path      | Description                     |
+| ------ | --------- | ------------------------------- |
+| GET    | `/health` | Health check with dependencies  |
+| GET    | `/`       | Root endpoint with API info     |
+| GET    | `/docs`   | Swagger UI (OpenAPI)            |
 
 ### User Endpoints (Auth Required)
 
-| Method | Path                          | Description                                      |
-| ------ | ----------------------------- | ------------------------------------------------ |
-| GET    | `/api/me`                     | Current user profile                             |
-| GET    | `/api/positions`              | User's portfolio positions                       |
-| POST   | `/api/positions`              | Add portfolio position                           |
-| DELETE | `/api/positions/{id}`         | Remove position                                  |
-| GET    | `/api/theses`                 | User's investment theses                         |
-| POST   | `/api/theses`                 | Create investment thesis                         |
-| PATCH  | `/api/theses/{id}`            | Update thesis                                    |
-| GET    | `/api/theses/{id}/history`    | Thesis revision history                          |
-| GET    | `/api/theses/{id}/compare`    | Compare thesis to current analysis               |
-| GET    | `/api/kill-alerts`            | User's kill criteria alerts                      |
-| GET    | `/api/kill-alerts/{id}`       | Get specific alert                               |
-| PATCH  | `/api/kill-alerts/{id}`       | Update alert status                              |
-| DELETE | `/api/kill-alerts/{id}`       | Delete alert                                     |
+| Method | Path                       | Description                    |
+| ------ | -------------------------- | ------------------------------ |
+| GET    | `/api/me`                  | Current user profile           |
+| GET    | `/api/positions`           | User's portfolio positions     |
+| POST   | `/api/positions`           | Add portfolio position         |
+| DELETE | `/api/positions/{id}`      | Remove position                |
+| GET    | `/api/theses`              | User's investment theses       |
+| POST   | `/api/theses`              | Create investment thesis       |
+| PATCH  | `/api/theses/{id}`         | Update thesis                  |
+| GET    | `/api/theses/{id}/history` | Thesis revision history        |
+| GET    | `/api/theses/{id}/compare` | Compare thesis to analysis     |
+| GET    | `/api/kill-alerts`         | User's kill criteria alerts    |
+| PATCH  | `/api/kill-alerts/{id}`    | Update alert status            |
+| DELETE | `/api/kill-alerts/{id}`    | Delete alert                   |
+
+---
 
 ## Testing
 
 ```bash
-# All tests (requires backend deps installed)
+# Run all tests (requires backend deps installed)
 pytest -v
 
-# Individual modules
+# Run specific test modules
 pytest tests/test_api.py -v
 pytest tests/test_tools.py -v
 
-# Optional coverage
+# Run with coverage report
 pytest --cov=stocksense --cov-report=term-missing
 ```
+
+---
 
 ## Deployment
 
 ### Backend (Render)
 
-Deploy the FastAPI backend to Render using the `render.yaml` configuration.
+Deploy the FastAPI backend to Render using the included `render.yaml`:
+
+```bash
+# render.yaml is pre-configured for Render deployment
+# Set environment variables in Render dashboard
+```
 
 ### Frontend (Vercel/Netlify)
-
-The React frontend can be deployed to any static hosting service:
 
 ```bash
 cd frontend
@@ -300,15 +332,60 @@ npm run build  # Produces dist/ folder
 
 Set `VITE_API_URL` environment variable to your backend URL.
 
+---
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+Please ensure your code:
+- Passes all existing tests
+- Includes tests for new functionality
+- Follows the existing code style
+
+---
+
+## License
+
+This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
+
+This means you can:
+- ✅ Use commercially
+- ✅ Modify and distribute
+- ✅ Use patents
+- ⚠️ Must include license and copyright notice
+- ⚠️ Must state changes made
+
+---
+
+## Acknowledgments
+
+- [LangChain](https://python.langchain.com/) & [LangGraph](https://langchain-ai.github.io/langgraph/) for the agent framework
+- [Google Gemini](https://deepmind.google/technologies/gemini/) for LLM capabilities
+- [Supabase](https://supabase.com/) for authentication and database
+- [NewsAPI](https://newsapi.org/) for news headlines
+- [yfinance](https://github.com/ranaroussi/yfinance) for market data
+
+---
+
 ## Technical Highlights
 
-- LangGraph workflow: agent node + tool node + conditional edge
-- State tracks tools used, reasoning steps, iterations, messages
-- Redundant tool invocations avoided (sentiment/news/price dedupe)
-- Supabase PostgreSQL for persistent, production-ready storage
-- Gemini rate limit handling produces user-friendly summary
-- Epistemic honesty: confidence scores, information gaps, skeptic critique
+- **LangGraph Workflow**: Agent node + tool node + conditional edge architecture
+- **State Management**: Tracks tools used, reasoning steps, iterations, messages
+- **Deduplication**: Prevents redundant tool invocations (sentiment/news/price)
+- **Epistemic Honesty**: Confidence scores, information gaps, skeptic critique
+- **Rate Limit Handling**: Gemini rate limits produce user-friendly summaries
 
 ### Disclaimer
 
-Example outputs are illustrative; actual results depend on live NewsAPI & yfinance data plus Gemini responses.
+> Example outputs are illustrative; actual results depend on live NewsAPI & yfinance data plus Gemini responses. This tool is for educational and research purposes only—not financial advice.
+
+---
+
+**Built with ❤️ using LangGraph, FastAPI, and React**
