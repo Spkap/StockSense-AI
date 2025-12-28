@@ -62,7 +62,7 @@ StockSense-Agent/
 ├── frontend/                # React + TypeScript frontend
 │   ├── src/
 │   │   ├── components/      # UI components (ResultsTabs, DebateView, etc.)
-│   │   ├── hooks/           # Custom hooks (useStreamingDebate)
+│   │   ├── hooks/           # Custom hooks (useStreamingDebate, useStreamingAnalysis)
 │   │   ├── pages/           # Page components (ThesesPage)
 │   │   ├── api/             # API hooks and clients
 │   │   ├── context/         # React contexts (Auth, Sidebar, Theme)
@@ -97,7 +97,8 @@ StockSense-Agent/
 │   └── schema.sql           # Database schema for user data
 ├── tests/
 │   ├── test_api.py          # API integration tests
-│   └── test_tools.py        # Tool logic tests
+│   ├── test_tools.py        # Tool logic tests
+│   └── test_scheduler.py    # Background job tests
 ├── requirements.txt         # Backend dependencies
 └── requirements-backend.txt # Pin-locked backend dependencies
 ```
@@ -247,13 +248,21 @@ curl "http://localhost:8000/cached-tickers"
 
 ### User Endpoints (Auth Required)
 
-| Method | Path               | Description                                      |
-| ------ | ------------------ | ------------------------------------------------ |
-| GET    | `/api/me`          | Current user profile                             |
-| GET    | `/api/theses`      | User's investment theses                         |
-| POST   | `/api/theses`      | Create investment thesis                         |
-| GET    | `/api/kill-alerts` | User's kill criteria alerts                      |
-| PATCH  | `/api/kill-alerts/{id}` | Update alert status                         |
+| Method | Path                          | Description                                      |
+| ------ | ----------------------------- | ------------------------------------------------ |
+| GET    | `/api/me`                     | Current user profile                             |
+| GET    | `/api/positions`              | User's portfolio positions                       |
+| POST   | `/api/positions`              | Add portfolio position                           |
+| DELETE | `/api/positions/{id}`         | Remove position                                  |
+| GET    | `/api/theses`                 | User's investment theses                         |
+| POST   | `/api/theses`                 | Create investment thesis                         |
+| PATCH  | `/api/theses/{id}`            | Update thesis                                    |
+| GET    | `/api/theses/{id}/history`    | Thesis revision history                          |
+| GET    | `/api/theses/{id}/compare`    | Compare thesis to current analysis               |
+| GET    | `/api/kill-alerts`            | User's kill criteria alerts                      |
+| GET    | `/api/kill-alerts/{id}`       | Get specific alert                               |
+| PATCH  | `/api/kill-alerts/{id}`       | Update alert status                              |
+| DELETE | `/api/kill-alerts/{id}`       | Delete alert                                     |
 
 ## Testing
 
