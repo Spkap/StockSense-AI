@@ -32,16 +32,27 @@ StockSense is an autonomous stock analysis system implementing the **ReAct (Reas
 
 ## Overview
 
-StockSense demonstrates an applied AI agent architecture using LangGraph + LangChain tools. It combines recent news headlines (NewsAPI) and historical market data (Yahoo Finance via yfinance) with Gemini-based sentiment analysis (Gemini 2.0 Flash Lite) to produce a lightweight research snapshot. The agent maintains internal state (messages, tool usage, reasoning steps) across iterations until completion criteria are met or a max-iteration limit is reached.
+StockSense is not a simple chatbot wrapper — it's a **production-grade agentic AI system** that demonstrates advanced patterns in autonomous reasoning, multi-agent coordination, and real-time streaming.
 
-### Key Characteristics
+### What Makes This Different
 
-- **ReAct Agent**: Iterative reasoning cycle with tool calls (news, price data, sentiment, persistence)
-- **Backend API**: FastAPI service exposing analysis endpoints and cached result retrieval
-- **Frontend App**: React + TypeScript modern dashboard with thesis tracking
-- **LLM Integration**: Google Gemini 2.0 Flash Lite (chat + text variants) via `langchain-google-genai`
-- **Stateful Orchestration**: LangGraph `StateGraph` with conditional continuation
-- **User Belief System**: Investment thesis tracking with Supabase authentication
+Most AI stock analysis tools send a single prompt and return a response. StockSense takes a fundamentally different approach:
+
+| Traditional Approach | StockSense Approach |
+|---------------------|---------------------|
+| Single prompt → single response | Iterative reasoning loop with multiple tool calls |
+| One perspective | Multiple agents with opposing viewpoints |
+| Binary recommendations | Probability-weighted scenario analysis |
+| No self-critique | Built-in anti-sycophancy mechanisms |
+| Static output | Real-time streaming of reasoning process |
+
+### Key Innovations
+
+- **ReAct Pattern**: Agent reasons step-by-step, deciding what tools to call based on current knowledge
+- **Multi-Agent Debate**: Bull, Bear, and Skeptic agents argue and challenge each other's claims
+- **Evidence Grading**: Claims are scored by data support and rebuttal strength, not just LLM confidence
+- **Information Asymmetry**: Same data presented differently to each agent, mimicking real analyst teams
+- **Kill Criteria Monitoring**: Autonomous watchman that alerts when investment theses are invalidated
 
 ---
 
@@ -129,42 +140,79 @@ StockSense-Agent/
 
 ## Features
 
-### 🤖 Autonomous Agent
+### 🤖 Autonomous ReAct Agent
 
-- Iterative reasoning loop via LangGraph (agent → tools → agent)
-- Dynamic tool usage: news, price data, sentiment analysis, skeptic critique, save
-- Prevents redundant tool calls (checks existing state)
-- Max iteration guard (default 8)
+Unlike simple prompt-and-response systems, StockSense implements a true reasoning loop:
+
+1. **Observe** → Agent receives ticker input and current state
+2. **Reason** → LLM decides what information is needed
+3. **Act** → Appropriate tool is invoked (news, prices, sentiment)
+4. **Reflect** → Results are evaluated; loop continues or terminates
+
+This creates an agent that *thinks before it answers* rather than generating responses in a single pass.
+
+### 🧠 Multi-Agent Adversarial System
+
+The core innovation is a **team of specialized AI agents** that debate each other:
+
+| Agent | Role | Focus Areas |
+|-------|------|-------------|
+| **Bull Analyst** | Builds the investment case | Revenue growth, market expansion, analyst upgrades, competitive wins |
+| **Bear Analyst** | Identifies risks and red flags | Debt levels, margin compression, valuation concerns, competitive threats |
+| **Skeptic Agent** | Challenges the primary analysis | Contrarian views, hidden assumptions, information gaps |
+| **Synthesizer** | Renders final verdict | Weighs evidence, grades claims, outputs probability-weighted scenarios |
+
+Each agent is **not just a different prompt** — they receive the same underlying data but with different priority ordering, creating genuine analytical diversity.
+
+### ⚔️ Anti-Sycophancy Architecture
+
+AI models tend to agree with users or produce overly optimistic outputs. StockSense addresses this with:
+
+**1. Information Asymmetry**
+- Bull Analyst sees growth metrics first (revenue, forward P/E, targets)
+- Bear Analyst sees risk metrics first (debt, margins, valuation)
+- Same data, different cognitive emphasis — mimics real investment teams
+
+**2. Mandatory Rebuttal Round**
+- After initial cases are built, agents must critique each other
+- Each claim is challenged with specific counter-evidence
+- Forces identification of weaknesses, not just strengths
+
+**3. Evidence Grader Protocol**
+- The Synthesizer grades each claim by:
+  - **Data Support Score**: How well does hard data back this claim?
+  - **Rebuttal Strength**: How effectively was it challenged?
+  - **Final Credibility**: Adjusted confidence after cross-examination
+
+**4. Probability-Weighted Verdicts**
+- Output is not binary (buy/sell) but three scenarios:
+  - Bull Case probability (what if growth exceeds expectations?)
+  - Base Case probability (what if nothing dramatic happens?)
+  - Bear Case probability (what if risks materialize?)
 
 ### 📊 Market Data & Sentiment
 
-- Recent headline aggregation (NewsAPI)
-- Historical OHLCV price retrieval (yfinance)
-- Per-headline sentiment analysis + overall summary (Gemini 2.0 Flash Lite)
-- Skeptic analysis providing contrarian views and bear cases
+- Real-time headline aggregation via NewsAPI
+- Historical OHLCV price data via yfinance
+- Per-headline sentiment classification with confidence scores
+- Structured output: themes, risks, information gaps
 
 ### 📝 User Belief System
 
-- User authentication via Supabase
-- Investment thesis creation and tracking
-- Kill criteria definition
-- Thesis history and evolution tracking
+Investment theses are first-class citizens, not just analysis outputs:
 
-### ⚙️ Infrastructure
+- **Thesis Creation**: Document your investment rationale and entry criteria
+- **Kill Criteria**: Define what would invalidate your thesis (e.g., "revenue growth < 10%")
+- **Automated Monitoring**: Scheduler checks theses against latest analysis
+- **Alert System**: Get notified when kill criteria are triggered
+- **Thesis History**: Track how your thinking evolved over time
 
-- FastAPI backend (analysis trigger, cached retrieval, health, auth)
-- React frontend (interactive dashboard, thesis management, debate visualization)
-- Supabase PostgreSQL for all persistent storage
-- Server-Sent Events (SSE) for real-time streaming
+### ⚙️ Production-Ready Infrastructure
 
-### ⚔️ Adversarial Debate System
-
-- **Bull Analyst**: Growth-focused agent prioritizing revenue, market expansion, forward P/E
-- **Bear Analyst**: Risk-focused agent prioritizing debt ratios, margins, valuation multiples
-- **Synthesizer**: Impartial judge using Evidence Grader protocol
-- **Information Asymmetry**: Agents receive same data but with different priority ordering
-- **Rebuttal Round**: Anti-sycophancy mechanism where agents critique each other
-- **Probability-Weighted Verdict**: Bull/Base/Bear scenario probabilities
+- **FastAPI Backend**: Async endpoints, rate limiting, structured error handling
+- **React Frontend**: TypeScript, real-time streaming, responsive design
+- **Supabase**: PostgreSQL persistence, Row-Level Security, authentication
+- **SSE Streaming**: Watch the agent think in real-time as it reasons through analysis
 
 ---
 
