@@ -25,6 +25,8 @@ StockSense is an autonomous stock analysis system implementing the **ReAct (Reas
 - [Contributing](#contributing)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
+- [Technical Highlights](#technical-highlights)
+- [Author](#author)
 
 ---
 
@@ -388,4 +390,17 @@ This means you can:
 
 ---
 
-**Built with ❤️ using LangGraph, FastAPI, and React**
+## Author
+
+**Sourabh Kapure**
+
+[![GitHub](https://img.shields.io/badge/GitHub-Spkap-181717?style=flat&logo=github)](https://github.com/Spkap)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Sourabh_Kapure-0A66C2?style=flat&logo=linkedin)](https://www.linkedin.com/in/sourabhkapure/)
+[![X](https://img.shields.io/badge/X-@sourabhkapure-000000?style=flat&logo=x)](https://x.com/sourabhkapure)
+[![Email](https://img.shields.io/badge/Email-sourabhkapure@gmail.com-EA4335?style=flat&logo=gmail)](mailto:sourabhkapure@gmail.com)
+
+If you found this project helpful, consider giving it a ⭐!
+
+---
+
+**Built with ❤️ by Sourabh Kapure**
