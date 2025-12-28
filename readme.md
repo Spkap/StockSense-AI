@@ -59,31 +59,47 @@ graph TD
 
 ```
 StockSense-Agent/
-├── frontend/               # React + TypeScript frontend
+├── frontend/                # React + TypeScript frontend
 │   ├── src/
-│   │   ├── components/     # UI components (ResultsTabs, ThesisEditor, etc.)
-│   │   ├── pages/          # Page components (ThesesPage)
-│   │   ├── api/            # API hooks and clients
-│   │   ├── context/        # React contexts (Auth, Sidebar, Theme)
-│   │   └── types/          # TypeScript type definitions
+│   │   ├── components/      # UI components (ResultsTabs, DebateView, etc.)
+│   │   ├── hooks/           # Custom hooks (useStreamingDebate)
+│   │   ├── pages/           # Page components (ThesesPage)
+│   │   ├── api/             # API hooks and clients
+│   │   ├── context/         # React contexts (Auth, Sidebar, Theme)
+│   │   └── types/           # TypeScript type definitions
 │   └── package.json
-├── stocksense/             # Python backend
-│   ├── main.py             # FastAPI server (analysis + cache + auth endpoints)
-│   ├── react_agent.py      # LangGraph ReAct agent implementation
-│   ├── data_collectors.py  # NewsAPI + yfinance helper functions
-│   ├── analyzer.py         # Sentiment analysis (Gemini prompt)
-│   ├── skeptic.py          # Skeptic analysis (contrarian view)
-│   ├── database.py         # SQLite caching helpers
-│   ├── supabase_client.py  # Supabase client for user data
-│   ├── auth_routes.py      # User authentication & thesis APIs
-│   └── config.py           # Configuration & LLM/chat factories
+├── stocksense/              # Python backend (modular architecture)
+│   ├── main.py              # FastAPI server (slim entry point)
+│   ├── scheduler.py         # APScheduler background jobs
+│   ├── agents/              # 🧠 Adversarial agent system
+│   │   ├── base_agent.py    # AgentToolConfig + Information Asymmetry
+│   │   ├── bull_analyst.py  # Growth-focused analyst
+│   │   ├── bear_analyst.py  # Risk-focused analyst
+│   │   ├── synthesizer.py   # Impartial judge + Evidence Grader
+│   │   └── skeptic_agent.py # Contrarian skeptic analysis
+│   ├── core/                # 🔧 Data & validation utilities
+│   │   ├── data_collectors.py  # NewsAPI + yfinance helpers
+│   │   ├── analyzer.py      # Sentiment analysis (Gemini)
+│   │   ├── validation.py    # Ticker validation
+│   │   ├── config.py        # LLM/Chat factories
+│   │   ├── schemas.py       # Pydantic schemas
+│   │   └── monitor.py       # Kill criteria monitoring
+│   ├── db/                  # 💾 Database layer
+│   │   ├── models.py        # SQLAlchemy ORM models
+│   │   ├── database.py      # SQLite caching
+│   │   └── supabase_client.py  # Supabase user data
+│   ├── api/                 # 🌐 API routes
+│   │   └── auth_routes.py   # User auth, theses, kill alerts
+│   └── orchestration/       # 🎭 Flow control
+│       ├── react_flow.py    # ReAct + debate orchestration
+│       └── streaming.py     # SSE streaming generators
 ├── supabase/
-│   └── schema.sql          # Database schema for user data
+│   └── schema.sql           # Database schema for user data
 ├── tests/
-│   ├── test_api.py         # API integration tests
-│   └── test_tools.py       # Tool logic tests
-├── requirements.txt        # Backend dependencies
-└── requirements-backend.txt# Pin-locked backend dependencies
+│   ├── test_api.py          # API integration tests
+│   └── test_tools.py        # Tool logic tests
+├── requirements.txt         # Backend dependencies
+└── requirements-backend.txt # Pin-locked backend dependencies
 ```
 
 ## Features
@@ -112,9 +128,19 @@ StockSense-Agent/
 ### Infrastructure
 
 - FastAPI backend (analysis trigger, cached retrieval, health, auth)
-- React frontend (interactive dashboard, thesis management)
+- React frontend (interactive dashboard, thesis management, debate visualization)
 - SQLite caching (automatic path fallback resolution)
 - Supabase for user data persistence
+- Server-Sent Events (SSE) for real-time streaming
+
+### Adversarial Debate System (Phase 3)
+
+- **Bull Analyst**: Growth-focused agent prioritizing revenue, market expansion, forward P/E
+- **Bear Analyst**: Risk-focused agent prioritizing debt ratios, margins, valuation multiples
+- **Synthesizer**: Impartial judge using Evidence Grader protocol
+- **Information Asymmetry**: Agents receive same data but with different priority ordering
+- **Rebuttal Round**: Anti-sycophancy mechanism where agents critique each other
+- **Probability-Weighted Verdict**: Bull/Base/Bear scenario probabilities
 
 ## Quick Start
 
@@ -199,18 +225,35 @@ curl "http://localhost:8000/cached-tickers"
 
 ## API Reference
 
-### Endpoints
+### Analysis Endpoints
 
-| Method | Path                | Purpose                                    |
-| ------ | ------------------- | ------------------------------------------ |
-| POST   | `/analyze/{ticker}` | Run ReAct agent (fresh or cached shortcut) |
-| GET    | `/results/{ticker}` | Latest cached summary & sentiment          |
-| GET    | `/cached-tickers`   | List all cached tickers                    |
-| GET    | `/health`           | Basic health status                        |
-| GET    | `/api/me`           | Current user profile (auth required)       |
-| GET    | `/api/theses`       | User's investment theses (auth required)   |
-| POST   | `/api/theses`       | Create thesis (auth required)              |
-| GET    | `/docs`             | Swagger UI                                 |
+| Method | Path                           | Description                                           |
+| ------ | ------------------------------ | ----------------------------------------------------- |
+| POST   | `/analyze/{ticker}`            | Run ReAct agent analysis (fresh or cached)            |
+| GET    | `/analyze/{ticker}/stream`     | SSE stream of analysis progress                       |
+| GET    | `/analyze/debate/{ticker}`     | Run adversarial Bull/Bear debate analysis             |
+| GET    | `/analyze/debate/{ticker}/stream` | SSE stream of debate progress                      |
+| GET    | `/results/{ticker}`            | Latest cached summary & sentiment                     |
+| DELETE | `/results/{ticker}`            | Delete cached analysis                                |
+| GET    | `/cached-tickers`              | List all cached tickers                               |
+
+### System Endpoints
+
+| Method | Path      | Description                                           |
+| ------ | --------- | ----------------------------------------------------- |
+| GET    | `/health` | Health check with dependency status                   |
+| GET    | `/`       | Root endpoint with API info                           |
+| GET    | `/docs`   | Swagger UI (OpenAPI)                                  |
+
+### User Endpoints (Auth Required)
+
+| Method | Path               | Description                                      |
+| ------ | ------------------ | ------------------------------------------------ |
+| GET    | `/api/me`          | Current user profile                             |
+| GET    | `/api/theses`      | User's investment theses                         |
+| POST   | `/api/theses`      | Create investment thesis                         |
+| GET    | `/api/kill-alerts` | User's kill criteria alerts                      |
+| PATCH  | `/api/kill-alerts/{id}` | Update alert status                         |
 
 ## Testing
 

@@ -601,7 +601,12 @@ async def analyze_stock_stream(ticker: str, request: Request):
 # Phase 3: Adversarial Collaboration (Debate Analysis)
 # ============================================================================
 
-@app.get("/analyze/debate/{ticker}")
+@app.get(
+    "/analyze/debate/{ticker}",
+    tags=["Adversarial Debate"],
+    summary="Run adversarial Bull/Bear debate analysis",
+    description="Phase 3 analysis using Bull and Bear agents with rebuttal rounds and probability-weighted synthesis."
+)
 async def analyze_stock_debate(ticker: str, request: Request) -> Dict[str, Any]:
     """
     Run adversarial collaboration analysis with Bull and Bear agents.
@@ -662,7 +667,12 @@ async def analyze_stock_debate(ticker: str, request: Request) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=error_msg)
 
 
-@app.get("/analyze/debate/{ticker}/stream")
+@app.get(
+    "/analyze/debate/{ticker}/stream",
+    tags=["Adversarial Debate"],
+    summary="Stream debate analysis via SSE",
+    description="Real-time streaming of Bull/Bear debate phases using Server-Sent Events."
+)
 async def analyze_stock_debate_stream(ticker: str, request: Request):
     """
     Stream adversarial debate analysis using Server-Sent Events (SSE).
