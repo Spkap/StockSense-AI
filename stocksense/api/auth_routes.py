@@ -8,7 +8,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel, Field
 
-from .supabase_client import (
+from stocksense.db.supabase_client import (
     verify_user_token,
     get_user_profile,
     get_user_positions,
@@ -231,8 +231,8 @@ async def compare_thesis_with_current(thesis_id: str, user = Depends(get_current
     Returns diff showing what has changed since thesis was created.
     Stage 4: Analysis-Thesis Linkage
     """
-    from .supabase_client import get_supabase_client
-    from .database import get_latest_analysis
+    from stocksense.db.supabase_client import get_supabase_client
+    from stocksense.db.database import get_latest_analysis
     
     try:
         client = get_supabase_client()
@@ -350,7 +350,7 @@ async def list_kill_alerts(
     user = Depends(get_current_user)
 ):
     """Get kill alerts for the current user."""
-    from .kill_criteria_monitor import get_pending_alerts
+    from stocksense.core.monitor import get_pending_alerts
     
     # For now, get_pending_alerts only gets pending; we could extend this
     alerts = get_pending_alerts(user["id"], user["access_token"], ticker)
@@ -366,7 +366,7 @@ async def list_kill_alerts(
 @router.get("/kill-alerts/{alert_id}")
 async def get_kill_alert(alert_id: str, user = Depends(get_current_user)):
     """Get a specific kill alert."""
-    from .supabase_client import get_supabase_client
+    from stocksense.db.supabase_client import get_supabase_client
     
     try:
         client = get_supabase_client()
@@ -389,7 +389,7 @@ async def update_kill_alert(
     user = Depends(get_current_user)
 ):
     """Update a kill alert status (dismiss, acknowledge, or mark as acted upon)."""
-    from .kill_criteria_monitor import update_alert_status
+    from stocksense.core.monitor import update_alert_status
     
     valid_statuses = ["pending", "dismissed", "acknowledged", "acted"]
     if update.status not in valid_statuses:
@@ -415,7 +415,7 @@ async def update_kill_alert(
 @router.delete("/kill-alerts/{alert_id}")
 async def delete_kill_alert(alert_id: str, user = Depends(get_current_user)):
     """Delete a kill alert."""
-    from .supabase_client import get_supabase_client
+    from stocksense.db.supabase_client import get_supabase_client
     
     try:
         client = get_supabase_client()

@@ -6,9 +6,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 # config imports removed - using supabase_client directly
-from .supabase_client import get_supabase_client
-from .react_agent import run_react_analysis
-from .kill_criteria_monitor import extract_signals_from_analysis, match_signals_to_criteria, check_kill_criteria_for_ticker
+from stocksense.db.supabase_client import get_supabase_client
+from stocksense.orchestration.react_flow import run_react_analysis
+from stocksense.core.monitor import extract_signals_from_analysis, match_signals_to_criteria, check_kill_criteria_for_ticker
 
 logger = logging.getLogger("stocksense.scheduler")
 

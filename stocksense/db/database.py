@@ -8,14 +8,15 @@ from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 
-from stocksense.models import Base, AnalysisCache
+from .models import Base, AnalysisCache
 
 def _resolve_db_path() -> str:
     """Resolve database path with graceful fallbacks."""
     logger = logging.getLogger("stocksense.database")
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(current_dir)
+    # Go up two levels: db/ -> stocksense/ -> project_root/
+    project_root = os.path.dirname(os.path.dirname(current_dir))
 
     env_path = os.getenv("STOCKSENSE_DB_PATH")
     candidates = []

@@ -16,10 +16,10 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from .config import validate_configuration, ConfigurationError, get_google_api_key, get_newsapi_key
-from .database import init_db, get_latest_analysis, get_all_cached_tickers_with_timestamps, delete_cached_analysis
-from .react_agent import run_react_analysis
-from .validation import validate_ticker
+from stocksense.core.config import validate_configuration, ConfigurationError, get_google_api_key, get_newsapi_key
+from stocksense.db.database import init_db, get_latest_analysis, get_all_cached_tickers_with_timestamps, delete_cached_analysis
+from stocksense.orchestration.react_flow import run_react_analysis
+from stocksense.core.validation import validate_ticker
 
 # Configure structured logging
 logging.basicConfig(
@@ -93,7 +93,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize Scheduler (Stage 5 Phase 2: The Watchman)
     try:
-        from .scheduler import start_scheduler
+        from stocksense.scheduler import start_scheduler
         start_scheduler()
         logger.info("Background scheduler initialized")
     except Exception as e:
@@ -126,7 +126,7 @@ app.add_middleware(
 
 # Register auth routes (Stage 3: User Belief System)
 try:
-    from .auth_routes import router as auth_router
+    from stocksense.api.auth_routes import router as auth_router
     app.include_router(auth_router)
     logger.info("Auth routes registered successfully")
 except ImportError as e:
@@ -172,7 +172,7 @@ async def health_check() -> Dict[str, Any]:
     
     # Check database
     try:
-        from .database import get_all_cached_tickers_with_timestamps
+        from stocksense.db.database import get_all_cached_tickers_with_timestamps
         tickers = get_all_cached_tickers_with_timestamps()
         health_status["checks"]["database"] = {
             "status": "ok",
@@ -302,7 +302,7 @@ async def analyze_stock(
 
             # Save the analysis results to database with full data
             try:
-                from .database import save_analysis
+                from stocksense.db.database import save_analysis
                 save_analysis(
                     ticker=ticker,
                     summary=summary,
@@ -325,8 +325,8 @@ async def analyze_stock(
             kill_alerts_created = []
             if authorization:
                 try:
-                    from .supabase_client import verify_user_token
-                    from .kill_criteria_monitor import check_kill_criteria_for_ticker
+                    from stocksense.db.supabase_client import verify_user_token
+                    from stocksense.core.monitor import check_kill_criteria_for_ticker
                     
                     # Parse Bearer token
                     parts = authorization.split(" ")
@@ -526,7 +526,7 @@ async def analyze_stock_stream(ticker: str, request: Request):
     - completed: Full analysis result
     - error: If something goes wrong
     """
-    from .streaming import run_streaming_analysis
+    from stocksense.orchestration.streaming import run_streaming_analysis
     
     # Rate limiting
     client_ip = get_client_ip(request)
@@ -567,7 +567,7 @@ async def analyze_stock_stream(ticker: str, request: Request):
                 # If completed, also save to cache
                 if event.event_type.value == "completed" and event.data:
                     try:
-                        from .database import save_analysis
+                        from stocksense.db.database import save_analysis
                         save_analysis(
                             ticker=ticker,
                             summary=event.data.get("summary", ""),
@@ -616,7 +616,7 @@ async def analyze_stock_debate(ticker: str, request: Request) -> Dict[str, Any]:
     Returns:
         SynthesizedVerdict with bull/base/bear scenario probabilities
     """
-    from .react_agent import run_debate_analysis
+    from stocksense.orchestration.react_flow import run_debate_analysis
     
     # Rate limiting (debate is more expensive - stricter limit)
     client_ip = get_client_ip(request)
@@ -660,6 +660,79 @@ async def analyze_stock_debate(ticker: str, request: Request) -> Dict[str, Any]:
         error_msg = f"Debate analysis error for {ticker}: {str(e)}"
         logger.error(error_msg, exc_info=True)
         raise HTTPException(status_code=500, detail=error_msg)
+
+
+@app.get("/analyze/debate/{ticker}/stream")
+async def analyze_stock_debate_stream(ticker: str, request: Request):
+    """
+    Stream adversarial debate analysis using Server-Sent Events (SSE).
+    
+    Phase 3: Streaming Debate with real-time progress events.
+    
+    Yields events as each phase completes:
+    - debate_started: Analysis initiated
+    - bull_drafting: Bull agent building case
+    - bear_drafting: Bear agent building case
+    - bull_complete: Bull case finished
+    - bear_complete: Bear case finished
+    - rebuttal_round: Agents cross-examining
+    - synthesis_started: Final verdict being generated
+    - debate_completed: Full debate result
+    - error: If something goes wrong
+    """
+    from stocksense.orchestration.streaming import run_streaming_debate_analysis
+    
+    # Rate limiting
+    client_ip = get_client_ip(request)
+    if not rate_limiter.is_allowed(client_ip):
+        async def error_response():
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Rate limit exceeded'})}\\n\\n"
+        return StreamingResponse(
+            error_response(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+    
+    # Validate ticker
+    ticker = ticker.upper().strip()
+    is_valid, error_msg = validate_ticker(ticker)
+    if not is_valid:
+        async def error_response():
+            yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\\n\\n"
+        return StreamingResponse(
+            error_response(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+    
+    logger.info(f"Streaming debate analysis for {ticker} from {client_ip}")
+    
+    async def event_generator():
+        """Generate SSE events from streaming debate analysis."""
+        try:
+            async for event in run_streaming_debate_analysis(ticker):
+                yield event.to_sse()
+        except Exception as e:
+            logger.error(f"Streaming debate error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\\n\\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 
 if __name__ == "__main__":

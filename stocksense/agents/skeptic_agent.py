@@ -9,8 +9,8 @@ import json
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-from .config import get_chat_llm, ConfigurationError
-from .schemas import SentimentAnalysisResult
+from stocksense.core.config import get_chat_llm, ConfigurationError
+from stocksense.core.schemas import SentimentAnalysisResult
 
 
 class SkepticCritique(BaseModel):
@@ -256,7 +256,7 @@ def format_skeptic_analysis(analysis: SkepticAnalysis) -> str:
 
 if __name__ == '__main__':
     # Test with mock primary analysis
-    from .schemas import SentimentAnalysisResult, KeyTheme
+    from stocksense.core.schemas import SentimentAnalysisResult, KeyTheme
     
     mock_primary = SentimentAnalysisResult(
         overall_sentiment="Bullish",

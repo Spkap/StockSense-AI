@@ -4,7 +4,7 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { RefreshCw, Clock, AlertTriangle, BookOpen, FileJson, FileSpreadsheet } from 'lucide-react';
+import { RefreshCw, Clock, AlertTriangle, BookOpen, FileJson, FileSpreadsheet, Scale, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { AnalysisData, PriceDataPoint } from '../types/api';
 import SentimentCard from './SentimentCard';
@@ -12,7 +12,9 @@ import SkepticCard from './SkepticCard';
 import FundamentalsCard from './FundamentalsCard';
 import EmptyState from './EmptyState';
 import ThesisEditor from './ThesisEditor';
+import DebateView from './DebateView';
 import { useThesisForTicker } from '../api/theses';
+import { useStreamingDebate } from '../hooks/useStreamingDebate';
 import { exportAsJSON, exportAsCSV } from '../utils/export';
 import { cn } from '../utils/cn';
 
@@ -82,8 +84,25 @@ const ResultsTabs = ({ result, onRefresh, isRefreshing }: ResultsTabsProps) => {
   const { data: thesisData } = useThesisForTicker(result.ticker);
   const [showThesisEditor, setShowThesisEditor] = useState(false);
   
+  // Phase 3: Streaming Debate
+  const {
+    isStreaming: debateLoading,
+    progress: debateProgress,
+    phases: debatePhases,
+    error: debateError,
+    finalData: debateData,
+    startDebate,
+    reset: resetDebate,
+  } = useStreamingDebate();
+  
   const existingThesis = thesisData?.theses?.[0] || null;
   const hasThesis = !!existingThesis;
+
+  // Start streaming debate when tab is clicked
+  const fetchDebateAnalysis = () => {
+    if (debateData) return; // Already loaded
+    startDebate(result.ticker);
+  };
 
   // Transform chart data
   const chartData = (result.price_data || []).map((d: PriceDataPoint, index: number) => ({
@@ -238,10 +257,14 @@ const ResultsTabs = ({ result, onRefresh, isRefreshing }: ResultsTabsProps) => {
         </div>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
+          <TabsList className="grid w-full grid-cols-6 lg:w-[600px]">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="chart">Chart</TabsTrigger>
             <TabsTrigger value="fundamentals">Fund.</TabsTrigger>
+            <TabsTrigger value="debate" onClick={fetchDebateAnalysis}>
+              <Scale className="h-3.5 w-3.5 mr-1" />
+              Debate
+            </TabsTrigger>
             <TabsTrigger value="news">News</TabsTrigger>
             <TabsTrigger value="agent">Logic</TabsTrigger>
           </TabsList>
@@ -463,8 +486,116 @@ const ResultsTabs = ({ result, onRefresh, isRefreshing }: ResultsTabsProps) => {
                          ))}
                       </div>
                    </div>
-                </div>
-              </TabsContent>
+                   </div>
+               </TabsContent>
+
+               {/* Phase 3: Debate Tab */}
+               <TabsContent value="debate" className="space-y-4">
+                 {debateLoading && (
+                   <Card className="p-8">
+                     <div className="flex flex-col items-center justify-center gap-6">
+                       <div className="flex items-center gap-3">
+                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                         <div className="text-left">
+                           <p className="font-semibold">Running Adversarial Analysis...</p>
+                           <p className="text-sm text-muted-foreground">
+                             Progress: {Math.round(debateProgress * 100)}%
+                           </p>
+                         </div>
+                       </div>
+                       
+                       {/* Progress bar */}
+                       <div className="w-full max-w-md">
+                         <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                           <div 
+                             className="h-full bg-primary transition-all duration-500 ease-out"
+                             style={{ width: `${debateProgress * 100}%` }}
+                           />
+                         </div>
+                       </div>
+                       
+                       {/* Phase indicators */}
+                       <div className="w-full max-w-lg space-y-2">
+                         {debatePhases.map((phase) => (
+                           <div 
+                             key={phase.id}
+                             className={cn(
+                               "flex items-center gap-3 px-3 py-2 rounded-lg transition-all",
+                               phase.status === 'active' && "bg-primary/10",
+                               phase.status === 'complete' && "opacity-60"
+                             )}
+                           >
+                             {phase.status === 'complete' && (
+                               <div className="h-4 w-4 rounded-full bg-success flex items-center justify-center">
+                                 <span className="text-[10px] text-white">✓</span>
+                               </div>
+                             )}
+                             {phase.status === 'active' && (
+                               <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                             )}
+                             {phase.status === 'pending' && (
+                               <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
+                             )}
+                             <span className={cn(
+                               "text-sm",
+                               phase.status === 'active' && "font-medium text-primary",
+                               phase.status === 'pending' && "text-muted-foreground"
+                             )}>
+                               {phase.label}
+                             </span>
+                             {phase.message && phase.status === 'active' && (
+                               <span className="ml-auto text-xs text-muted-foreground">
+                                 {phase.message}
+                               </span>
+                             )}
+                           </div>
+                         ))}
+                       </div>
+                       
+                       <Button onClick={resetDebate} variant="ghost" size="sm" className="mt-2">
+                         Cancel
+                       </Button>
+                     </div>
+                   </Card>
+                 )}
+                 
+                 {debateError && !debateLoading && (
+                   <Card className="p-8 border-destructive/50 bg-destructive/5">
+                     <div className="flex flex-col items-center justify-center gap-4">
+                       <AlertTriangle className="h-8 w-8 text-destructive" />
+                       <div className="text-center">
+                         <p className="font-semibold text-destructive">Debate Failed</p>
+                         <p className="text-sm text-muted-foreground">{debateError}</p>
+                       </div>
+                       <Button onClick={() => { resetDebate(); fetchDebateAnalysis(); }} variant="outline" size="sm">
+                         Try Again
+                       </Button>
+                     </div>
+                   </Card>
+                 )}
+                 
+                 {debateData && !debateLoading && (
+                   <DebateView data={debateData} />
+                 )}
+                 
+                 {!debateData && !debateLoading && !debateError && (
+                   <Card className="p-8">
+                     <div className="flex flex-col items-center justify-center gap-4">
+                       <Scale className="h-8 w-8 text-muted-foreground" />
+                       <div className="text-center">
+                         <p className="font-semibold">Click to Load Debate Analysis</p>
+                         <p className="text-sm text-muted-foreground">
+                           Run an adversarial analysis with Bull and Bear AI agents.
+                         </p>
+                       </div>
+                       <Button onClick={fetchDebateAnalysis} variant="default" size="sm">
+                         <Scale className="h-4 w-4 mr-2" />
+                         Start Debate
+                       </Button>
+                     </div>
+                   </Card>
+                 )}
+               </TabsContent>
           </div>
         </Tabs>
       </div>

@@ -15,8 +15,8 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 
-from ..config import get_chat_llm, ConfigurationError
-from ..data_collectors import get_news, get_price_history, get_fundamental_data
+from stocksense.core.config import get_chat_llm, ConfigurationError
+from stocksense.core.data_collectors import get_news, get_price_history, get_fundamental_data
 
 logger = logging.getLogger("stocksense.agents.base")
 

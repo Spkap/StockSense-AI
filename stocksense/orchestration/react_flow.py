@@ -5,10 +5,10 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 
-from .config import get_chat_llm
-from .data_collectors import get_news, get_price_history, get_fundamental_data
-from .analyzer import analyze_sentiment_of_headlines
-from .database import save_analysis
+from stocksense.core.config import get_chat_llm
+from stocksense.core.data_collectors import get_news, get_price_history, get_fundamental_data
+from stocksense.core.analyzer import analyze_sentiment_of_headlines
+from stocksense.db.database import save_analysis
 
 
 class AgentState(TypedDict):
@@ -221,7 +221,7 @@ def analyze_sentiment(headlines: List[str]) -> Dict:
             }
 
         # Import structured analysis function
-        from .analyzer import analyze_sentiment_structured, format_sentiment_result
+        from stocksense.core.analyzer import analyze_sentiment_structured, format_sentiment_result
         
         # Get structured result
         structured_result = analyze_sentiment_structured(headlines)
@@ -319,8 +319,8 @@ def generate_skeptic_critique(ticker: str, headlines: List[str], primary_sentime
         Dictionary with skeptic analysis including critiques, bear cases, and hidden risks
     """
     try:
-        from .skeptic import generate_skeptic_analysis, format_skeptic_analysis
-        from .schemas import SentimentAnalysisResult
+        from stocksense.agents.skeptic_agent import generate_skeptic_analysis, format_skeptic_analysis
+        from stocksense.core.schemas import SentimentAnalysisResult
         
         # Create minimal primary analysis for skeptic to critique
         mock_primary = SentimentAnalysisResult(
@@ -775,8 +775,8 @@ if __name__ == '__main__':
 # ============================================================================
 
 import asyncio
-from .agents import BullAnalyst, BearAnalyst, Synthesizer, SynthesizedVerdict
-from .analyzer import analyze_sentiment_of_headlines
+from stocksense.agents import BullAnalyst, BearAnalyst, Synthesizer, SynthesizedVerdict
+from stocksense.core.analyzer import analyze_sentiment_structured
 
 
 async def run_debate_analysis(ticker: str) -> Dict:
@@ -802,13 +802,33 @@ async def run_debate_analysis(ticker: str) -> Dict:
         headlines = await asyncio.to_thread(get_news, ticker, 7)
         price_data = await asyncio.to_thread(get_price_history, ticker, "1mo")
         
-        # Analyze sentiment (shared context)
+        # Ensure fundamentals is a dict
+        if fundamentals is None:
+            fundamentals = {}
+        
+        # Analyze sentiment (shared context) - use structured version
         sentiment_analysis = {}
         if headlines:
             try:
-                sentiment_analysis = await asyncio.to_thread(
-                    analyze_sentiment_of_headlines, headlines
+                sentiment_result = await asyncio.to_thread(
+                    analyze_sentiment_structured, headlines
                 )
+                # Convert Pydantic model to dict for agents
+                sentiment_analysis = {
+                    "overall_sentiment": sentiment_result.overall_sentiment,
+                    "overall_confidence": sentiment_result.overall_confidence,
+                    "key_themes": [
+                        {
+                            "theme": t.theme,
+                            "sentiment_direction": t.sentiment_direction,
+                            "headline_count": t.headline_count,
+                            "summary": t.summary
+                        }
+                        for t in sentiment_result.key_themes
+                    ],
+                    "risks_identified": sentiment_result.risks_identified,
+                    "potential_impact": sentiment_result.potential_impact
+                }
             except Exception as e:
                 logger.warning(f"Sentiment analysis failed: {e}")
                 sentiment_analysis = {}

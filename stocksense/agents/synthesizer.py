@@ -15,7 +15,7 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 import uuid
 
-from ..config import get_chat_llm, ConfigurationError
+from stocksense.core.config import get_chat_llm, ConfigurationError
 
 logger = logging.getLogger("stocksense.agents.synthesizer")
 

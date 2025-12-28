@@ -27,6 +27,15 @@ class StreamEventType(str, Enum):
     PROGRESS = "progress"
     COMPLETED = "completed"
     ERROR = "error"
+    # Phase 3: Debate-specific events
+    DEBATE_STARTED = "debate_started"
+    BULL_DRAFTING = "bull_drafting"
+    BEAR_DRAFTING = "bear_drafting"
+    BULL_COMPLETE = "bull_complete"
+    BEAR_COMPLETE = "bear_complete"
+    REBUTTAL_ROUND = "rebuttal_round"
+    SYNTHESIS_STARTED = "synthesis_started"
+    DEBATE_COMPLETED = "debate_completed"
 
 
 @dataclass
@@ -90,9 +99,9 @@ async def run_streaming_analysis(
     Yields:
         StreamEvent objects for each stage of analysis
     """
-    from .react_agent import tools, get_chat_llm, AgentState
+    from .react_flow import tools, AgentState
     from langchain_core.messages import HumanMessage, ToolMessage
-    from .config import get_chat_llm
+    from stocksense.core.config import get_chat_llm
     
     ticker = ticker.upper().strip()
     tools_used = []
@@ -143,7 +152,7 @@ async def run_streaming_analysis(
     
     try:
         # Import tools
-        from .react_agent import (
+        from .react_flow import (
             fetch_news_headlines,
             fetch_price_data,
             analyze_sentiment,
@@ -333,4 +342,260 @@ Analysis completed using streaming mode.
             event_type=StreamEventType.ERROR,
             message=str(e),
             progress=calculate_progress(tools_used)
+        ))
+
+
+# ============================================================================
+# Phase 3: Streaming Debate Analysis
+# ============================================================================
+
+async def run_streaming_debate_analysis(
+    ticker: str,
+    event_callback: Optional[Callable[[StreamEvent], None]] = None
+) -> AsyncGenerator[StreamEvent, None]:
+    """
+    Run adversarial debate analysis with streaming events.
+    
+    Yields StreamEvent objects as the debate progresses through phases:
+    1. Data Collection
+    2. Bull Drafting (parallel with Bear)
+    3. Bear Drafting (parallel with Bull)
+    4. Rebuttal Round
+    5. Synthesis
+    
+    Args:
+        ticker: Stock ticker symbol
+        event_callback: Optional callback for each event
+    
+    Yields:
+        StreamEvent objects for each stage of the debate
+    """
+    from stocksense.core.data_collectors import get_news, get_price_history, get_fundamental_data
+    from stocksense.core.analyzer import analyze_sentiment_structured
+    from stocksense.agents import BullAnalyst, BearAnalyst, Synthesizer
+    
+    ticker = ticker.upper().strip()
+    
+    def emit(event: StreamEvent):
+        if event_callback:
+            event_callback(event)
+        return event
+    
+    try:
+        # Phase 0: Start
+        yield emit(StreamEvent(
+            event_type=StreamEventType.DEBATE_STARTED,
+            message=f"Starting adversarial debate for {ticker}",
+            progress=0.0
+        ))
+        
+        # Phase 1: Data Collection
+        yield emit(StreamEvent(
+            event_type=StreamEventType.TOOL_STARTED,
+            tool_name="collect_data",
+            message="Collecting market data...",
+            progress=0.05
+        ))
+        
+        # Collect data in parallel
+        fundamentals = await asyncio.to_thread(get_fundamental_data, ticker)
+        headlines = await asyncio.to_thread(get_news, ticker, 7)
+        price_data = await asyncio.to_thread(get_price_history, ticker, "1mo")
+        
+        if fundamentals is None:
+            fundamentals = {}
+        
+        yield emit(StreamEvent(
+            event_type=StreamEventType.TOOL_COMPLETED,
+            tool_name="collect_data",
+            message=f"Collected {len(headlines)} headlines",
+            progress=0.15,
+            data={"headlines_count": len(headlines)}
+        ))
+        
+        # Sentiment analysis
+        sentiment_analysis = {}
+        if headlines:
+            yield emit(StreamEvent(
+                event_type=StreamEventType.TOOL_STARTED,
+                tool_name="analyze_sentiment",
+                message="Analyzing market sentiment...",
+                progress=0.18
+            ))
+            
+            try:
+                sentiment_result = await asyncio.to_thread(
+                    analyze_sentiment_structured, headlines
+                )
+                sentiment_analysis = {
+                    "overall_sentiment": sentiment_result.overall_sentiment,
+                    "overall_confidence": sentiment_result.overall_confidence,
+                    "key_themes": [
+                        {
+                            "theme": t.theme,
+                            "sentiment_direction": t.sentiment_direction,
+                            "headline_count": t.headline_count,
+                            "summary": t.summary
+                        }
+                        for t in sentiment_result.key_themes
+                    ],
+                    "risks_identified": sentiment_result.risks_identified,
+                    "potential_impact": sentiment_result.potential_impact
+                }
+            except Exception as e:
+                logger.warning(f"Sentiment analysis failed: {e}")
+            
+            yield emit(StreamEvent(
+                event_type=StreamEventType.TOOL_COMPLETED,
+                tool_name="analyze_sentiment",
+                message=f"Sentiment: {sentiment_analysis.get('overall_sentiment', 'Unknown')}",
+                progress=0.25
+            ))
+        
+        # Initialize agents
+        bull_agent = BullAnalyst()
+        bear_agent = BearAnalyst()
+        synthesizer = Synthesizer()
+        
+        # Phase 2: Bull and Bear Drafting (parallel)
+        yield emit(StreamEvent(
+            event_type=StreamEventType.BULL_DRAFTING,
+            message="Bull analyst building growth case...",
+            progress=0.30
+        ))
+        
+        yield emit(StreamEvent(
+            event_type=StreamEventType.BEAR_DRAFTING,
+            message="Bear analyst identifying risks...",
+            progress=0.30
+        ))
+        
+        # Run Bull and Bear in parallel
+        bull_task = bull_agent.analyze(
+            ticker, fundamentals, headlines, price_data, sentiment_analysis
+        )
+        bear_task = bear_agent.analyze(
+            ticker, fundamentals, headlines, price_data, sentiment_analysis
+        )
+        
+        bull_case, bear_case = await asyncio.gather(bull_task, bear_task)
+        
+        bull_dict = bull_case.to_dict()
+        bear_dict = bear_case.to_dict()
+        
+        yield emit(StreamEvent(
+            event_type=StreamEventType.BULL_COMPLETE,
+            message=f"Bull case complete: {bull_case.confidence:.0%} confident",
+            progress=0.50,
+            data={
+                "thesis": bull_dict.get("thesis", "")[:100],
+                "confidence": bull_case.confidence,
+                "catalysts_count": len(bull_dict.get("catalysts", []))
+            }
+        ))
+        
+        yield emit(StreamEvent(
+            event_type=StreamEventType.BEAR_COMPLETE,
+            message=f"Bear case complete: {bear_case.confidence:.0%} confident",
+            progress=0.55,
+            data={
+                "thesis": bear_dict.get("thesis", "")[:100],
+                "confidence": bear_case.confidence,
+                "risks_count": len(bear_dict.get("risks", []))
+            }
+        ))
+        
+        # Phase 3: Rebuttal Round
+        yield emit(StreamEvent(
+            event_type=StreamEventType.REBUTTAL_ROUND,
+            message="Agents cross-examining each other's arguments...",
+            progress=0.60
+        ))
+        
+        # Bear rebuts Bull
+        bear_rebuttals = await bear_agent.generate_rebuttal(
+            bull_dict, bear_dict, fundamentals
+        )
+        
+        # Bull rebuts Bear
+        bull_rebuttals = await bull_agent.generate_rebuttal(
+            bear_dict, bull_dict, fundamentals
+        )
+        
+        bear_rebuttals_dict = [
+            {
+                "target_claim": r.target_claim,
+                "counter_argument": r.counter_argument,
+                "counter_evidence": r.counter_evidence,
+                "strength": r.strength
+            }
+            for r in bear_rebuttals
+        ]
+        
+        bull_rebuttals_dict = [
+            {
+                "target_claim": r.target_claim,
+                "counter_argument": r.counter_argument,
+                "counter_evidence": r.counter_evidence,
+                "strength": r.strength
+            }
+            for r in bull_rebuttals
+        ]
+        
+        yield emit(StreamEvent(
+            event_type=StreamEventType.PROGRESS,
+            message=f"Rebuttal round complete: {len(bear_rebuttals)} vs {len(bull_rebuttals)} rebuttals",
+            progress=0.75,
+            data={
+                "bear_rebuttals_count": len(bear_rebuttals_dict),
+                "bull_rebuttals_count": len(bull_rebuttals_dict)
+            }
+        ))
+        
+        # Phase 4: Synthesis
+        yield emit(StreamEvent(
+            event_type=StreamEventType.SYNTHESIS_STARTED,
+            message="Synthesizer weighing arguments and grading evidence...",
+            progress=0.80
+        ))
+        
+        verdict = await synthesizer.synthesize(
+            ticker,
+            bull_dict,
+            bear_dict,
+            bull_rebuttals_dict,
+            bear_rebuttals_dict,
+            fundamentals
+        )
+        
+        # Final result
+        final_data = {
+            "ticker": ticker,
+            "analysis_type": "adversarial_debate",
+            "verdict": verdict.to_dict(),
+            "bull_case": bull_dict,
+            "bear_case": bear_dict,
+            "rebuttals": {
+                "bear_to_bull": bear_rebuttals_dict,
+                "bull_to_bear": bull_rebuttals_dict
+            },
+            "fundamentals": fundamentals,
+            "headlines": headlines,
+            "timestamp": datetime.now().isoformat(),
+            "error": None
+        }
+        
+        yield emit(StreamEvent(
+            event_type=StreamEventType.DEBATE_COMPLETED,
+            message=f"Debate complete: {verdict.recommendation} ({verdict.conviction:.0%} conviction)",
+            progress=1.0,
+            data=final_data
+        ))
+        
+    except Exception as e:
+        logger.error(f"Streaming debate error: {e}")
+        yield emit(StreamEvent(
+            event_type=StreamEventType.ERROR,
+            message=str(e),
+            progress=0.0
         ))

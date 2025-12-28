@@ -14,8 +14,8 @@ import logging
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
-from .config import get_chat_llm, ConfigurationError
-from .supabase_client import get_supabase_client
+from stocksense.core.config import get_chat_llm, ConfigurationError
+from stocksense.db.supabase_client import get_supabase_client
 
 logger = logging.getLogger("stocksense.kill_monitor")
 
@@ -351,7 +351,7 @@ def check_kill_criteria_for_ticker(
     Returns:
         List of created alerts
     """
-    from .supabase_client import get_user_theses
+    from stocksense.db.supabase_client import get_user_theses
     
     # Get user's theses for this ticker
     theses = get_user_theses(user_id, access_token, ticker)
