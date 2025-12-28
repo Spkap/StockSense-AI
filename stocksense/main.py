@@ -29,6 +29,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("stocksense.api")
 
+# API Version - single source of truth
+API_VERSION = "3.0.0"  # Stage 3: User Belief System + Supabase migration
+
 
 # Simple in-memory rate limiter
 class RateLimiter:
@@ -110,7 +113,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="StockSense ReAct Agent API",
     description="AI-powered autonomous stock analysis using ReAct pattern",
-    version="3.0.0",  # Stage 3: User Belief System
+    version=API_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan
@@ -150,7 +153,7 @@ async def health_check() -> Dict[str, Any]:
     health_status = {
         "status": "ok",
         "timestamp": datetime.utcnow().isoformat(),
-        "version": "2.1.0",
+        "version": API_VERSION,
         "checks": {}
     }
     
@@ -311,7 +314,27 @@ async def analyze_stock(
                     headlines=final_state.get("headlines", []),
                     reasoning_steps=final_state.get("reasoning_steps", []),
                     tools_used=final_state.get("tools_used", []),
-                    iterations=final_state.get("iterations", 0)
+                    iterations=final_state.get("iterations", 0),
+                    # Structured sentiment analysis
+                    overall_sentiment=final_state.get("overall_sentiment", ""),
+                    overall_confidence=final_state.get("overall_confidence", 0.0),
+                    confidence_reasoning=final_state.get("confidence_reasoning", ""),
+                    headline_analyses=final_state.get("headline_analyses", []),
+                    key_themes=final_state.get("key_themes", []),
+                    potential_impact=final_state.get("potential_impact", ""),
+                    risks_identified=final_state.get("risks_identified", []),
+                    information_gaps=final_state.get("information_gaps", []),
+                    # Skeptic analysis
+                    skeptic_report=final_state.get("skeptic_report", ""),
+                    skeptic_sentiment=final_state.get("skeptic_sentiment", ""),
+                    skeptic_confidence=final_state.get("skeptic_confidence", 0.0),
+                    primary_disagreement=final_state.get("primary_disagreement", ""),
+                    critiques=final_state.get("critiques", []),
+                    bear_cases=final_state.get("bear_cases", []),
+                    hidden_risks=final_state.get("hidden_risks", []),
+                    would_change_mind=final_state.get("would_change_mind", []),
+                    # Fundamentals
+                    fundamental_data=final_state.get("fundamental_data", {}),
                 )
                 logger.info(f"Analysis results saved to database for {ticker}")
             except Exception as e:
@@ -576,7 +599,12 @@ async def analyze_stock_stream(ticker: str, request: Request):
                             headlines=event.data.get("headlines", []),
                             reasoning_steps=[],
                             tools_used=event.data.get("tools_used", []),
-                            iterations=1
+                            iterations=1,
+                            # Structured sentiment
+                            overall_sentiment=event.data.get("overall_sentiment", ""),
+                            overall_confidence=event.data.get("overall_confidence", 0.0),
+                            # Fundamentals
+                            fundamental_data=event.data.get("fundamental_data", {}),
                         )
                         logger.info(f"Streaming analysis saved to cache for {ticker}")
                     except Exception as e:
@@ -696,7 +724,7 @@ async def analyze_stock_debate_stream(ticker: str, request: Request):
     client_ip = get_client_ip(request)
     if not rate_limiter.is_allowed(client_ip):
         async def error_response():
-            yield f"data: {json.dumps({'type': 'error', 'message': 'Rate limit exceeded'})}\\n\\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Rate limit exceeded'})}\n\n"
         return StreamingResponse(
             error_response(),
             media_type="text/event-stream",
@@ -712,7 +740,7 @@ async def analyze_stock_debate_stream(ticker: str, request: Request):
     is_valid, error_msg = validate_ticker(ticker)
     if not is_valid:
         async def error_response():
-            yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\\n\\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
         return StreamingResponse(
             error_response(),
             media_type="text/event-stream",
@@ -732,7 +760,7 @@ async def analyze_stock_debate_stream(ticker: str, request: Request):
                 yield event.to_sse()
         except Exception as e:
             logger.error(f"Streaming debate error: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\\n\\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
     
     return StreamingResponse(
         event_generator(),

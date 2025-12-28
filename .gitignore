@@ -17,11 +17,15 @@
 # ...but DO commit the example template file.
 !.env.example
 
-# Local database files
+# Local database files (legacy SQLite - now using Supabase)
 *.db
 *.sqlite
 *.sqlite3
 stocksense.db
+data/
+
+# Supabase local development
+.supabase/
 
 # =============================================================================
 # -- Python --

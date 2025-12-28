@@ -38,10 +38,13 @@ class TestAPIHealthAndStatus:
             # Assert response status
             assert response.status_code == 200, f"Health check should return 200, got {response.status_code}"
             
-            # Assert response content
+            # Assert response content - enhanced health check format
             response_json = response.json()
-            assert response_json == {"status": "ok"}, \
-                f"Health check should return {{'status': 'ok'}}, got {response_json}"
+            assert response_json.get("status") in ["ok", "degraded"], \
+                f"Health check status should be 'ok' or 'degraded', got {response_json.get('status')}"
+            assert "timestamp" in response_json, "Health check should include timestamp"
+            assert "version" in response_json, "Health check should include version"
+            assert "checks" in response_json, "Health check should include checks dict"
             
         except requests.exceptions.ConnectionError:
             pytest.skip("API server is not running. Start with: python -m stocksense.main")

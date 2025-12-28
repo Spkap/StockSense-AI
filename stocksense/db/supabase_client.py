@@ -5,8 +5,11 @@ Stage 3: User Belief System
 """
 
 import os
+import logging
 from functools import lru_cache
 from typing import Optional, Dict, Any
+
+logger = logging.getLogger("stocksense.supabase")
 
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -77,7 +80,7 @@ def verify_user_token(access_token: str) -> Optional[Dict[str, Any]]:
             }
         return None
     except Exception as e:
-        print(f"Token verification error: {e}")
+        logger.error(f"Token verification error: {e}")
         return None
 
 
@@ -100,7 +103,7 @@ def get_user_profile(user_id: str, access_token: str) -> Optional[Dict[str, Any]
         response = client.table("profiles").select("*").eq("id", user_id).single().execute()
         return response.data
     except Exception as e:
-        print(f"Profile fetch error: {e}")
+        logger.error(f"Profile fetch error: {e}")
         return None
 
 
@@ -117,7 +120,7 @@ def get_user_positions(user_id: str, access_token: str) -> list:
         response = client.table("positions").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
         return response.data or []
     except Exception as e:
-        print(f"Positions fetch error: {e}")
+        logger.error(f"Positions fetch error: {e}")
         return []
 
 
@@ -140,7 +143,7 @@ def create_position(user_id: str, access_token: str, position_data: Dict[str, An
         response = client.table("positions").insert(data).execute()
         return response.data[0] if response.data else None
     except Exception as e:
-        print(f"Position create error: {e}")
+        logger.error(f"Position create error: {e}")
         return None
 
 
@@ -153,7 +156,7 @@ def delete_position(user_id: str, access_token: str, position_id: str) -> bool:
         client.table("positions").delete().eq("id", position_id).eq("user_id", user_id).execute()
         return True
     except Exception as e:
-        print(f"Position delete error: {e}")
+        logger.error(f"Position delete error: {e}")
         return False
 
 
@@ -174,7 +177,7 @@ def get_user_theses(user_id: str, access_token: str, ticker: Optional[str] = Non
         response = query.order("created_at", desc=True).execute()
         return response.data or []
     except Exception as e:
-        print(f"Theses fetch error: {e}")
+        logger.error(f"Theses fetch error: {e}")
         return []
 
 
@@ -211,7 +214,7 @@ def create_thesis(user_id: str, access_token: str, thesis_data: Dict[str, Any]) 
         
         return thesis
     except Exception as e:
-        print(f"Thesis create error: {e}")
+        logger.error(f"Thesis create error: {e}")
         return None
 
 
@@ -247,7 +250,7 @@ def update_thesis(user_id: str, access_token: str, thesis_id: str, updates: Dict
         
         return thesis
     except Exception as e:
-        print(f"Thesis update error: {e}")
+        logger.error(f"Thesis update error: {e}")
         return None
 
 
@@ -276,7 +279,7 @@ def _create_thesis_history(
         
         client.table("thesis_history").insert(data).execute()
     except Exception as e:
-        print(f"Thesis history error: {e}")
+        logger.error(f"Thesis history error: {e}")
 
 
 def get_thesis_history(user_id: str, access_token: str, thesis_id: str) -> list:
@@ -288,5 +291,5 @@ def get_thesis_history(user_id: str, access_token: str, thesis_id: str) -> list:
         response = client.table("thesis_history").select("*").eq("thesis_id", thesis_id).eq("user_id", user_id).order("created_at", desc=True).execute()
         return response.data or []
     except Exception as e:
-        print(f"Thesis history fetch error: {e}")
+        logger.error(f"Thesis history fetch error: {e}")
         return []

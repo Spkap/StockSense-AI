@@ -35,7 +35,7 @@ StockSense demonstrates an applied AI agent architecture using LangGraph + LangC
 | **Tool Layer**   | LangChain `@tool` functions              | News, price, sentiment, persistence |
 | **Backend**      | FastAPI + Uvicorn                        | REST API (analysis, cache, health)  |
 | **Frontend**     | React + TypeScript + Vite                | Modern interactive dashboard        |
-| **Persistence**  | SQLite + Supabase                        | Cached analyses + User data         |
+| **Persistence**  | Supabase (PostgreSQL)                    | Analysis cache + User data          |
 | **Data Sources** | NewsAPI + yfinance (Yahoo Finance data)  | Headlines + OHLCV price history     |
 | **Config / Env** | `python-dotenv`                          | API key management                  |
 
@@ -84,9 +84,9 @@ StockSense-Agent/
 │   │   ├── config.py        # LLM/Chat factories
 │   │   ├── schemas.py       # Pydantic schemas
 │   │   └── monitor.py       # Kill criteria monitoring
-│   ├── db/                  # 💾 Database layer
-│   │   ├── models.py        # SQLAlchemy ORM models
-│   │   ├── database.py      # SQLite caching
+│   ├── db/                  # 💾 Database layer (Supabase)
+│   │   ├── models.py        # Schema documentation
+│   │   ├── database.py      # Supabase analysis cache
 │   │   └── supabase_client.py  # Supabase user data
 │   ├── api/                 # 🌐 API routes
 │   │   └── auth_routes.py   # User auth, theses, kill alerts
@@ -94,7 +94,8 @@ StockSense-Agent/
 │       ├── react_flow.py    # ReAct + debate orchestration
 │       └── streaming.py     # SSE streaming generators
 ├── supabase/
-│   └── schema.sql           # Database schema for user data
+│   ├── schema.sql           # Database schema for user data
+│   └── migrations/          # Database migrations
 ├── tests/
 │   ├── test_api.py          # API integration tests
 │   ├── test_tools.py        # Tool logic tests
@@ -130,8 +131,7 @@ StockSense-Agent/
 
 - FastAPI backend (analysis trigger, cached retrieval, health, auth)
 - React frontend (interactive dashboard, thesis management, debate visualization)
-- SQLite caching (automatic path fallback resolution)
-- Supabase for user data persistence
+- Supabase PostgreSQL for all persistent storage
 - Server-Sent Events (SSE) for real-time streaming
 
 ### Adversarial Debate System (Phase 3)
@@ -151,7 +151,7 @@ StockSense-Agent/
 - Node.js 18+ (for frontend)
 - [Google Gemini API Key](https://aistudio.google.com/app/apikey)
 - [NewsAPI Key](https://newsapi.org/register)
-- [Supabase Project](https://supabase.com/) (optional, for user features)
+- [Supabase Project](https://supabase.com/) (required for all features)
 
 ### Installation
 
@@ -175,7 +175,12 @@ GOOGLE_API_KEY=your_google_api_key
 NEWSAPI_KEY=your_newsapi_key
 SUPABASE_URL=your_supabase_url
 SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_KEY=your_supabase_service_key
 EOF
+
+# Apply Supabase migrations (run in Supabase SQL Editor)
+# - supabase/schema.sql
+# - supabase/migrations/003_analysis_cache.sql
 ```
 
 ### Running the Application
@@ -300,7 +305,7 @@ Set `VITE_API_URL` environment variable to your backend URL.
 - LangGraph workflow: agent node + tool node + conditional edge
 - State tracks tools used, reasoning steps, iterations, messages
 - Redundant tool invocations avoided (sentiment/news/price dedupe)
-- SQLite path resolver with environment override + graceful fallbacks
+- Supabase PostgreSQL for persistent, production-ready storage
 - Gemini rate limit handling produces user-friendly summary
 - Epistemic honesty: confidence scores, information gaps, skeptic critique
 

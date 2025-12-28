@@ -1,77 +1,37 @@
-import os
-import json
+"""
+Database module for StockSense analysis cache.
+
+Migrated from SQLite to Supabase for production persistence.
+All analysis results are stored in Supabase's `analysis_cache` table.
+"""
+
 import logging
 from datetime import datetime
 from typing import Dict, Optional, List, Any
 
-from sqlalchemy import create_engine, desc
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import SQLAlchemyError
+from stocksense.db.supabase_client import get_supabase_client, SupabaseAuthError
 
-from .models import Base, AnalysisCache
+logger = logging.getLogger("stocksense.database")
 
-def _resolve_db_path() -> str:
-    """Resolve database path with graceful fallbacks."""
-    logger = logging.getLogger("stocksense.database")
-
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Go up two levels: db/ -> stocksense/ -> project_root/
-    project_root = os.path.dirname(os.path.dirname(current_dir))
-
-    env_path = os.getenv("STOCKSENSE_DB_PATH")
-    candidates = []
-
-    if env_path:
-        abs_env_path = os.path.abspath(env_path)
-        candidates.append(abs_env_path)
-        if abs_env_path.startswith("/var/") and not os.getenv("RENDER"):
-            data_dir = os.path.join(project_root, "data")
-            os.makedirs(data_dir, exist_ok=True)
-            candidates.append(os.path.join(data_dir, os.path.basename(abs_env_path)))
-
-    data_dir = os.path.join(project_root, "data")
-    os.makedirs(data_dir, exist_ok=True)
-    candidates.append(os.path.join(data_dir, "stocksense.db"))
-
-    candidates.append(os.path.join(project_root, "stocksense.db"))
-
-    chosen_path = None
-    for path in candidates:
-        dir_path = os.path.dirname(path)
-        try:
-            if not os.path.exists(dir_path):
-                os.makedirs(dir_path, exist_ok=True)
-            chosen_path = path
-            break
-        except (PermissionError, OSError) as e:
-            logger.debug(f"Path not writable, trying next candidate: {dir_path} ({e})")
-            continue
-
-    if chosen_path is None:
-        logger.error("No writable path for SQLite DB; using in-memory database.")
-        return ":memory:"
-
-    if env_path and os.path.abspath(env_path) != chosen_path:
-        logger.info(
-            "Using fallback database path %s (env path not writable: %s)",
-            chosen_path,
-            env_path,
-        )
-
-    return chosen_path
-
-
-DB_PATH = _resolve_db_path()
-ENGINE = create_engine(f"sqlite:///{DB_PATH}")
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=ENGINE)
 
 def init_db() -> None:
-    """Initialize the database and create tables."""
+    """
+    Initialize database connection.
+    
+    With Supabase, this just validates the connection is working.
+    The actual table creation is done via SQL migrations.
+    """
     try:
-        Base.metadata.create_all(bind=ENGINE)
-    except SQLAlchemyError as e:
-        logging.error(f"Error initializing database: {e}")
+        client = get_supabase_client()
+        # Quick connectivity check
+        client.table("analysis_cache").select("id").limit(1).execute()
+        logger.info("Supabase analysis_cache connection verified")
+    except SupabaseAuthError as e:
+        logger.error(f"Supabase connection failed: {e}")
         raise
+    except Exception as e:
+        # Table might not exist yet - that's okay during first deployment
+        logger.warning(f"Database init check failed (table may not exist yet): {e}")
 
 
 def save_analysis(
@@ -82,96 +42,180 @@ def save_analysis(
     headlines: Optional[List[str]] = None,
     reasoning_steps: Optional[List[str]] = None,
     tools_used: Optional[List[str]] = None,
-    iterations: int = 0
-) -> None:
-    """Save analysis results with full data to the database cache."""
-    session = SessionLocal()
+    iterations: int = 0,
+    # Extended fields for structured analysis
+    overall_sentiment: str = "",
+    overall_confidence: float = 0.0,
+    confidence_reasoning: str = "",
+    headline_analyses: Optional[List[Dict]] = None,
+    key_themes: Optional[List[Dict]] = None,
+    potential_impact: str = "",
+    risks_identified: Optional[List[str]] = None,
+    information_gaps: Optional[List[str]] = None,
+    # Skeptic analysis fields
+    skeptic_report: str = "",
+    skeptic_sentiment: str = "",
+    skeptic_confidence: float = 0.0,
+    primary_disagreement: str = "",
+    critiques: Optional[List[Dict]] = None,
+    bear_cases: Optional[List[Dict]] = None,
+    hidden_risks: Optional[List[str]] = None,
+    would_change_mind: Optional[List[str]] = None,
+    # Fundamental data
+    fundamental_data: Optional[Dict] = None,
+) -> Optional[Dict[str, Any]]:
+    """Save analysis results to Supabase analysis_cache table."""
     try:
-        new_analysis = AnalysisCache(
-            ticker=ticker.upper(),
-            analysis_summary=summary,
-            sentiment_report=sentiment_report,
-            price_data_json=json.dumps(price_data or []),
-            headlines_json=json.dumps(headlines or []),
-            reasoning_steps_json=json.dumps(reasoning_steps or []),
-            tools_used_json=json.dumps(tools_used or []),
-            iterations=iterations,
-            timestamp=datetime.utcnow()
-        )
-        session.add(new_analysis)
-        session.commit()
-    except SQLAlchemyError as e:
-        session.rollback()
-        logging.error(f"Error saving analysis: {e}")
+        client = get_supabase_client()
+        
+        data = {
+            "ticker": ticker.upper(),
+            "analysis_summary": summary,
+            "sentiment_report": sentiment_report,
+            "price_data": price_data or [],
+            "headlines": headlines or [],
+            "reasoning_steps": reasoning_steps or [],
+            "tools_used": tools_used or [],
+            "iterations": iterations,
+            # Structured sentiment
+            "overall_sentiment": overall_sentiment,
+            "overall_confidence": overall_confidence,
+            "confidence_reasoning": confidence_reasoning,
+            "headline_analyses": headline_analyses or [],
+            "key_themes": key_themes or [],
+            "potential_impact": potential_impact,
+            "risks_identified": risks_identified or [],
+            "information_gaps": information_gaps or [],
+            # Skeptic analysis
+            "skeptic_report": skeptic_report,
+            "skeptic_sentiment": skeptic_sentiment,
+            "skeptic_confidence": skeptic_confidence,
+            "primary_disagreement": primary_disagreement,
+            "critiques": critiques or [],
+            "bear_cases": bear_cases or [],
+            "hidden_risks": hidden_risks or [],
+            "would_change_mind": would_change_mind or [],
+            # Fundamentals
+            "fundamental_data": fundamental_data or {},
+        }
+        
+        response = client.table("analysis_cache").insert(data).execute()
+        
+        if response.data:
+            logger.info(f"Analysis saved to Supabase for {ticker}")
+            return response.data[0]
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error saving analysis to Supabase: {e}")
         raise
-    finally:
-        session.close()
 
 
 def get_latest_analysis(ticker: str) -> Optional[Dict[str, Any]]:
-    """Retrieve the most recent analysis with full data for a given ticker."""
-    session = SessionLocal()
+    """Retrieve the most recent analysis for a given ticker from Supabase."""
     try:
-        analysis = (
-            session.query(AnalysisCache)
-            .filter(AnalysisCache.ticker == ticker.upper())
-            .order_by(desc(AnalysisCache.timestamp))
-            .first()
+        client = get_supabase_client()
+        
+        response = (
+            client.table("analysis_cache")
+            .select("*")
+            .eq("ticker", ticker.upper())
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
         )
-        if analysis:
+        
+        if response.data and len(response.data) > 0:
+            row = response.data[0]
             return {
-                'id': analysis.id,
-                'ticker': analysis.ticker,
-                'analysis_summary': analysis.analysis_summary,
-                'sentiment_report': analysis.sentiment_report,
-                'price_data': json.loads(analysis.price_data_json or '[]'),
-                'headlines': json.loads(analysis.headlines_json or '[]'),
-                'reasoning_steps': json.loads(analysis.reasoning_steps_json or '[]'),
-                'tools_used': json.loads(analysis.tools_used_json or '[]'),
-                'iterations': analysis.iterations or 0,
-                'timestamp': analysis.timestamp.isoformat(),
+                'id': row['id'],
+                'ticker': row['ticker'],
+                'analysis_summary': row['analysis_summary'],
+                'sentiment_report': row['sentiment_report'],
+                'price_data': row.get('price_data', []),
+                'headlines': row.get('headlines', []),
+                'reasoning_steps': row.get('reasoning_steps', []),
+                'tools_used': row.get('tools_used', []),
+                'iterations': row.get('iterations', 0),
+                'timestamp': row.get('created_at'),
+                # Structured sentiment
+                'overall_sentiment': row.get('overall_sentiment', ''),
+                'overall_confidence': row.get('overall_confidence', 0.0),
+                'confidence_reasoning': row.get('confidence_reasoning', ''),
+                'headline_analyses': row.get('headline_analyses', []),
+                'key_themes': row.get('key_themes', []),
+                'potential_impact': row.get('potential_impact', ''),
+                'risks_identified': row.get('risks_identified', []),
+                'information_gaps': row.get('information_gaps', []),
+                # Skeptic analysis
+                'skeptic_report': row.get('skeptic_report', ''),
+                'skeptic_sentiment': row.get('skeptic_sentiment', ''),
+                'skeptic_confidence': row.get('skeptic_confidence', 0.0),
+                'primary_disagreement': row.get('primary_disagreement', ''),
+                'critiques': row.get('critiques', []),
+                'bear_cases': row.get('bear_cases', []),
+                'hidden_risks': row.get('hidden_risks', []),
+                'would_change_mind': row.get('would_change_mind', []),
+                # Fundamentals
+                'fundamental_data': row.get('fundamental_data', {}),
             }
         return None
-    except SQLAlchemyError as e:
-        logging.error(f"Error getting latest analysis: {e}")
+        
+    except Exception as e:
+        logger.error(f"Error getting latest analysis from Supabase: {e}")
         return None
-    finally:
-        session.close()
 
 
 def delete_cached_analysis(ticker: str) -> bool:
     """Delete all cached analyses for a given ticker. Returns True if any were deleted."""
-    session = SessionLocal()
     try:
-        result = session.query(AnalysisCache).filter(
-            AnalysisCache.ticker == ticker.upper()
-        ).delete()
-        session.commit()
-        return result > 0
-    except SQLAlchemyError as e:
-        session.rollback()
-        logging.error(f"Error deleting cached analysis: {e}")
+        client = get_supabase_client()
+        
+        response = (
+            client.table("analysis_cache")
+            .delete()
+            .eq("ticker", ticker.upper())
+            .execute()
+        )
+        
+        deleted_count = len(response.data) if response.data else 0
+        if deleted_count > 0:
+            logger.info(f"Deleted {deleted_count} cached analyses for {ticker}")
+        return deleted_count > 0
+        
+    except Exception as e:
+        logger.error(f"Error deleting cached analysis from Supabase: {e}")
         return False
-    finally:
-        session.close()
 
 
 def get_all_cached_tickers() -> List[str]:
-    """Get a list of all tickers that have cached analysis data."""
-    session = SessionLocal()
+    """Get a list of all unique tickers that have cached analysis data."""
     try:
-        tickers = (
-            session.query(AnalysisCache.ticker)
-            .distinct()
-            .order_by(desc(AnalysisCache.timestamp))
-            .all()
+        client = get_supabase_client()
+        
+        # Get distinct tickers - Supabase doesn't have DISTINCT, so we fetch and dedupe
+        response = (
+            client.table("analysis_cache")
+            .select("ticker")
+            .order("created_at", desc=True)
+            .execute()
         )
-        return [ticker[0] for ticker in tickers]
-    except SQLAlchemyError as e:
-        logging.error(f"Error getting all cached tickers: {e}")
+        
+        if response.data:
+            # Deduplicate while preserving order (most recent first)
+            seen = set()
+            unique_tickers = []
+            for row in response.data:
+                ticker = row['ticker']
+                if ticker not in seen:
+                    seen.add(ticker)
+                    unique_tickers.append(ticker)
+            return unique_tickers
         return []
-    finally:
-        session.close()
+        
+    except Exception as e:
+        logger.error(f"Error getting all cached tickers from Supabase: {e}")
+        return []
 
 
 def get_all_cached_tickers_with_timestamps() -> List[Dict[str, Any]]:
@@ -179,51 +223,60 @@ def get_all_cached_tickers_with_timestamps() -> List[Dict[str, Any]]:
     Get a list of all tickers with their most recent analysis timestamps.
     Returns list of dicts with 'symbol' and 'timestamp' keys.
     """
-    session = SessionLocal()
     try:
-        from sqlalchemy import func
+        client = get_supabase_client()
         
-        # Get the most recent analysis for each ticker
-        subquery = (
-            session.query(
-                AnalysisCache.ticker,
-                func.max(AnalysisCache.timestamp).label('latest_timestamp')
-            )
-            .group_by(AnalysisCache.ticker)
-            .subquery()
+        # Fetch all analyses ordered by time
+        response = (
+            client.table("analysis_cache")
+            .select("ticker, created_at")
+            .order("created_at", desc=True)
+            .execute()
         )
         
-        results = (
-            session.query(subquery.c.ticker, subquery.c.latest_timestamp)
-            .order_by(subquery.c.latest_timestamp.desc())
-            .all()
-        )
-        
-        return [
-            {
-                "symbol": row[0],
-                "timestamp": row[1].isoformat() if row[1] else None
-            }
-            for row in results
-        ]
-    except SQLAlchemyError as e:
-        logging.error(f"Error getting cached tickers with timestamps: {e}")
+        if response.data:
+            # Get most recent timestamp for each ticker
+            ticker_timestamps = {}
+            for row in response.data:
+                ticker = row['ticker']
+                if ticker not in ticker_timestamps:
+                    ticker_timestamps[ticker] = row['created_at']
+            
+            # Convert to list format
+            return [
+                {"symbol": ticker, "timestamp": timestamp}
+                for ticker, timestamp in ticker_timestamps.items()
+            ]
         return []
-    finally:
-        session.close()
+        
+    except Exception as e:
+        logger.error(f"Error getting cached tickers with timestamps from Supabase: {e}")
+        return []
 
 
 if __name__ == '__main__':
+    # Test the Supabase connection
     init_db()
-    sample_ticker = "AAPL"
-    sample_summary = "Apple showed strong performance with positive earnings."
-    sample_sentiment = "Overall sentiment: Positive. Headlines show bullish outlook."
+    
+    sample_ticker = "TEST"
+    sample_summary = "Test analysis summary."
+    sample_sentiment = "Overall sentiment: Positive."
+    
+    print("Saving test analysis...")
     save_analysis(sample_ticker, sample_summary, sample_sentiment)
+    
+    print("Retrieving test analysis...")
     retrieved_data = get_latest_analysis(sample_ticker)
     print(f"Retrieved data: {retrieved_data}")
-    non_existent = get_latest_analysis("NONEXISTENT")
-    print(f"Non-existent data: {non_existent}")
+    
+    print("Getting all cached tickers...")
     cached_tickers = get_all_cached_tickers()
     print(f"Cached tickers: {cached_tickers}")
+    
+    print("Getting cached tickers with timestamps...")
     cached_with_ts = get_all_cached_tickers_with_timestamps()
     print(f"Cached tickers with timestamps: {cached_with_ts}")
+    
+    print("Cleaning up test data...")
+    delete_cached_analysis(sample_ticker)
+    print("Done!")

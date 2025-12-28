@@ -319,11 +319,12 @@ def update_alert_status(
         client = get_supabase_client()
         client.postgrest.auth(access_token)
         
-        update_data = {"status": status}
+        update_data = {"status": status, "is_read": True}
         if user_action:
             update_data["user_action"] = user_action
         if status != "pending":
-            update_data["resolved_at"] = "NOW()"
+            from datetime import datetime
+            update_data["resolved_at"] = datetime.utcnow().isoformat()
         
         client.table("alert_history").update(update_data).eq("id", alert_id).eq("user_id", user_id).execute()
         return True

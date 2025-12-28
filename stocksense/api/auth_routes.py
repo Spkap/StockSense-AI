@@ -63,7 +63,7 @@ class ThesisCreate(BaseModel):
     thesis_type: str = "growth"  # growth, value, income, turnaround, special_situation
     position_id: Optional[str] = None
     # Stage 4: Analysis-Thesis Linkage
-    origin_analysis_id: Optional[int] = Field(None, description="SQLite cache ID of the analysis that informed this thesis")
+    origin_analysis_id: Optional[int] = Field(None, description="Supabase cache ID of the analysis that informed this thesis")
     origin_analysis_snapshot: Optional[dict] = Field(None, description="Snapshot of key analysis metrics at thesis creation")
 
 

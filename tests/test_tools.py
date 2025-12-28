@@ -19,7 +19,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from stocksense.react_agent import fetch_news_headlines, fetch_price_data
+from stocksense.orchestration.react_flow import fetch_news_headlines, fetch_price_data
 
 
 class TestNewsHeadlines:
