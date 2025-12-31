@@ -24,8 +24,6 @@ const menuItems: Array<{
   { icon: Bell, label: 'Alerts', viewId: 'alerts', implemented: true },
 ];
 
-// Secondary items removed - none are implemented
-
 interface SidebarContentProps {
   isCollapsed: boolean;
   isMobile?: boolean;
@@ -37,17 +35,17 @@ interface SidebarContentProps {
 
 const SidebarContent = ({ isCollapsed, isMobile, onClose, tabIndex = 0, currentView, onNavigate }: SidebarContentProps) => {
   return (
-    <>
+    <div className="flex h-full flex-col">
       {/* Brand */}
       <div className={cn(
-        "mb-8 flex items-center gap-2 px-2",
+        "flex items-center gap-3 px-3 py-6",
         isCollapsed && !isMobile && "justify-center px-0"
       )}>
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <LineChart className="h-5 w-5" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+          <LineChart className="h-6 w-6" />
         </div>
         {(!isCollapsed || isMobile) && (
-          <span className="text-lg font-bold tracking-tight text-foreground">
+          <span className="text-xl font-bold tracking-tight text-foreground">
             StockSense
           </span>
         )}
@@ -66,7 +64,7 @@ const SidebarContent = ({ isCollapsed, isMobile, onClose, tabIndex = 0, currentV
       </div>
 
       {/* Main Menu */}
-      <nav className="flex-1 space-y-1">
+      <nav className="flex-1 space-y-2 px-2 mt-4">
         {menuItems.map((item) => (
           <button
             key={item.label}
@@ -77,18 +75,18 @@ const SidebarContent = ({ isCollapsed, isMobile, onClose, tabIndex = 0, currentV
               if (isMobile && onClose) onClose();
             }}
             className={cn(
-              "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium transition-all duration-200",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               currentView === item.viewId
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-primary text-primary-foreground shadow-md"
                 : item.implemented
-                  ? "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  ? "text-muted-foreground hover:bg-muted hover:text-foreground"
                   : "text-muted-foreground/40 cursor-not-allowed",
               isCollapsed && !isMobile && "justify-center px-2"
             )}
             title={!item.implemented ? `${item.label} — Coming Soon` : (isCollapsed && !isMobile ? item.label : undefined)}
           >
-            <item.icon className={cn("h-4 w-4 shrink-0", !item.implemented && "opacity-50")} />
+            <item.icon className={cn("h-5 w-5 shrink-0 transition-transform duration-200", !item.implemented && "opacity-50", currentView === item.viewId && "scale-110")} />
             {(!isCollapsed || isMobile) && (
               <span className="flex items-center gap-2">
                 {item.label}
@@ -99,8 +97,15 @@ const SidebarContent = ({ isCollapsed, isMobile, onClose, tabIndex = 0, currentV
         ))}
       </nav>
 
-      {/* User Profile - will integrate with AuthContext */}
-    </>
+      {/* Bottom Section (optional footer area) */}
+      <div className="mt-auto px-4 py-6">
+          {(!isCollapsed || isMobile) && (
+            <p className="text-xs text-muted-foreground text-center">
+               v0.2.0 Beta
+            </p>
+          )}
+      </div>
+    </div>
   );
 };
 
@@ -114,33 +119,24 @@ const Sidebar = ({ onNavigate, currentView }: SidebarProps) => {
   const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  // Store reference to button that opened the drawer
   useEffect(() => {
     if (isMobileOpen) {
-      // Find and store the hamburger button when drawer opens
       hamburgerButtonRef.current = document.querySelector('[aria-label="Open menu"]');
     }
   }, [isMobileOpen]);
 
-  // Focus trap for mobile drawer
   useEffect(() => {
     if (isMobileOpen && mobileDrawerRef.current) {
       const drawer = mobileDrawerRef.current;
-      
-      // Focus the first focusable element when drawer opens
       const focusableElements = drawer.querySelectorAll<HTMLElement>(
         'button:not([tabindex="-1"]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
       );
       const firstElement = focusableElements[0];
-      
-      // Delay focus to allow transition
       setTimeout(() => firstElement?.focus(), 100);
 
       const handleTabKey = (e: KeyboardEvent) => {
         if (e.key !== 'Tab') return;
-
         const lastElement = focusableElements[focusableElements.length - 1];
-
         if (e.shiftKey) {
           if (document.activeElement === firstElement) {
             e.preventDefault();
@@ -153,32 +149,28 @@ const Sidebar = ({ onNavigate, currentView }: SidebarProps) => {
           }
         }
       };
-
       drawer.addEventListener('keydown', handleTabKey);
       return () => drawer.removeEventListener('keydown', handleTabKey);
     } else if (!isMobileOpen && hamburgerButtonRef.current) {
-      // Return focus to hamburger button when drawer closes
       hamburgerButtonRef.current.focus();
     }
   }, [isMobileOpen]);
 
   return (
     <>
-      {/* Desktop Sidebar */}
       <aside 
         className={cn(
-          "fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-border bg-card p-4 transition-all duration-300 ease-in-out md:flex",
-          isCollapsed ? "w-16" : "w-64"
+          "fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-border bg-card transition-all duration-300 ease-in-out md:flex",
+          isCollapsed ? "w-20" : "w-72"
         )}
       >
         <SidebarContent isCollapsed={isCollapsed} currentView={currentView} onNavigate={onNavigate} />
         
-        {/* Collapse Toggle Button */}
         <Button
           variant="outline"
           size="icon"
           onClick={toggleCollapsed}
-          className="absolute -right-3 top-20 h-6 w-6 rounded-full border-border bg-card shadow-md"
+          className="absolute -right-3 top-24 h-6 w-6 rounded-full border-border bg-card shadow-sm hover:shadow-md transition-shadow"
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <ChevronLeft className={cn(
@@ -188,7 +180,6 @@ const Sidebar = ({ onNavigate, currentView }: SidebarProps) => {
         </Button>
       </aside>
 
-      {/* Mobile Backdrop */}
       {isMobileOpen && (
         <div 
           className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm md:hidden"
@@ -197,11 +188,10 @@ const Sidebar = ({ onNavigate, currentView }: SidebarProps) => {
         />
       )}
 
-      {/* Mobile Drawer */}
       <aside
         ref={mobileDrawerRef}
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-border bg-card p-4 transition-transform duration-300 ease-in-out md:hidden",
+          "fixed left-0 top-0 z-50 flex h-screen w-72 flex-col border-r border-border bg-card shadow-2xl transition-transform duration-300 ease-out md:hidden",
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
         aria-hidden={!isMobileOpen}

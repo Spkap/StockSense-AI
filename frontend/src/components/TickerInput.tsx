@@ -1,6 +1,6 @@
 import { useState, FormEvent, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
-import { Search, AlertCircle, Command } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Search, AlertCircle, Command, ArrowRight } from 'lucide-react';
+import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { cn } from '../utils/cn';
@@ -14,7 +14,6 @@ export interface TickerInputRef {
   focus: () => void;
 }
 
-// Regex pattern for valid ticker format (1-5 uppercase letters)
 const TICKER_PATTERN = /^[A-Z]{1,5}$/;
 
 function validateTickerFormat(ticker: string): { isValid: boolean; error: string | null } {
@@ -35,7 +34,6 @@ function validateTickerFormat(ticker: string): { isValid: boolean; error: string
   return { isValid: true, error: null };
 }
 
-// Detect if user is on Mac for keyboard shortcut display
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
 const TickerInput = forwardRef<TickerInputRef, TickerInputProps>(({ onAnalyze, disabled = false }, ref) => {
@@ -46,7 +44,6 @@ const TickerInput = forwardRef<TickerInputRef, TickerInputProps>(({ onAnalyze, d
   const validation = useMemo(() => validateTickerFormat(ticker), [ticker]);
   const showError = touched && ticker.length > 0 && !validation.isValid && validation.error;
 
-  // Expose focus method to parent
   useImperativeHandle(ref, () => ({
     focus: () => {
       inputRef.current?.focus();
@@ -65,68 +62,68 @@ const TickerInput = forwardRef<TickerInputRef, TickerInputProps>(({ onAnalyze, d
   };
 
   const handleChange = (value: string) => {
-    // Only allow letters and limit to 5 characters
     const filtered = value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5);
     setTicker(filtered);
   };
 
   return (
-    <Card className="h-full border-border bg-card shadow-sm transition-shadow hover:shadow-md">
-      <CardHeader>
-        <CardTitle>Analyze Stock</CardTitle>
-        <CardDescription>Enter a ticker symbol to generate AI insights.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                ref={inputRef}
-                placeholder="e.g. AAPL, TSLA"
-                value={ticker}
-                onChange={(e) => handleChange(e.target.value)}
-                onBlur={() => setTouched(true)}
-                disabled={disabled}
-                maxLength={5}
-                className={cn(
-                  "pl-9 pr-16 font-semibold uppercase tracking-wider text-foreground placeholder:normal-case placeholder:tracking-normal",
-                  showError && "border-destructive focus-visible:ring-destructive"
-                )}
-                aria-invalid={showError ? 'true' : 'false'}
-                aria-describedby={showError ? 'ticker-error' : undefined}
-              />
-              {/* Keyboard shortcut hint */}
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 text-xs text-muted-foreground/60">
-                {isMac ? (
-                  <>
-                    <Command className="h-3 w-3" />
-                    <span>K</span>
-                  </>
-                ) : (
-                  <span className="text-[10px]">Ctrl+K</span>
-                )}
-              </div>
-            </div>
-            <Button 
-              type="submit" 
-              disabled={disabled || !ticker.trim() || !validation.isValid}
-              className="min-w-[100px] font-semibold"
-            >
-              Analyze
-            </Button>
-          </div>
-          
-          {/* Validation Error Message */}
-          {showError && (
-            <div id="ticker-error" className="flex items-center gap-1 text-xs text-destructive">
-              <AlertCircle className="h-3 w-3" />
-              <span>{validation.error}</span>
-            </div>
+    <div className="flex flex-col gap-2">
+      <div className="relative group">
+        <div className={cn(
+          "absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-primary/20 to-primary/10 opacity-0 blur transition duration-500",
+          ticker.length > 0 && "opacity-100"
+        )} />
+        <form
+          onSubmit={handleSubmit}
+          className={cn(
+            "relative flex items-center gap-2 rounded-2xl bg-background p-2 ring-1 ring-border transition-all duration-300",
+            "focus-within:ring-2 focus-within:ring-primary/20 focus-within:shadow-lg"
           )}
+        >
+          <Search className="ml-3 h-5 w-5 text-muted-foreground" />
+
+          <Input
+            ref={inputRef}
+            placeholder="Search for a stock..."
+            value={ticker}
+            onChange={(e) => handleChange(e.target.value)}
+            onBlur={() => setTouched(true)}
+            disabled={disabled}
+            maxLength={5}
+            className={cn(
+              "h-12 border-none bg-transparent px-2 text-lg font-medium placeholder:text-muted-foreground/50 focus-visible:ring-0",
+              "uppercase tracking-wide placeholder:normal-case placeholder:tracking-normal"
+            )}
+            aria-invalid={showError ? 'true' : 'false'}
+          />
+
+          {/* Keyboard Shortcut Hint */}
+          <div className="hidden items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground sm:flex">
+            {isMac ? <Command className="h-3 w-3" /> : <span>Ctrl</span>}
+            <span>K</span>
+          </div>
+
+          <Button
+            type="submit"
+            size="icon"
+            disabled={disabled || !ticker.trim() || !validation.isValid}
+            className={cn(
+              "h-10 w-10 shrink-0 rounded-xl transition-all duration-300",
+              ticker.length > 0 ? "bg-primary text-primary-foreground opacity-100" : "bg-muted text-muted-foreground opacity-50"
+            )}
+          >
+            <ArrowRight className="h-5 w-5" />
+          </Button>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+
+      {showError && (
+        <div className="ml-2 flex items-center gap-1.5 text-sm text-destructive animate-in slide-in-from-top-1 fade-in duration-200">
+          <AlertCircle className="h-4 w-4" />
+          <span>{validation.error}</span>
+        </div>
+      )}
+    </div>
   );
 });
 
