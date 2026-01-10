@@ -212,9 +212,9 @@ function AppContent() {
             {isLoading && selectedTicker ? (
               <motion.div
                 key="loading"
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
+                initial={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
+                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
                 transition={{ duration: 0.3 }}
               >
                 <StreamingAnalysisProgress 
@@ -231,10 +231,10 @@ function AppContent() {
             ) : !isLoading && analysisData ? (
               <motion.div
                 key="results"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.4, type: "spring", stiffness: 100 }}
+                initial={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
+                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
+                transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
                 className="space-y-4"
               >
                 {/* Kill Alerts Banner */}
@@ -259,9 +259,10 @@ function AppContent() {
             ) : !isLoading && !error ? (
               <motion.div
                 key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
+                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
+                transition={{ duration: 0.4 }}
               >
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
                   <div className="lg:col-span-8">

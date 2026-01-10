@@ -1,8 +1,5 @@
 import { useState } from 'react';
-import { 
-  ChevronRight,
-  Menu,
-} from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Button } from './ui/button';
 import ThemeToggle from './ThemeToggle';
 import UserMenu from './UserMenu';
@@ -15,10 +12,9 @@ const Header = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-8">
+      <header className="sticky top-0 z-30 flex h-20 items-center justify-between px-6 transition-all duration-300 md:px-10 bg-background/60 backdrop-blur-xl border-b border-border/40 supports-[backdrop-filter]:bg-background/60">
         {/* Left Section */}
         <div className="flex items-center gap-4">
-          {/* Mobile Hamburger */}
           <Button
             variant="ghost"
             size="icon"
@@ -29,30 +25,24 @@ const Header = () => {
             <Menu className="h-5 w-5" />
           </Button>
 
-          {/* Breadcrumbs / Page Title */}
+          {/* Minimalist Title / Breadcrumbs */}
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-foreground md:text-xl">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground/90">
               Dashboard
             </h1>
-            <div className="hidden items-center gap-1 text-xs text-muted-foreground md:flex">
-              <span className="hover:text-foreground cursor-pointer transition-colors">Home</span>
-              <ChevronRight className="h-3 w-3" />
-              <span className="font-medium text-foreground">Dashboard</span>
-            </div>
+            <p className="hidden text-sm font-medium text-muted-foreground/60 md:block">
+              Overview
+            </p>
           </div>
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2 md:gap-4">
-          {/* Theme Toggle */}
+        <div className="flex items-center gap-3 bg-secondary/30 backdrop-blur-md p-1.5 rounded-full border border-white/10 shadow-sm dark:border-white/5">
           <ThemeToggle />
-
-          {/* User Menu */}
           <UserMenu onOpenAuth={() => setShowAuthModal(true)} />
         </div>
       </header>
 
-      {/* Auth Modal */}
       <AuthModal 
         isOpen={showAuthModal} 
         onClose={() => setShowAuthModal(false)} 
@@ -62,4 +52,3 @@ const Header = () => {
 };
 
 export default Header;
-

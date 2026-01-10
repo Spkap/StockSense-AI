@@ -167,7 +167,7 @@ const Sidebar = ({ onNavigate, currentView }: SidebarProps) => {
       {/* Desktop Sidebar */}
       <aside 
         className={cn(
-          "fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-border bg-card p-4 transition-all duration-300 ease-in-out md:flex",
+          "fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-border/40 bg-background/60 backdrop-blur-xl transition-all duration-300 ease-in-out md:flex",
           isCollapsed ? "w-16" : "w-64"
         )}
       >
@@ -178,7 +178,7 @@ const Sidebar = ({ onNavigate, currentView }: SidebarProps) => {
           variant="outline"
           size="icon"
           onClick={toggleCollapsed}
-          className="absolute -right-3 top-20 h-6 w-6 rounded-full border-border bg-card shadow-md"
+          className="absolute -right-3 top-20 h-6 w-6 rounded-full border-border/40 bg-background/80 shadow-md backdrop-blur-md hover:bg-background"
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <ChevronLeft className={cn(
@@ -201,7 +201,7 @@ const Sidebar = ({ onNavigate, currentView }: SidebarProps) => {
       <aside
         ref={mobileDrawerRef}
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-border bg-card p-4 transition-transform duration-300 ease-in-out md:hidden",
+          "fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-border/40 bg-background/80 backdrop-blur-xl p-4 transition-transform duration-300 ease-in-out md:hidden",
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
         aria-hidden={!isMobileOpen}

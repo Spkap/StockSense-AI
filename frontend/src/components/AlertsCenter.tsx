@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Bell, CheckCheck, Clock, ShieldAlert } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Bell, CheckCheck, Clock } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { cn } from '../utils/cn';
 
@@ -25,8 +24,6 @@ export default function AlertsCenter() {
 
   const fetchAlerts = async () => {
     setLoading(true);
-    // In a real app we'd get the current user ID
-    // For now we'll just fetch all alerts for demo purposes or filtered if we had auth context
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -51,14 +48,12 @@ export default function AlertsCenter() {
 
   useEffect(() => {
     fetchAlerts();
-    // Poll every 30 seconds
     const interval = setInterval(fetchAlerts, 30000);
     return () => clearInterval(interval);
   }, [filter]);
 
   const markAsRead = async (id: string) => {
     await supabase.from('alert_history').update({ is_read: true }).eq('id', id);
-    // Optimistic update
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, is_read: true } : a));
     if (filter === 'unread') {
         setAlerts(prev => prev.filter(a => a.id !== id));
@@ -74,102 +69,140 @@ export default function AlertsCenter() {
   };
 
   return (
-    <Card className="h-full border-border bg-card">
-      <CardHeader className="border-b border-border pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
-            <div>
-              <CardTitle>Alerts Center</CardTitle>
-              <CardDescription>Monitor your active thesis alerts</CardDescription>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <div className="flex rounded-md border border-border bg-muted p-1">
-                <Button 
-                    variant={filter === 'unread' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="h-7 text-xs"
+    <div className="mx-auto max-w-4xl space-y-6">
+      {/* Minimal Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Alerts</h2>
+          <p className="text-sm text-muted-foreground">Monitor your active thesis alerts</p>
+        </div>
+        <div className="flex items-center gap-2">
+            <div className="flex bg-secondary/50 p-1 rounded-full backdrop-blur-sm border border-border/40">
+                <button 
                     onClick={() => setFilter('unread')}
+                    className={cn(
+                        "px-4 py-1.5 text-xs font-medium rounded-full transition-all duration-300",
+                        filter === 'unread' ? "bg-background shadow-sm text-foreground ring-1 ring-black/5 dark:ring-white/10" : "text-muted-foreground hover:text-foreground"
+                    )}
                 >
                     Unread
-                </Button>
-                <Button 
-                    variant={filter === 'all' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="h-7 text-xs"
+                </button>
+                <button 
                     onClick={() => setFilter('all')}
+                    className={cn(
+                        "px-4 py-1.5 text-xs font-medium rounded-full transition-all duration-300",
+                        filter === 'all' ? "bg-background shadow-sm text-foreground ring-1 ring-black/5 dark:ring-white/10" : "text-muted-foreground hover:text-foreground"
+                    )}
                 >
                     All
-                </Button>
+                </button>
             </div>
             {alerts.length > 0 && filter === 'unread' && (
-                <Button variant="outline" size="sm" className="h-9" onClick={markAllRead}>
-                    <CheckCheck className="mr-2 h-3 w-3" /> Mark All Read
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-9 gap-2 text-xs"
+                    onClick={markAllRead}
+                >
+                    <CheckCheck className="h-3 w-3" /> 
+                    Mark All Read
                 </Button>
             )}
-          </div>
         </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="max-h-[600px] overflow-y-auto">
-            {loading && alerts.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">Loading alerts...</div>
-            ) : alerts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <Bell className="h-12 w-12 opacity-20 mb-4" />
-                    <p>No {filter === 'unread' ? 'new' : ''} alerts found.</p>
+      </div>
+
+      {/* Alerts Feed */}
+      <div className="min-h-[400px]">
+        {loading && alerts.length === 0 ? (
+            <div className="flex h-64 items-center justify-center text-muted-foreground">
+                <div className="bg-background/50 p-4 rounded-full">
+                    <Bell className="h-6 w-6 animate-pulse opacity-50" />
                 </div>
-            ) : (
-                <ul className="divide-y divide-border">
-                    {alerts.map(alert => (
-                        <li key={alert.id} className={cn(
-                            "group flex flex-col gap-2 p-4 transition-colors hover:bg-muted/50",
-                            !alert.is_read && "bg-primary/5"
-                        )}>
-                            <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Badge variant={alert.alert_type === 'kill_criteria' ? 'destructive' : 'default'}>
-                                        {alert.ticker}
-                                    </Badge>
-                                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        {alert.alert_type.replace('_', ' ')}
-                                    </span>
-                                    <span className="flex items-center gap-1 text-xs text-muted-foreground ml-2">
-                                        <Clock className="h-3 w-3" />
-                                        {new Date(alert.created_at).toLocaleString()}
-                                    </span>
+            </div>
+        ) : alerts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/40 py-24 text-center">
+                <div className="bg-background/50 p-4 rounded-full mb-4">
+                     <Bell className="h-8 w-8 text-muted-foreground/30" />
+                </div>
+                <h3 className="text-sm font-medium">No alerts found</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                    {filter === 'unread' ? "You're all caught up!" : "No alert history available."}
+                </p>
+            </div>
+        ) : (
+            <div className="space-y-3">
+                {alerts.map(alert => (
+                    <div 
+                        key={alert.id} 
+                        className={cn(
+                            "group relative flex flex-col gap-3 rounded-xl border p-5 transition-all duration-300",
+                            alert.is_read 
+                                ? "bg-card border-border/40 opacity-80" 
+                                : "bg-background border-primary/10 shadow-sm ring-1 ring-primary/5"
+                        )}
+                    >
+                        <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                                {/* Ticker Badge */}
+                                <div className={cn(
+                                    "flex items-center justify-center h-10 w-10 rounded-full font-bold text-xs",
+                                    alert.alert_type === 'kill_criteria' 
+                                        ? "bg-destructive/10 text-destructive"
+                                        : "bg-primary/10 text-primary"
+                                )}>
+                                    {alert.ticker.substring(0, 2)}
                                 </div>
-                                {!alert.is_read && (
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={() => markAsRead(alert.id)}
-                                        title="Mark as read"
-                                    >
-                                        <CheckCheck className="h-4 w-4" />
-                                    </Button>
-                                )}
+                                
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="font-semibold text-foreground text-sm">
+                                            {alert.ticker}
+                                        </h4>
+                                        <Badge variant="secondary" className="text-[10px] font-normal lowercase bg-secondary/50">
+                                            {alert.alert_type.replace('_', ' ')}
+                                        </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                        <Clock className="h-3 w-3 text-muted-foreground/60" />
+                                        <span className="text-xs text-muted-foreground/80">
+                                            {new Date(alert.created_at).toLocaleString()}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            
-                            <h4 className="font-semibold text-foreground">
+
+                            {!alert.is_read && (
+                                <button 
+                                    onClick={() => markAsRead(alert.id)}
+                                    className="p-2 rounded-full hover:bg-secondary/80 text-muted-foreground transition-colors group-hover:opacity-100 opacity-0"
+                                    title="Mark as read"
+                                >
+                                    <CheckCheck className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
+                        
+                        <div className="ml-12.5 pl-0.5">
+                            <h5 className="text-sm font-medium leading-normal mb-1">
                                 {alert.message || (alert.data?.match_confidence ? 
-                                    `Kill Criteria Triggered: ${alert.data.triggered_criteria} ({(alert.data.match_confidence * 100).toFixed(0)}% confidence)` : 
-                                    "New Alert")}
-                            </h4>
+                                    <span className="flex items-center gap-2">
+                                        <ShieldAlert className="h-4 w-4 text-destructive" />
+                                        Kill Criteria Triggered: <span className="text-destructive font-semibold">{alert.data.triggered_criteria}</span>
+                                    </span> 
+                                    : "New Alert")}
+                            </h5>
                             
                             {alert.data?.analysis_summary && (
-                                <p className="text-sm text-muted-foreground line-clamp-2">
-                                    {alert.data.analysis_summary}
+                                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 bg-muted/20 p-2 rounded-lg">
+                                    "{alert.data.analysis_summary}"
                                 </p>
                             )}
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
-      </CardContent>
-    </Card>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
+      </div>
+    </div>
   );
 }
