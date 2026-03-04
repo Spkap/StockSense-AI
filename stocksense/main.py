@@ -8,11 +8,11 @@ import os
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import Any, Dict
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -119,9 +119,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# CORS configuration - use CORS_ORIGINS env var for production, defaults to permissive for dev
+cors_origins_str = os.getenv("CORS_ORIGINS", "*")
+cors_origins = cors_origins_str.split(",") if cors_origins_str != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -152,7 +156,7 @@ async def health_check() -> Dict[str, Any]:
     """
     health_status = {
         "status": "ok",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": API_VERSION,
         "checks": {}
     }
@@ -201,10 +205,10 @@ async def root() -> Dict[str, str]:
 
 @app.post("/analyze/{ticker}")
 async def analyze_stock(
-    ticker: str, 
-    request: Request, 
+    ticker: str,
+    request: Request,
     force: bool = False,
-    authorization: str = None
+    authorization: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
     """
     Analyze stock using the ReAct Agent (Reasoning + Action) pattern.
@@ -249,7 +253,7 @@ async def analyze_stock(
                 if cached_analysis.get("timestamp"):
                     try:
                         cached_time = datetime.fromisoformat(cached_analysis["timestamp"])
-                        age_seconds = (datetime.utcnow() - cached_time).total_seconds()
+                        age_seconds = (datetime.now(timezone.utc) - cached_time.replace(tzinfo=timezone.utc) if cached_time.tzinfo is None else cached_time).total_seconds()
                         cache_age_hours = round(age_seconds / 3600, 1)
                     except (ValueError, TypeError):
                         pass

@@ -1,126 +1,154 @@
-/**
- * ThesesPage - List of user's investment theses
- * Stage 3: User Belief System
- */
 
 import { useState } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, Clock, AlertTriangle, Target } from 'lucide-react';
-import { Card, CardContent } from '../components/ui/card';
+import { BookOpen, ChevronDown, ChevronRight, Clock, AlertTriangle, Target, ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
+
 import { useAuth } from '../context/AuthContext';
 import { useTheses, useThesisHistory } from '../api/theses';
 import ThesisEditor from '../components/ThesisEditor';
 import type { Thesis } from '../types/thesis';
+import { cn } from '../utils/cn';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const CONVICTION_COLORS = {
-  low: 'bg-muted text-muted-foreground',
-  medium: 'bg-warning/20 text-warning',
-  high: 'bg-success/20 text-success',
+const CONVICTION_STYLES = {
+  low: 'bg-muted text-muted-foreground border-border/40',
+  medium: 'bg-warning/10 text-warning border-warning/20',
+  high: 'bg-success/10 text-success border-success/20',
 };
 
-const STATUS_LABELS = {
-  active: { label: 'Active', color: 'bg-primary/20 text-primary' },
-  validated: { label: 'Validated', color: 'bg-success/20 text-success' },
-  invalidated: { label: 'Invalidated', color: 'bg-destructive/20 text-destructive' },
-  exited: { label: 'Exited', color: 'bg-muted text-muted-foreground' },
+const STATUS_STYLES = {
+  active: 'bg-primary/10 text-primary border-primary/20',
+  validated: 'bg-success/10 text-success border-success/20',
+  invalidated: 'bg-destructive/10 text-destructive border-destructive/20',
+  exited: 'bg-muted text-muted-foreground border-border/40',
 };
 
 function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const { data: historyData } = useThesisHistory(expanded ? thesis.id : null);
 
-  const statusConfig = STATUS_LABELS[thesis.status] || STATUS_LABELS.active;
+  const statusStyle = STATUS_STYLES[thesis.status] || STATUS_STYLES.active;
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-4">
-        {/* Header */}
+    <motion.div 
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={cn(
+        "group overflow-hidden rounded-xl border border-border/50 bg-card transition-all duration-300",
+        expanded ? "shadow-lg ring-1 ring-primary/5" : "hover:shadow-md hover:border-primary/20"
+      )}
+    >
+      <div className="p-5">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="p-1 hover:bg-muted rounded transition-colors"
-            >
-              {expanded ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </button>
-            <div>
-              <h3 className="text-lg font-bold">{thesis.ticker}</h3>
-              <p className="text-xs text-muted-foreground">
-                <Clock className="h-3 w-3 inline mr-1" />
-                Updated {new Date(thesis.updated_at).toLocaleDateString()}
-              </p>
+          <div className="flex items-center gap-4">
+            {/* Ticker Symbol */}
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/5 text-lg font-bold text-foreground transition-colors group-hover:bg-primary/10">
+              {thesis.ticker}
+            </div>
+            
+            <div className="space-y-1">
+              <h3 className="font-semibold text-foreground">{thesis.ticker} Thesis</h3>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                <span>Updated {new Date(thesis.updated_at).toLocaleDateString()}</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge className={CONVICTION_COLORS[thesis.conviction_level]}>
-              {thesis.conviction_level}
-            </Badge>
-            <Badge className={statusConfig.color}>
-              {statusConfig.label}
-            </Badge>
+
+          <div className="flex flex-col items-end gap-2 md:flex-row md:items-center">
+            <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium uppercase tracking-wider", CONVICTION_STYLES[thesis.conviction_level])}>
+              {thesis.conviction_level} Conviction
+            </span>
+            <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium uppercase tracking-wider", statusStyle)}>
+              {thesis.status}
+            </span>
           </div>
         </div>
 
-        {/* Summary */}
-        <p className="mt-3 text-sm text-muted-foreground line-clamp-2">
-          {thesis.thesis_summary}
-        </p>
+        {/* Thesis Summary */}
+        <div className="mt-4 pl-16">
+           <p className={cn("text-sm text-muted-foreground leading-relaxed", !expanded && "line-clamp-2")}>
+             {thesis.thesis_summary}
+           </p>
+        </div>
+      
+        {/* Actions / Expand Toggle */}
+        <div className="mt-4 flex items-center justify-between pl-16">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1.5 rounded-full text-xs font-medium text-primary hover:bg-primary/10"
+          >
+            {expanded ? (
+              <>Less Details <ChevronDown className="h-3 w-3" /></>
+            ) : (
+              <>More Details <ChevronRight className="h-3 w-3" /></>
+            )}
+          </Button>
+          
+          <Button variant="ghost" size="sm" onClick={onEdit} className="h-7 text-xs">
+            Edit
+          </Button>
+        </div>
+      </div>
 
-        {/* Expanded Content */}
+      {/* Expanded Content */}
+      <AnimatePresence>
         {expanded && (
-          <div className="mt-4 pt-4 border-t border-border space-y-4">
-            {/* Kill Criteria */}
-            {thesis.kill_criteria.length > 0 && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <Target className="h-3 w-3" />
-                  Kill Criteria
-                </h4>
-                <ul className="space-y-1">
-                  {thesis.kill_criteria.map((criteria, i) => (
-                    <li key={i} className="text-sm flex items-start gap-2">
-                      <AlertTriangle className="h-3 w-3 text-warning mt-0.5 shrink-0" />
-                      <span>{criteria}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* History */}
-            {historyData && historyData.history.length > 0 && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                  History
-                </h4>
-                <div className="space-y-2">
-                  {historyData.history.slice(0, 5).map((entry) => (
-                    <div key={entry.id} className="text-xs text-muted-foreground">
-                      <span className="font-medium">{new Date(entry.created_at).toLocaleDateString()}</span>
-                      {' — '}
-                      <span>{entry.change_type.replace('_', ' ')}</span>
-                      {entry.change_reason && (
-                        <span className="text-foreground"> ({entry.change_reason})</span>
-                      )}
-                    </div>
-                  ))}
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-t border-border/50 bg-secondary/5 px-5 py-4 pl-20"
+          >
+            <div className="space-y-6">
+              {/* Kill Criteria */}
+              {thesis.kill_criteria.length > 0 && (
+                <div>
+                  <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    <Target className="h-3 w-3" />
+                    Kill Criteria
+                  </h4>
+                  <ul className="space-y-2">
+                    {thesis.kill_criteria.map((criteria, i) => (
+                      <li key={i} className="flex items-start gap-3 text-sm text-foreground/90 bg-background/50 p-2 rounded-md border border-border/40">
+                        <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                        <span>{criteria}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Edit Button */}
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              Edit Thesis
-            </Button>
-          </div>
+              {/* History */}
+              {historyData && historyData.history.length > 0 && (
+                <div>
+                  <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    Change Log
+                  </h4>
+                  <div className="space-y-3 pl-1 border-l-2 border-border/40 ml-1">
+                    {historyData.history.slice(0, 5).map((entry) => (
+                      <div key={entry.id} className="relative pl-4 text-xs">
+                        <div className="absolute -left-[5px] top-1.5 h-2 w-2 rounded-full bg-border" />
+                        <div className="flex flex-col gap-0.5">
+                            <span className="font-medium text-foreground">{entry.change_type.replace('_', ' ')}</span>
+                            <span className="text-muted-foreground">{new Date(entry.created_at).toLocaleDateString()}</span>
+                            {entry.change_reason && (
+                                <p className="text-muted-foreground/80 italic mt-0.5">"{entry.change_reason}"</p>
+                            )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
         )}
-      </CardContent>
-    </Card>
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
@@ -132,81 +160,68 @@ export default function ThesesPage({ onBack }: { onBack: () => void }) {
 
   if (!user) {
     return (
-      <div className="p-6">
-        <Card className="max-w-md mx-auto">
-          <CardContent className="p-6 text-center">
-            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">Sign in to view theses</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Your investment theses are private and require authentication.
-            </p>
-            <Button variant="outline" onClick={onBack}>
-              Go Back
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="flex h-[50vh] flex-col items-center justify-center p-6 text-center">
+        <div className="mb-4 rounded-full bg-muted/30 p-4 backdrop-blur-sm">
+          <BookOpen className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+        <p className="max-w-xs text-sm text-muted-foreground mb-6">
+          Sign in to access your private investment theses and track your performance.
+        </p>
+        <Button onClick={onBack} variant="secondary">
+          Return to Dashboard
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto">
+    <div className="mx-auto max-w-4xl space-y-8 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <Button variant="ghost" onClick={onBack} className="mb-2 -ml-2">
-            ← Back to Dashboard
-          </Button>
-          <h1 className="text-2xl font-bold">My Theses</h1>
-          <p className="text-sm text-muted-foreground">
-            Track your investment beliefs and kill criteria
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground cursor-pointer transition-colors" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="text-sm font-medium">Back</span>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">My Theses</h1>
+          <p className="text-muted-foreground">
+            Manage your high-conviction ideas and monitor kill criteria
           </p>
         </div>
+        <Button onClick={onBack} className="hidden md:flex">
+          New Analysis
+        </Button>
       </div>
 
       {/* Error State */}
       {error && (
-        <Card className="mb-6 border-destructive/50 bg-destructive/10">
-          <CardContent className="p-4 text-destructive">
-            Failed to load theses: {error.message}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Loading State */}
-      {isLoading && (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <div className="h-6 w-20 bg-muted animate-pulse rounded mb-2" />
-                <div className="h-4 w-full bg-muted animate-pulse rounded" />
-              </CardContent>
-            </Card>
-          ))}
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-destructive">
+          Failed to load theses: {error.message}
         </div>
       )}
 
-      {/* Empty State */}
-      {!isLoading && data && data.theses.length === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No theses yet</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Analyze a stock and save your investment thesis to get started.
+      {/* Thesis List */}
+      <div className="space-y-4">
+        {isLoading ? (
+          [1, 2, 3].map((i) => (
+            <div key={i} className="h-32 w-full animate-pulse rounded-xl bg-muted/40" />
+          ))
+        ) : data && data.theses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/50 py-24 text-center">
+            <div className="mb-4 rounded-full bg-secondary/50 p-6">
+                 <BookOpen className="h-10 w-10 text-muted-foreground/40" />
+            </div>
+            <h3 className="text-lg font-semibold">No theses yet</h3>
+            <p className="max-w-sm text-sm text-muted-foreground mt-2 mb-6">
+              Start by analyzing a stock ticker, then save your thesis to track its performance over time.
             </p>
             <Button onClick={onBack}>
-              Analyze a Stock
+              Start New Analysis
             </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Thesis List */}
-      {!isLoading && data && data.theses.length > 0 && (
-        <div className="space-y-4">
-          {data.theses.map((thesis) => (
+          </div>
+        ) : (
+          data?.theses.map((thesis) => (
             <ThesisCard
               key={thesis.id}
               thesis={thesis}
@@ -215,9 +230,9 @@ export default function ThesesPage({ onBack }: { onBack: () => void }) {
                 setShowEditor(true);
               }}
             />
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
 
       {/* Thesis Editor Modal */}
       <ThesisEditor

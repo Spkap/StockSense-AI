@@ -11,6 +11,7 @@ This module:
 
 import json
 import logging
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
@@ -323,8 +324,7 @@ def update_alert_status(
         if user_action:
             update_data["user_action"] = user_action
         if status != "pending":
-            from datetime import datetime
-            update_data["resolved_at"] = datetime.utcnow().isoformat()
+            update_data["resolved_at"] = datetime.now(timezone.utc).isoformat()
         
         client.table("alert_history").update(update_data).eq("id", alert_id).eq("user_id", user_id).execute()
         return True
