@@ -5,8 +5,8 @@ from typing import List, Dict, Any
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-# config imports removed - using supabase_client directly
-from stocksense.db.supabase_client import get_supabase_client
+# Use admin client for scheduler — needs to bypass RLS to write alerts on behalf of users
+from stocksense.db.supabase_client import get_supabase_admin_client as get_supabase_client
 from stocksense.orchestration.react_flow import run_react_analysis
 from stocksense.core.monitor import extract_signals_from_analysis, match_signals_to_criteria, check_kill_criteria_for_ticker
 

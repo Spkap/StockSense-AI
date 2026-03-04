@@ -10,7 +10,7 @@ Implements the Evidence Grader protocol to prevent sycophancy.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 import uuid
@@ -161,7 +161,7 @@ class Synthesizer:
         Uses the Evidence Grader protocol for cross-examination.
         """
         analysis_id = str(uuid.uuid4())
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         
         if not self.llm:
             return self._fallback_synthesis(ticker, bull_case, bear_case, analysis_id, timestamp)

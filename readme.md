@@ -4,11 +4,11 @@
 
 StockSense is an autonomous stock analysis system implementing the **ReAct (Reasoning + Action)** pattern: iterative reasoning, selective tool invocation, and adaptive summarization. The agent collects real market data (news + historical prices), performs LLM-based sentiment analysis, and produces a structured summary.
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.116+-green.svg)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18+-61DAFB.svg)](https://react.dev/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-0.6+-purple.svg)](https://langchain-ai.github.io/langgraph/)
-[![LangChain](https://img.shields.io/badge/LangChain-0.3.x-blue.svg)](https://python.langchain.com/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.135+-green.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19+-61DAFB.svg)](https://react.dev/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-1.0+-purple.svg)](https://langchain-ai.github.io/langgraph/)
+[![LangChain](https://img.shields.io/badge/LangChain--Core-1.2.x-blue.svg)](https://python.langchain.com/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ---
@@ -60,16 +60,16 @@ Most AI stock analysis tools send a single prompt and return a response. StockSe
 
 ### Technology Stack
 
-| Layer            | Technology                               | Purpose                             |
-| ---------------- | ---------------------------------------- | ----------------------------------- |
-| **LLM / AI**     | Google Gemini 2.0 Flash Lite (LangChain) | Sentiment & reasoning               |
-| **Agent Graph**  | LangGraph (StateGraph)                   | Iterative reasoning & tool routing  |
-| **Tool Layer**   | LangChain `@tool` functions              | News, price, sentiment, persistence |
-| **Backend**      | FastAPI + Uvicorn                        | REST API (analysis, cache, health)  |
-| **Frontend**     | React + TypeScript + Vite                | Modern interactive dashboard        |
-| **Persistence**  | Supabase (PostgreSQL)                    | Analysis cache + User data          |
-| **Data Sources** | NewsAPI + yfinance (Yahoo Finance data)  | Headlines + OHLCV price history     |
-| **Config / Env** | `python-dotenv`                          | API key management                  |
+| Layer            | Technology                                     | Purpose                             |
+| ---------------- | ---------------------------------------------- | ----------------------------------- |
+| **LLM / AI**     | Google Gemini 2.5 Flash Lite (LangChain)       | Sentiment & reasoning               |
+| **Agent Graph**  | LangGraph 1.0 (StateGraph)                     | Iterative reasoning & tool routing  |
+| **Tool Layer**   | LangChain `@tool` functions                    | News, price, sentiment, persistence |
+| **Backend**      | FastAPI 0.135 + Uvicorn 0.41                   | REST API (analysis, cache, health)  |
+| **Frontend**     | React 19 + TypeScript 5.9 + Vite 7             | Modern interactive dashboard        |
+| **Persistence**  | Supabase (PostgreSQL)                          | Analysis cache + User data          |
+| **Data Sources** | NewsAPI + yfinance 1.2                         | Headlines + OHLCV price history     |
+| **Config / Env** | `python-dotenv`                                | API key management                  |
 
 ### ReAct Agent Workflow
 
@@ -91,12 +91,13 @@ graph TD
 
 ```
 StockSense-Agent/
-├── frontend/                # React + TypeScript frontend
+├── frontend/                # React 19 + TypeScript frontend
 │   ├── src/
 │   │   ├── components/      # UI components (ResultsTabs, DebateView, etc.)
 │   │   ├── hooks/           # Custom hooks (useStreamingDebate, useStreamingAnalysis)
 │   │   ├── pages/           # Page components (ThesesPage)
 │   │   ├── api/             # API hooks and clients
+│   │   ├── config/          # Shared environment config (env.ts)
 │   │   ├── context/         # React contexts (Auth, Sidebar, Theme)
 │   │   └── types/           # TypeScript type definitions
 │   └── package.json
@@ -117,9 +118,8 @@ StockSense-Agent/
 │   │   ├── schemas.py       # Pydantic schemas
 │   │   └── monitor.py       # Kill criteria monitoring
 │   ├── db/                  # 💾 Database layer (Supabase)
-│   │   ├── models.py        # Schema documentation
 │   │   ├── database.py      # Supabase analysis cache
-│   │   └── supabase_client.py  # Supabase user data
+│   │   └── supabase_client.py  # Supabase user data & auth
 │   ├── api/                 # 🌐 API routes
 │   │   └── auth_routes.py   # User auth, theses, kill alerts
 │   └── orchestration/       # 🎭 Flow control
@@ -132,8 +132,8 @@ StockSense-Agent/
 │   ├── test_api.py          # API integration tests
 │   ├── test_tools.py        # Tool logic tests
 │   └── test_scheduler.py    # Background job tests
-├── requirements.txt         # Backend dependencies
-└── requirements-backend.txt # Pin-locked backend dependencies
+├── .env.example             # All env vars documented with descriptions
+└── requirements.txt         # Direct Python dependencies
 ```
 
 ---
@@ -220,8 +220,8 @@ Investment theses are first-class citizens, not just analysis outputs:
 
 ### Prerequisites
 
-- Python 3.10+
-- Node.js 18+ (for frontend)
+- Python 3.12+
+- Node.js 20+ and [pnpm](https://pnpm.io/) (recommended) or npm
 - [Google Gemini API Key](https://aistudio.google.com/app/apikey)
 - [NewsAPI Key](https://newsapi.org/register)
 - [Supabase Project](https://supabase.com/) (required for all features)
@@ -236,25 +236,22 @@ cd StockSense-Agent
 # Backend setup
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements-backend.txt
+pip install -r requirements.txt
 
 # Frontend setup
 cd frontend
-npm install  # or pnpm install
+pnpm install   # or: npm install
 cd ..
 
 # Environment variables
 cp .env.example .env
-# Edit .env with your actual API keys:
-# - GOOGLE_API_KEY
-# - NEWSAPI_KEY
-# - SUPABASE_URL
-# - SUPABASE_ANON_KEY
-# - SUPABASE_SERVICE_KEY
+# Edit .env — all variables are documented in .env.example
 
-# Apply Supabase migrations (run in Supabase SQL Editor)
+# Apply Supabase migrations (run in order in the Supabase SQL Editor)
 # 1. supabase/schema.sql
-# 2. supabase/migrations/003_analysis_cache.sql
+# 2. supabase/migrations/001_stage4_features.sql
+# 3. supabase/migrations/002_phase2_watchman.sql
+# 4. supabase/migrations/003_analysis_cache.sql
 ```
 
 ### Running the Application
@@ -265,7 +262,7 @@ python -m stocksense.main  # http://127.0.0.1:8000
 
 # Terminal 2 – Frontend
 cd frontend
-npm run dev  # http://localhost:5173
+pnpm run dev  # http://localhost:5173
 ```
 
 ### Quick API Test
@@ -369,18 +366,19 @@ pytest --cov=stocksense --cov-report=term-missing
 Deploy the FastAPI backend to Render using the included `render.yaml`:
 
 ```bash
-# render.yaml is pre-configured for Render deployment
-# Set environment variables in Render dashboard
+# render.yaml is pre-configured
+# Set these environment variables in the Render dashboard:
+# GOOGLE_API_KEY, NEWSAPI_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY
 ```
 
-### Frontend (Vercel/Netlify)
+### Frontend (Vercel / Netlify)
 
 ```bash
 cd frontend
-npm run build  # Produces dist/ folder
+pnpm run build  # Produces dist/ folder
 ```
 
-Set `VITE_API_URL` environment variable to your backend URL.
+Set `VITE_API_URL` to your deployed backend URL (e.g. `https://stocksense.onrender.com`).
 
 ---
 

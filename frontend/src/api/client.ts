@@ -1,8 +1,6 @@
 import axios, { AxiosError, AxiosInstance } from 'axios';
 import type { AnalysisResponse, CachedTickersResponse, HealthResponse } from '../types/api';
-
-// API base URL from environment or default to localhost
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import { API_BASE_URL } from '../config/env';
 
 // Create axios instance with default config
 const apiClient: AxiosInstance = axios.create({

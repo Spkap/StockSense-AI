@@ -1,9 +1,12 @@
+import logging
 import os
 from typing import List, Optional
 from datetime import datetime, timedelta
 import yfinance as yf
 from newsapi import NewsApiClient
 from .config import get_newsapi_key, ConfigurationError
+
+logger = logging.getLogger("stocksense.data_collectors")
 
 
 def get_news(ticker: str, days: int = 7) -> List[str]:
@@ -37,8 +40,10 @@ def get_news(ticker: str, days: int = 7) -> List[str]:
             return []
 
     except ConfigurationError as e:
+        logger.warning(f"NewsAPI key error for {ticker}: {e}")
         return []
     except Exception as e:
+        logger.warning(f"Failed to fetch news for {ticker}: {e}")
         return []
 
 
@@ -54,6 +59,7 @@ def get_price_history(ticker: str, period: str = "1mo") -> Optional[object]:
         return history
 
     except Exception as e:
+        logger.warning(f"Failed to fetch price history for {ticker}: {e}")
         return None
 
 
@@ -102,7 +108,7 @@ def get_fundamental_data(ticker: str) -> Optional[dict]:
         
         return result
     except Exception as e:
-        print(f"Error fetching fundamentals: {e}")
+        logger.error(f"Error fetching fundamentals for {ticker}: {e}")
         return None
 
 
