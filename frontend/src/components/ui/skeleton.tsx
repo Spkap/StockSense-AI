@@ -13,7 +13,7 @@ export function Skeleton({ className, style }: SkeletonProps) {
   return (
     <div
       className={cn(
-        "animate-pulse rounded-md bg-muted",
+        "animate-pulse rounded-sm bg-surface-2",
         className
       )}
       style={style}
@@ -26,7 +26,7 @@ export function Skeleton({ className, style }: SkeletonProps) {
  */
 export function CardSkeleton({ className }: SkeletonProps) {
   return (
-    <div className={cn("rounded-lg border border-border bg-card p-6", className)}>
+    <div className={cn("rounded-sm border border-border-base bg-surface-1 p-6", className)}>
       <Skeleton className="h-6 w-1/3 mb-4" />
       <div className="space-y-3">
         <Skeleton className="h-4 w-full" />
@@ -42,27 +42,27 @@ export function CardSkeleton({ className }: SkeletonProps) {
  */
 export function AnalysisSkeleton() {
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
+    <div className="rounded-sm border border-border-base bg-surface-1 overflow-hidden">
       {/* Header */}
-      <div className="border-b border-border bg-muted/50 p-4 md:p-6">
+      <div className="border-b border-border-base bg-surface-2/50 p-4 md:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Skeleton className="h-8 w-8 rounded-full" />
+            <Skeleton className="h-8 w-8 rounded-sm" />
             <Skeleton className="h-8 w-24" />
-            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-6 w-16 rounded-sm" />
           </div>
           <div className="flex items-center gap-2">
             <Skeleton className="h-6 w-20" />
-            <Skeleton className="h-8 w-24 rounded-md" />
+            <Skeleton className="h-8 w-24 rounded-sm" />
           </div>
         </div>
         
         {/* Tabs */}
         <div className="flex gap-2">
-          <Skeleton className="h-9 w-20 rounded-md" />
-          <Skeleton className="h-9 w-20 rounded-md" />
-          <Skeleton className="h-9 w-20 rounded-md" />
-          <Skeleton className="h-9 w-20 rounded-md" />
+          <Skeleton className="h-9 w-20 rounded-sm" />
+          <Skeleton className="h-9 w-20 rounded-sm" />
+          <Skeleton className="h-9 w-20 rounded-sm" />
+          <Skeleton className="h-9 w-20 rounded-sm" />
         </div>
       </div>
       
@@ -70,14 +70,14 @@ export function AnalysisSkeleton() {
       <div className="p-4 md:p-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {/* Sentiment Card */}
-          <div className="rounded-lg border border-border bg-card p-4">
+          <div className="rounded-sm border border-border-base bg-surface-1 p-4">
             <Skeleton className="h-5 w-24 mb-4" />
-            <Skeleton className="h-16 w-16 rounded-full mx-auto mb-4" />
+            <Skeleton className="h-16 w-16 rounded-sm mx-auto mb-4" />
             <Skeleton className="h-4 w-32 mx-auto" />
           </div>
           
           {/* Summary */}
-          <div className="lg:col-span-2 rounded-lg border border-border bg-card p-4">
+          <div className="lg:col-span-2 rounded-sm border border-border-base bg-surface-1 p-4">
             <Skeleton className="h-5 w-32 mb-4" />
             <div className="space-y-2">
               <Skeleton className="h-4 w-full" />
@@ -99,7 +99,7 @@ export function AnalysisSkeleton() {
  */
 export function ChartSkeleton() {
   return (
-    <div className="h-[300px] md:h-[400px] w-full rounded-lg border border-border bg-card p-4">
+    <div className="h-[300px] md:h-[400px] w-full rounded-sm border border-border-base bg-surface-1 p-4">
       <div className="h-full flex flex-col">
         <div className="flex justify-between mb-4">
           <Skeleton className="h-4 w-16" />
@@ -126,8 +126,8 @@ export function ListSkeleton({ items = 5 }: { items?: number }) {
   return (
     <div className="space-y-2">
       {Array.from({ length: items }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 p-2 rounded-md">
-          <Skeleton className="h-4 w-4 rounded" />
+        <div key={i} className="flex items-center gap-3 p-2 rounded-sm">
+          <Skeleton className="h-4 w-4 rounded-sm" />
           <div className="flex-1">
             <Skeleton className="h-4 w-full" />
           </div>

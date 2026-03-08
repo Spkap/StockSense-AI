@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
-import Sidebar from './components/Sidebar';
+import CommandRail from './components/CommandRail';
 import TickerInput, { TickerInputRef } from './components/TickerInput';
 import QuickSelect from './components/QuickSelect';
 import AnalysisHistory from './components/AnalysisHistory';
@@ -13,7 +13,6 @@ import EmptyState from './components/EmptyState';
 import ErrorBoundary from './components/ErrorBoundary';
 import ThesesPage from './pages/ThesesPage';
 import { ThemeProvider } from './context/ThemeContext';
-import { SidebarProvider, useSidebar } from './context/SidebarContext';
 import { ToastProvider, useToast } from './components/ui/toast';
 import { useAppKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useHealthCheck, useAnalysisResults } from './api/hooks';
@@ -25,7 +24,6 @@ import { cn } from './utils/cn';
 function AppContent() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'dashboard' | 'theses' | 'alerts'>('dashboard');
-  const { isCollapsed } = useSidebar();
   const { addToast } = useToast();
   const tickerInputRef = useRef<TickerInputRef>(null);
   
@@ -128,13 +126,10 @@ function AppContent() {
   // Render ThesesPage if in theses view
   if (currentView === 'theses') {
     return (
-      <div className="flex min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-primary">
-        <Sidebar onNavigate={setCurrentView} currentView={currentView} />
-        <main className={cn(
-          "flex flex-1 flex-col transition-all duration-300 ease-in-out",
-          "md:ml-64",
-          isCollapsed && "md:ml-16"
-        )}>
+      <div className="flex min-h-screen bg-canvas font-mono text-txt-primary selection:bg-accent selection:text-canvas antialiased relative">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+        <CommandRail onNavigate={setCurrentView} currentView={currentView} />
+        <main className="flex flex-1 flex-col ml-14 relative z-10">
           <Header />
           <ThesesPage onBack={() => setCurrentView('dashboard')} />
         </main>
@@ -145,13 +140,10 @@ function AppContent() {
   // Render AlertsCenter if in alerts view
   if (currentView === 'alerts') {
     return (
-      <div className="flex min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-primary">
-        <Sidebar onNavigate={setCurrentView} currentView={currentView} />
-        <main className={cn(
-          "flex flex-1 flex-col transition-all duration-300 ease-in-out p-6",
-          "md:ml-64",
-          isCollapsed && "md:ml-16"
-        )}>
+      <div className="flex min-h-screen bg-canvas font-mono text-txt-primary selection:bg-accent selection:text-canvas antialiased relative">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+        <CommandRail onNavigate={setCurrentView} currentView={currentView} />
+        <main className="flex flex-1 flex-col ml-14 p-6 relative z-10">
           <Header />
           <div className="flex-1 mt-6">
              <AlertsCenter />
@@ -162,17 +154,13 @@ function AppContent() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-primary">
-      {/* Fixed Sidebar */}
-      <Sidebar onNavigate={setCurrentView} currentView={currentView} />
+    <div className="flex min-h-screen bg-canvas font-mono text-txt-primary selection:bg-accent selection:text-canvas antialiased relative">
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+      {/* 48px Command Rail (Sidebar Replacement) */}
+      <CommandRail onNavigate={setCurrentView} currentView={currentView} />
 
       {/* Main Content Area */}
-      <main className={cn(
-        "flex flex-1 flex-col transition-all duration-300 ease-in-out",
-        // Desktop: adjust margin based on sidebar state
-        "md:ml-64",
-        isCollapsed && "md:ml-16"
-      )}>
+      <main className="flex flex-1 flex-col ml-14 relative z-10">
         {/* Top Bar */}
         <Header />
 
@@ -197,13 +185,13 @@ function AppContent() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="mb-6 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive"
+                className="mb-6 rounded-sm border border-bear/50 bg-bear/10 p-4 text-bear"
               >
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5" />
-                  <span className="font-semibold">Analysis Failed</span>
+                  <AlertCircle className="h-4 w-4" />
+                  <span className="font-mono text-sm uppercase tracking-widest font-bold">ANALYSIS_FAILED</span>
                 </div>
-                <p className="mt-1 text-sm opacity-90">{error}</p>
+                <p className="mt-2 text-micro font-mono tracking-wider">{error}</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -212,10 +200,10 @@ function AppContent() {
             {isLoading && selectedTicker ? (
               <motion.div
                 key="loading"
-                initial={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
-                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                exit={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: "linear" }}
               >
                 <StreamingAnalysisProgress 
                   ticker={selectedTicker}
@@ -231,10 +219,10 @@ function AppContent() {
             ) : !isLoading && analysisData ? (
               <motion.div
                 key="results"
-                initial={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
-                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                exit={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
-                transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: "linear" }}
                 className="space-y-4"
               >
                 {/* Kill Alerts Banner */}
@@ -259,10 +247,10 @@ function AppContent() {
             ) : !isLoading && !error ? (
               <motion.div
                 key="empty"
-                initial={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
-                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                exit={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
-                transition={{ duration: 0.4 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
               >
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
                   <div className="lg:col-span-8">
@@ -279,18 +267,18 @@ function AppContent() {
       </main>
 
       {/* Status Indicator (Fixed Bottom Right) */}
-      <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+      <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6 mix-blend-difference opacity-80 hover:opacity-100 transition-opacity">
         <div className={cn(
-          "flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold shadow-lg backdrop-blur-md border",
+          "flex items-center gap-2 rounded-sm px-3 py-1.5 text-micro uppercase font-mono tracking-widest border bg-canvas/80 backdrop-blur-sm",
           backendStatus === 'online' 
-            ? 'bg-success/10 text-success border-success/20' 
-            : 'bg-destructive/10 text-destructive border-destructive/20'
+            ? 'text-bull border-bull/30' 
+            : 'text-bear border-bear/30'
         )}>
            <div className={cn(
-             "h-2 w-2 rounded-full",
-             backendStatus === 'online' ? 'bg-success' : 'bg-destructive'
+             "h-1.5 w-1.5 rounded-sm",
+             backendStatus === 'online' ? 'bg-bull' : 'bg-bear animate-pulse'
            )} />
-           {backendStatus === 'online' ? 'Agent Available' : 'Agent Unavailable'}
+           {backendStatus === 'online' ? 'SYS_ONLINE' : 'SYS_OFFLINE'}
         </div>
       </div>
     </div>
@@ -301,14 +289,13 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <SidebarProvider>
-          <ToastProvider>
-            <AppContent />
-          </ToastProvider>
-        </SidebarProvider>
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
 }
 
 export default App;
+

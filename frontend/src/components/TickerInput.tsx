@@ -1,6 +1,5 @@
 import { useState, FormEvent, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
-import { Search, AlertCircle, Command } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { AlertCircle, Command } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { cn } from '../utils/cn';
@@ -25,11 +24,11 @@ function validateTickerFormat(ticker: string): { isValid: boolean; error: string
   const normalized = ticker.toUpperCase().trim();
   
   if (normalized.length > 5) {
-    return { isValid: false, error: 'Ticker must be 5 characters or less' };
+    return { isValid: false, error: 'TICKER MUST BE 5 CHARACTERS OR LESS' };
   }
   
   if (!TICKER_PATTERN.test(normalized)) {
-    return { isValid: false, error: 'Only letters A-Z allowed' };
+    return { isValid: false, error: 'ONLY LETTERS A-Z ALLOWED' };
   }
   
   return { isValid: true, error: null };
@@ -41,6 +40,7 @@ const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase
 const TickerInput = forwardRef<TickerInputRef, TickerInputProps>(({ onAnalyze, disabled = false }, ref) => {
   const [ticker, setTicker] = useState('');
   const [touched, setTouched] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const validation = useMemo(() => validateTickerFormat(ticker), [ticker]);
@@ -61,6 +61,7 @@ const TickerInput = forwardRef<TickerInputRef, TickerInputProps>(({ onAnalyze, d
       onAnalyze(normalized);
       setTicker('');
       setTouched(false);
+      inputRef.current?.blur();
     }
   };
 
@@ -71,62 +72,62 @@ const TickerInput = forwardRef<TickerInputRef, TickerInputProps>(({ onAnalyze, d
   };
 
   return (
-    <Card className="h-full border-border bg-card shadow-sm transition-shadow hover:shadow-md">
-      <CardHeader>
-        <CardTitle>Analyze Stock</CardTitle>
-        <CardDescription>Enter a ticker symbol to generate AI insights.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                ref={inputRef}
-                placeholder="e.g. AAPL, TSLA"
-                value={ticker}
-                onChange={(e) => handleChange(e.target.value)}
-                onBlur={() => setTouched(true)}
-                disabled={disabled}
-                maxLength={5}
-                className={cn(
-                  "pl-9 pr-16 font-semibold uppercase tracking-wider text-foreground placeholder:normal-case placeholder:tracking-normal",
-                  showError && "border-destructive focus-visible:ring-destructive"
-                )}
-                aria-invalid={showError ? 'true' : 'false'}
-                aria-describedby={showError ? 'ticker-error' : undefined}
-              />
-              {/* Keyboard shortcut hint */}
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 text-xs text-muted-foreground/60">
-                {isMac ? (
-                  <>
-                    <Command className="h-3 w-3" />
-                    <span>K</span>
-                  </>
-                ) : (
-                  <span className="text-[10px]">Ctrl+K</span>
-                )}
-              </div>
-            </div>
-            <Button 
-              type="submit" 
-              disabled={disabled || !ticker.trim() || !validation.isValid}
-              className="min-w-[100px] font-semibold"
-            >
-              Analyze
-            </Button>
+    <div className="w-full">
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <div className="relative flex-1">
+          <Input
+            ref={inputRef}
+            placeholder="INPUT_TICKER"
+            value={ticker}
+            onChange={(e) => handleChange(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => {
+              setTouched(true);
+              setIsFocused(false);
+            }}
+            disabled={disabled}
+            maxLength={5}
+            className={cn(
+              "h-12 bg-surface-1 border border-border-base font-mono text-sm uppercase tracking-widest text-txt-primary placeholder:text-txt-muted/50 rounded-sm pl-4 pr-16 outline-none transition-colors",
+              isFocused && "bg-surface-2 border-txt-secondary",
+              showError && "border-bear text-bear"
+            )}
+            aria-invalid={showError ? 'true' : 'false'}
+            aria-describedby={showError ? 'ticker-error' : undefined}
+          />
+          {/* Keyboard shortcut hint */}
+          <div className={cn(
+            "absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-micro font-mono tracking-widest text-txt-muted transition-opacity",
+            isFocused ? "opacity-0" : "opacity-100"
+          )}>
+            {isMac ? (
+              <>
+                <Command className="h-3 w-3" />
+                <span>K</span>
+              </>
+            ) : (
+              <span>CTRL+K</span>
+            )}
           </div>
-          
-          {/* Validation Error Message */}
-          {showError && (
-            <div id="ticker-error" className="flex items-center gap-1 text-xs text-destructive">
-              <AlertCircle className="h-3 w-3" />
-              <span>{validation.error}</span>
-            </div>
-          )}
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+        
+        <Button 
+          type="submit" 
+          disabled={disabled || !ticker.trim() || !validation.isValid}
+          className="h-12 min-w-[120px] bg-accent text-canvas hover:bg-accent/90 font-mono font-bold text-micro uppercase tracking-widest rounded-sm disabled:opacity-50 disabled:bg-surface-2 disabled:text-txt-muted transition-colors border border-transparent disabled:border-border-base"
+        >
+          EXECUTE
+        </Button>
+      </form>
+      
+      {/* Validation Error Message */}
+      {showError && (
+        <div id="ticker-error" className="mt-2 flex items-center gap-2 text-micro uppercase tracking-widest text-bear font-mono">
+          <AlertCircle className="h-3 w-3" />
+          <span>{validation.error}</span>
+        </div>
+      )}
+    </div>
   );
 });
 

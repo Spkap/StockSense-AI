@@ -1,16 +1,14 @@
-import { History, RefreshCw, Trash2, Clock } from 'lucide-react';
-import { Button } from './ui/button';
+import { RefreshCw, Trash2, Clock, Terminal } from 'lucide-react';
 import { ListSkeleton } from './ui/skeleton';
 import { useCachedTickers, useDeleteAnalysis } from '../api/hooks';
 import type { CachedTickerItem } from '../types/api';
-
 
 interface AnalysisHistoryProps {
   onSelectHistory: (ticker: string) => void;
 }
 
 function formatRelativeTime(timestamp: string | null): string {
-  if (!timestamp) return 'Unknown';
+  if (!timestamp) return 'UNKNOWN';
   try {
     const date = new Date(timestamp);
     const now = new Date();
@@ -20,19 +18,19 @@ function formatRelativeTime(timestamp: string | null): string {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
     
-    if (diffSecs < 60) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (diffSecs < 60) return 'JUST_NOW';
+    if (diffMins < 60) return `${diffMins}M_AGO`;
+    if (diffHours < 24) return `${diffHours}H_AGO`;
+    if (diffDays === 1) return 'YESTERDAY';
+    if (diffDays < 7) return `${diffDays}D_AGO`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).replace(' ', '_').toUpperCase();
   } catch {
-    return 'Unknown';
+    return 'UNKNOWN';
   }
 }
 
 function formatFullDateTime(timestamp: string | null): string {
-  if (!timestamp) return 'Unknown date';
+  if (!timestamp) return 'UNKNOWN_DATE';
   try {
     const date = new Date(timestamp);
     return date.toLocaleString('en-US', {
@@ -41,9 +39,10 @@ function formatFullDateTime(timestamp: string | null): string {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    });
+      hour12: false
+    }).toUpperCase();
   } catch {
-    return 'Unknown date';
+    return 'UNKNOWN_DATE';
   }
 }
 
@@ -51,7 +50,9 @@ const AnalysisHistory = ({ onSelectHistory }: AnalysisHistoryProps) => {
   const { data, isLoading, refetch } = useCachedTickers();
   const deleteMutation = useDeleteAnalysis();
   
-  const tickers: CachedTickerItem[] = (data?.tickers || []).map((item: string | CachedTickerItem) => {
+  // Handle case where item might be just a string from old cache
+  const rawTickers = data?.tickers || [];
+  const tickers: CachedTickerItem[] = rawTickers.map((item: string | CachedTickerItem) => {
     if (typeof item === 'string') {
       return { symbol: item, timestamp: null };
     }
@@ -66,71 +67,65 @@ const AnalysisHistory = ({ onSelectHistory }: AnalysisHistoryProps) => {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <History className="h-4 w-4" />
-          <span className="text-sm font-medium">Recent Activity</span>
+    <div className="flex flex-col h-full border border-border-base bg-surface-1 rounded-sm overflow-hidden">
+      {/* Terminal Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border-base bg-surface-2/30">
+        <div className="flex items-center gap-2 text-txt-secondary">
+          <Terminal className="h-3 w-3" />
+          <span className="text-micro font-mono uppercase tracking-widest text-txt-muted">CACHE_LOG</span>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-6 w-6 text-muted-foreground hover:text-foreground" 
+        <button 
+          className="p-1 text-txt-muted hover:text-txt-primary hover:bg-surface-2 transition-colors rounded-sm outline-none" 
           onClick={() => refetch()}
-          title="Refresh history"
+          title="REFRESH_CACHE"
         >
           <RefreshCw className="h-3 w-3" />
-        </Button>
+        </button>
       </div>
 
-      {isLoading ? (
-         <div className="space-y-4">
-            <ListSkeleton items={3} />
-         </div>
-      ) : tickers.length === 0 ? (
-         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/50 py-12 text-center">
-            <Clock className="mb-2 h-8 w-8 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">No recent analyses</p>
-         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
-          {tickers.map((item) => (
-            <div
-              key={item.symbol}
-              className="group relative flex items-center justify-between rounded-xl bg-background/50 border border-border/40 p-3 transition-all duration-300 hover:border-primary/20 hover:bg-background hover:shadow-md"
-            >
-              <button
+      <div className="p-2 flex-1 overflow-y-auto no-scrollbar">
+        {isLoading ? (
+           <div className="space-y-2 p-2">
+              <ListSkeleton items={4} />
+           </div>
+        ) : tickers.length === 0 ? (
+           <div className="flex flex-col items-center justify-center py-12 text-center h-full">
+              <Clock className="mb-3 h-4 w-4 text-txt-muted/30" />
+              <p className="text-micro font-mono tracking-widest text-txt-muted uppercase">CACHE_EMPTY</p>
+           </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {tickers.map((item) => (
+              <div
+                key={item.symbol}
+                className="group relative flex items-center justify-between bg-surface-2 border border-border-base/50 hover:border-border-strong hover:bg-surface-3 p-2 transition-colors cursor-pointer rounded-sm"
                 onClick={() => onSelectHistory(item.symbol)}
-                className="flex flex-1 items-center gap-3 text-left"
                 title={formatFullDateTime(item.timestamp)}
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-bold text-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                  {item.symbol.substring(0, 2)}
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-micro font-bold tracking-widest text-txt-primary">
+                      {item.symbol}
+                    </span>
+                    <span className="font-mono text-micro tracking-widest text-txt-muted uppercase">
+                      {formatRelativeTime(item.timestamp)}
+                    </span>
+                  </div>
+                  
+                  <button
+                    className="opacity-0 group-hover:opacity-100 p-1 text-txt-muted hover:bg-kill hover:text-canvas transition-all rounded-sm"
+                    onClick={(e) => handleDelete(e, item.symbol)}
+                    disabled={deleteMutation.isPending}
+                    title="PURGE_RECORD"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
                 </div>
-                <div className="flex flex-col">
-                  <span className="font-semibold text-sm text-foreground">
-                    {item.symbol}
-                  </span>
-                  <span className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">
-                    {formatRelativeTime(item.timestamp)}
-                  </span>
-                </div>
-              </button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 bg-background/80 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
-                onClick={(e) => handleDelete(e, item.symbol)}
-                disabled={deleteMutation.isPending}
-                title={`Delete analysis for ${item.symbol}`}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

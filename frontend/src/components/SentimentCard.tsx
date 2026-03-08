@@ -1,6 +1,4 @@
 import { TrendingUp, TrendingDown, Minus, AlertTriangle, Info, HelpCircle } from 'lucide-react';
-import { Card, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
 import { cn } from '../utils/cn';
 import type { AnalysisData, KeyTheme } from '../types/api';
 
@@ -11,39 +9,39 @@ interface SentimentCardProps {
   report?: string;
 }
 
-// Sentiment configuration for visual styling
+// Sentiment configuration for visual styling using Obsidian tokens
 const sentimentConfig = {
   Bullish: {
-    color: 'text-success',
-    bgColor: 'bg-success/10',
-    borderColor: 'border-success/20',
+    color: 'text-bull',
+    bgColor: 'bg-bull/10',
+    borderColor: 'border-bull/30',
     icon: TrendingUp,
-    label: 'Bullish',
-    progressColor: 'bg-success',
+    label: 'BULLISH',
+    progressColor: 'bg-bull',
   },
   Bearish: {
-    color: 'text-destructive',
-    bgColor: 'bg-destructive/10',
-    borderColor: 'border-destructive/20',
+    color: 'text-bear',
+    bgColor: 'bg-bear/10',
+    borderColor: 'border-bear/30',
     icon: TrendingDown,
-    label: 'Bearish',
-    progressColor: 'bg-destructive',
+    label: 'BEARISH',
+    progressColor: 'bg-bear',
   },
   Neutral: {
-    color: 'text-warning',
-    bgColor: 'bg-warning/10',
-    borderColor: 'border-warning/20',
+    color: 'text-accent',
+    bgColor: 'bg-accent/10',
+    borderColor: 'border-accent/30',
     icon: Minus,
-    label: 'Neutral',
-    progressColor: 'bg-warning',
+    label: 'NEUTRAL',
+    progressColor: 'bg-accent',
   },
   'Insufficient Data': {
-    color: 'text-muted-foreground',
-    bgColor: 'bg-muted/50',
-    borderColor: 'border-muted',
+    color: 'text-txt-muted',
+    bgColor: 'bg-surface-2',
+    borderColor: 'border-border-base',
     icon: HelpCircle,
-    label: 'Insufficient Data',
-    progressColor: 'bg-muted-foreground',
+    label: 'INSUFFICIENT_DATA',
+    progressColor: 'bg-txt-muted',
   },
 };
 
@@ -114,126 +112,113 @@ const SentimentCard = ({ data, report }: SentimentCardProps) => {
   const Icon = config.icon;
   
   return (
-    <Card className="h-full border-border bg-card shadow-sm">
-      <CardContent className="p-6">
-        {/* Header with sentiment and score */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl transition-colors", config.bgColor, config.color)}>
-              <Icon className="h-6 w-6" />
-            </div>
-            <div>
-              <h4 className="text-lg font-bold text-foreground leading-tight">
-                {config.label}
-              </h4>
-              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                {hasStructuredData ? 'AI Sentiment' : 'Estimated Sentiment'}
-              </span>
-            </div>
+    <div className="flex flex-col border border-border-base bg-surface-1 rounded-sm w-full overflow-hidden">
+      {/* Header with sentiment and score */}
+      <div className="flex items-center justify-between border-b border-border-base px-5 py-4 bg-surface-2/50">
+        <div className="flex items-center gap-3">
+          <div className={cn("flex h-8 w-8 items-center justify-center rounded-sm border", config.bgColor, config.borderColor, config.color)}>
+            <Icon className="h-4 w-4" />
           </div>
-          <div className="text-right">
-            <span className={cn("text-3xl font-bold tracking-tighter", config.color)}>
-              {Math.round(confidence * 100)}%
+          <div className="flex flex-col">
+            <h4 className={cn("text-sm font-mono font-bold tracking-widest leading-none", config.color)}>
+              {config.label}
+            </h4>
+            <span className="text-micro font-mono text-txt-muted uppercase tracking-widest mt-1.5">
+              {hasStructuredData ? 'SYS_ANALYSIS' : 'EST_ANALYSIS'}
             </span>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Confidence
-            </p>
           </div>
         </div>
+        <div className="flex flex-col items-end">
+          <span className="text-xl font-mono font-bold tracking-tight text-txt-primary leading-none">
+            {Math.round(confidence * 100)}%
+          </span>
+          <span className="text-micro font-mono text-txt-muted uppercase tracking-widest mt-1.5">
+            CONF_LVL
+          </span>
+        </div>
+      </div>
 
-        {/* Confidence progress bar */}
-        <div className="mb-4">
-          <div className="h-2.5 w-full overflow-hidden rounded-full bg-secondary">
-            <div 
-              className={cn("h-full transition-all duration-500 ease-out", config.progressColor)} 
-              style={{ width: `${confidence * 100}%` }} 
-            />
-          </div>
-        </div>
-        
-        {/* Confidence reasoning (only if structured data available) */}
+      {/* Confidence progress bar */}
+      <div className="h-[2px] w-full bg-surface-3">
+        <div 
+          className={cn("h-full transition-all duration-500 ease-out", config.progressColor)} 
+          style={{ width: `${confidence * 100}%` }} 
+        />
+      </div>
+      
+      <div className="p-4 flex flex-col gap-5">
+        {/* Confidence reasoning */}
         {hasStructuredData && confidenceReasoning && (
-          <div className="mb-4 p-3 rounded-lg bg-muted/50">
-            <div className="flex items-start gap-2">
-              <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-muted-foreground leading-relaxed">
+          <div className="border border-border-base/50 bg-surface-2 p-3 rounded-sm">
+            <div className="flex items-start gap-3">
+              <Info className="h-3 w-3 text-txt-muted mt-0.5 shrink-0" />
+              <p className="text-micro font-mono text-txt-secondary leading-relaxed uppercase tracking-wider">
                 {confidenceReasoning}
               </p>
             </div>
           </div>
         )}
         
-        {/* Market Impact (if available) */}
+        {/* Market Impact */}
         {potentialImpact && potentialImpact !== '' && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground font-medium">Expected Impact</span>
-              <Badge variant="outline" className="text-xs">
-                {potentialImpact}
-              </Badge>
-            </div>
+          <div className="flex items-center justify-between border border-border-base/50 bg-surface-2 px-3 py-2 rounded-sm">
+            <span className="text-micro font-mono text-txt-muted uppercase tracking-widest">EXP_IMPACT</span>
+            <span className="text-micro font-mono text-txt-primary uppercase tracking-widest">{potentialImpact}</span>
           </div>
         )}
 
-        {/* Key Themes (only if structured data available) */}
+        {/* Key Themes */}
         {hasStructuredData && keyThemes.length > 0 && (
-          <div className="mb-4">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">
-              Key Themes
-            </p>
-            <div className="space-y-2">
+          <div className="flex flex-col gap-3">
+            <h5 className="text-micro font-mono font-bold text-txt-primary uppercase tracking-widest border-b border-border-base/50 pb-1">MARKET_THEMES</h5>
+            <div className="flex flex-col gap-2">
               {keyThemes.slice(0, 3).map((theme, index) => (
-                <div key={index} className="flex items-center justify-between text-sm">
-                  <span className="text-foreground">{theme.theme}</span>
-                  <Badge 
-                    variant="secondary"
-                    className={cn(
-                      "text-[10px]",
-                      theme.sentiment_direction === 'Bullish' && "bg-success/10 text-success",
-                      theme.sentiment_direction === 'Bearish' && "bg-destructive/10 text-destructive",
-                      theme.sentiment_direction === 'Mixed' && "bg-warning/10 text-warning"
-                    )}
-                  >
+                <div key={index} className="flex items-start justify-between gap-4 py-1">
+                  <span className="text-micro font-mono text-txt-secondary leading-relaxed uppercase tracking-widest">{theme.theme}</span>
+                  <span className={cn(
+                    "text-micro font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm shrink-0 border",
+                    theme.sentiment_direction === 'Bullish' && "bg-bull/10 text-bull border-bull/30",
+                    theme.sentiment_direction === 'Bearish' && "bg-bear/10 text-bear border-bear/30",
+                    theme.sentiment_direction === 'Mixed' && "bg-accent/10 text-accent border-accent/30"
+                  )}>
                     {theme.sentiment_direction}
-                  </Badge>
+                  </span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Risks Identified (only if structured data available) */}
+        {/* Risks Identified */}
         {hasStructuredData && risksIdentified.length > 0 && (
-          <div className="mb-4">
-            <div className="flex items-center gap-1 mb-2">
-              <AlertTriangle className="h-3 w-3 text-warning" />
-              <span className="text-xs text-warning font-medium uppercase tracking-wider">Risks</span>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 border-b border-border-base/50 pb-1">
+              <AlertTriangle className="h-3 w-3 text-bear" />
+              <h5 className="text-micro font-mono font-bold text-bear uppercase tracking-widest">IDENTIFIED_RISKS</h5>
             </div>
-            <ul className="space-y-1">
+            <ul className="flex flex-col gap-2">
               {risksIdentified.slice(0, 3).map((risk, index) => (
-                <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                  <span className="text-warning">•</span>
-                  <span>{risk}</span>
+                <li key={index} className="flex gap-3">
+                  <span className="text-bear text-micro mt-0.5 font-bold">{`>`}</span>
+                  <span className="text-micro font-mono text-txt-secondary leading-relaxed uppercase tracking-widest">{risk}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        {/* Information Gaps - Epistemic Honesty (only if structured data available) */}
+        {/* Information Gaps - Epistemic Honesty */}
         {hasStructuredData && informationGaps.length > 0 && (
-          <div className="pt-3 border-t border-border">
-            <div className="flex items-center gap-1 mb-2">
-              <HelpCircle className="h-3 w-3 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                What We Don&apos;t Know
-              </span>
+          <div className="flex flex-col gap-3 pt-4 border-t border-border-base/50">
+            <div className="flex items-center gap-2 border-b border-border-base/50 pb-1">
+              <HelpCircle className="h-3 w-3 text-txt-muted" />
+              <h5 className="text-micro font-mono text-txt-muted uppercase tracking-widest">BLIND_SPOTS</h5>
             </div>
-            <ul className="space-y-1">
+            <ul className="flex flex-col gap-2 mt-1">
               {informationGaps.slice(0, 2).map((gap, index) => (
-                <li key={index} className="text-xs text-muted-foreground/80 italic flex items-start gap-2">
-                  <span>•</span>
-                  <span>{gap}</span>
+                <li key={index} className="flex gap-3">
+                  <span className="text-txt-muted text-micro mt-0.5">{`>`}</span>
+                  <span className="text-micro font-mono text-txt-muted uppercase tracking-widest leading-relaxed">{gap}</span>
                 </li>
               ))}
             </ul>
@@ -242,14 +227,12 @@ const SentimentCard = ({ data, report }: SentimentCardProps) => {
         
         {/* Legacy mode indicator */}
         {!hasStructuredData && report && (
-          <div className="pt-3 border-t border-border">
-            <p className="text-[10px] text-muted-foreground/60 text-center italic">
-              Legacy analysis mode — run fresh analysis for structured insights
-            </p>
+          <div className="pt-4 border-t border-border-base/50 text-center text-micro font-mono text-txt-muted uppercase tracking-widest opacity-50">
+            --- LEGACY_CACHE_MODE ---
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

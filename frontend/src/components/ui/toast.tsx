@@ -32,23 +32,23 @@ export function useToast() {
 const toastConfig = {
   success: {
     icon: CheckCircle,
-    className: 'bg-success/10 border-success/20 text-success',
-    iconClassName: 'text-success',
+    className: 'bg-bull/10 border-bull/20 text-bull',
+    iconClassName: 'text-bull',
   },
   error: {
     icon: AlertCircle,
-    className: 'bg-destructive/10 border-destructive/20 text-destructive',
-    iconClassName: 'text-destructive',
+    className: 'bg-kill/10 border-kill/20 text-kill',
+    iconClassName: 'text-kill',
   },
   warning: {
     icon: AlertTriangle,
-    className: 'bg-warning/10 border-warning/20 text-warning',
-    iconClassName: 'text-warning',
+    className: 'bg-accent/10 border-accent/20 text-accent',
+    iconClassName: 'text-accent',
   },
   info: {
     icon: Info,
-    className: 'bg-primary/10 border-primary/20 text-primary',
-    iconClassName: 'text-primary',
+    className: 'bg-accent/10 border-accent/20 text-accent',
+    iconClassName: 'text-accent',
   },
 };
 
@@ -63,7 +63,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
       exit={{ opacity: 0, y: 20, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       className={cn(
-        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border p-4 shadow-lg backdrop-blur-md',
+        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-sm border p-4 shadow-none backdrop-blur-md',
         config.className
       )}
     >
@@ -76,7 +76,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
       </div>
       <button
         onClick={onRemove}
-        className="shrink-0 rounded-md p-1 opacity-70 hover:opacity-100 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring"
+        className="shrink-0 rounded-sm p-1 opacity-70 hover:opacity-100 transition-opacity focus:outline-none focus:ring-2 focus:ring-border-focus"
         aria-label="Dismiss"
       >
         <X className="h-4 w-4" />

@@ -2,7 +2,6 @@ import { Component, ErrorInfo, ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
 
 interface Props {
   children: ReactNode;
@@ -34,39 +33,42 @@ class ErrorBoundary extends Component<Props, State> {
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="flex min-h-screen items-center justify-center bg-canvas p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
             className="w-full max-w-md"
           >
-            <Card className="border-destructive/20 bg-destructive/5 shadow-2xl overflow-hidden">
-               <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-destructive/50 to-destructive" />
-              <CardContent className="flex flex-col items-center p-8 text-center">
-                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10">
-                   <AlertCircle className="h-10 w-10 text-destructive" />
+            <div className="border border-kill/30 bg-surface-1 rounded-sm overflow-hidden">
+              <div className="h-[2px] w-full bg-kill" />
+              <div className="flex flex-col items-center p-8 text-center">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-sm bg-kill/10 border border-kill/20">
+                   <AlertCircle className="h-8 w-8 text-kill" />
                 </div>
                 
-                <h2 className="mb-2 text-2xl font-bold tracking-tight text-foreground">
-                  Something went wrong
+                <h2 className="mb-2 text-lg font-mono font-bold tracking-widest uppercase text-txt-primary">
+                  FATAL_ERROR
                 </h2>
                 
-                <p className="mb-6 text-muted-foreground">
-                  An unexpected error occurred. Please try refreshing the page.
+                <p className="mb-6 text-micro font-mono text-txt-muted uppercase tracking-widest">
+                  An unexpected error occurred. Please refresh.
                 </p>
                 
-                <div className="mb-8 w-full rounded-md bg-background/50 p-4 border border-destructive/20">
-                  <p className="font-mono text-xs text-destructive break-all">
+                <div className="mb-8 w-full rounded-sm bg-canvas p-4 border border-kill/20">
+                  <p className="font-mono text-micro text-kill break-all uppercase tracking-wider">
                     {this.state.error?.message || 'Unknown error'}
                   </p>
                 </div>
                 
-                <Button onClick={this.handleRefresh} variant="destructive" className="w-full">
-                  Refresh Page
+                <Button 
+                  onClick={this.handleRefresh} 
+                  className="w-full font-mono text-micro uppercase tracking-widest border border-kill bg-kill/10 text-kill hover:bg-kill/20 rounded-sm h-9"
+                >
+                  [REFRESH_PAGE]
                 </Button>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </motion.div>
         </div>
       );

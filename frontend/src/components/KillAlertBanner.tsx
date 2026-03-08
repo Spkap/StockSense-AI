@@ -2,10 +2,10 @@
  * KillAlertBanner - Premium alert display for triggered kill criteria
  * 
  * Stage 4: Kill Criteria Monitoring
- * Glassmorphism design with animated warning pulse and smooth transitions.
+ * Stark Obsidian Terminal design with high-contrast warning elements
  */
 
-import { AlertTriangle, X, CheckCircle, Eye, ShieldAlert, ArrowRight } from 'lucide-react';
+import { X, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
 import type { KillAlert } from '../types/api';
@@ -28,123 +28,105 @@ export default function KillAlertBanner({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <AnimatePresence>
         {alerts.map((alert, index) => (
           <motion.div
             key={alert.id}
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ delay: index * 0.1, type: 'spring', stiffness: 200 }}
-            className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 backdrop-blur-sm"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ delay: index * 0.1, duration: 0.3 }}
+            className="flex flex-col border-l-4 border-kill border-y border-r border-y-border-base border-r-border-base bg-kill-dim rounded-none w-full overflow-hidden"
           >
-            {/* Animated warning pulse */}
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-orange-500/20 to-amber-500/10"
-              animate={{ opacity: [0.3, 0.6, 0.3] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-
-            <div className="relative p-5">
-              {/* Header */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-4">
-                  {/* Icon with animated ring */}
-                  <div className="relative">
-                    <motion.div
-                      className="absolute inset-0 rounded-full bg-amber-500/30"
-                      animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    />
-                    <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
-                      <ShieldAlert className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1">
-                    <h4 className="text-lg font-semibold text-foreground">
-                      Kill Criteria Alert
-                    </h4>
-                    <div className="mt-0.5 flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">
-                        Match confidence:
-                      </span>
-                      <span className={`text-sm font-bold ${
-                        alert.match_confidence >= 0.8 ? 'text-destructive' :
-                        alert.match_confidence >= 0.6 ? 'text-amber-500' : 'text-muted-foreground'
-                      }`}>
-                        {Math.round(alert.match_confidence * 100)}%
-                      </span>
-                    </div>
-                  </div>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-kill/20 px-4 py-3 bg-kill/5">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center p-1 bg-kill/10 rounded-none border border-kill/30">
+                  <ShieldAlert className="h-4 w-4 text-kill animate-pulse" />
                 </div>
+                <div className="flex flex-col">
+                  <h4 className="text-micro font-mono font-bold tracking-widest text-kill uppercase leading-none">
+                    KILL_CRITERIA_TRIGGERED
+                  </h4>
+                  <span className="text-micro font-mono text-txt-muted uppercase tracking-widest mt-1">
+                    SYS_ALERT // HIGH_PRIORITY
+                  </span>
+                </div>
+              </div>
 
-                {/* Dismiss button */}
+              <div className="flex items-center gap-4">
+                <div className="hidden sm:flex flex-col items-end">
+                  <span className="text-sm font-mono font-bold text-kill leading-none tracking-tight">
+                    {Math.round(alert.match_confidence * 100)}%
+                  </span>
+                  <span className="text-micro font-mono text-kill/70 uppercase tracking-widest mt-1">
+                    MATCH_CONF
+                  </span>
+                </div>
+                
                 {onDismiss && (
                   <button
                     onClick={() => onDismiss(alert.id)}
-                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
+                    className="p-1.5 text-txt-muted hover:text-kill hover:bg-kill/10 border border-transparent hover:border-kill/30 transition-colors rounded-none ml-2"
                     title="Dismiss alert"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-4 w-4" />
                   </button>
                 )}
               </div>
+            </div>
 
-              {/* Alert Details */}
-              <div className="mt-4 space-y-3">
-                {/* Criteria Box */}
-                <div className="rounded-lg bg-background/60 p-4 backdrop-blur-sm">
-                  <div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    Your Kill Criteria
+            {/* Content Body */}
+            <div className="p-4 flex flex-col gap-4 bg-canvas/50">
+              <div className="flex flex-col lg:flex-row gap-4">
+                
+                {/* Criteria Definition */}
+                <div className="flex-1 flex flex-col gap-2 p-3 border border-border-base bg-surface-1 rounded-none">
+                  <div className="flex items-center gap-2 border-b border-border-base/50 pb-2 mb-1">
+                    <span className="text-micro font-mono text-txt-muted uppercase tracking-widest font-bold">CRITERIA_DEF</span>
                   </div>
-                  <p className="text-sm font-medium text-foreground leading-relaxed">
-                    "{alert.triggered_criteria}"
+                  <p className="text-sm font-serif text-txt-primary leading-relaxed border-l-2 border-accent pl-3">
+                    {alert.triggered_criteria}
                   </p>
                 </div>
 
                 {/* Triggering Signal */}
-                <div className="flex items-center gap-2">
-                  <ArrowRight className="h-4 w-4 shrink-0 text-amber-500" />
-                  <div className="flex-1 rounded-lg bg-background/40 px-4 py-3 backdrop-blur-sm">
-                    <div className="mb-1 text-xs font-medium text-muted-foreground">
-                      Signal from latest analysis
-                    </div>
-                    <p className="text-sm text-foreground">
-                      "{alert.triggering_signal}"
-                    </p>
+                <div className="flex-1 flex flex-col gap-2 p-3 border border-kill/30 bg-kill/5 rounded-none">
+                  <div className="flex items-center gap-2 border-b border-kill/20 pb-2 mb-1">
+                    <span className="text-micro font-mono text-kill uppercase tracking-widest font-bold">TRIGGERING_SIGNAL</span>
                   </div>
+                  <p className="text-sm font-serif text-txt-primary leading-relaxed border-l-2 border-kill pl-3">
+                    {alert.triggering_signal}
+                  </p>
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="mt-5 flex flex-wrap gap-3">
+              <div className="flex gap-3 justify-end pt-2">
                 {onViewThesis && (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={() => onViewThesis(alert.thesis_id)}
-                    className="gap-2 border-amber-500/30 hover:border-amber-500/50 hover:bg-amber-500/10"
+                    className="h-8 gap-2 font-mono text-micro uppercase tracking-widest font-bold text-txt-secondary border border-border-base hover:bg-surface-2 hover:text-txt-primary rounded-none px-4"
                   >
-                    <Eye className="h-4 w-4" />
-                    View Thesis
+                    [VIEW_THESIS]
                   </Button>
                 )}
                 {onAcknowledge && (
                   <Button
+                    variant="ghost"
                     size="sm"
                     onClick={() => onAcknowledge(alert.id)}
-                    className="gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700"
+                    className="h-8 gap-2 font-mono text-micro uppercase tracking-widest font-bold text-kill border border-kill/50 bg-kill/10 hover:bg-kill/20 rounded-none px-4"
                   >
-                    <CheckCircle className="h-4 w-4" />
-                    Acknowledge & Review
+                    [ACKNOWLEDGE]
                   </Button>
                 )}
               </div>
             </div>
+            
           </motion.div>
         ))}
       </AnimatePresence>

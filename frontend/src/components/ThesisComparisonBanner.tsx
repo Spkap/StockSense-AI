@@ -1,6 +1,8 @@
 /**
  * ThesisComparisonBanner - Show analysis changes since thesis creation
  * Stage 4: Analysis-Thesis Linkage
+ * 
+ * Obsidian Terminal styled — monochrome, dense, mechanical.
  */
 
 import { TrendingUp, TrendingDown, ArrowRight, RefreshCw } from 'lucide-react';
@@ -24,57 +26,57 @@ export default function ThesisComparisonBanner({
     <motion.div
       initial={{ opacity: 0, y: -5 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-lg border border-primary/30 bg-primary/5 p-4"
+      className="border border-accent/30 bg-accent/5 rounded-sm overflow-hidden"
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-semibold text-foreground">
-          Analysis Changed Since Your Thesis
+      <div className="flex items-center justify-between px-4 py-2 border-b border-accent/20 bg-accent/5">
+        <h4 className="text-micro font-mono font-bold uppercase tracking-widest text-txt-primary">
+          DELTA_SINCE_THESIS
         </h4>
         {onRefresh && (
           <button
             onClick={onRefresh}
-            className="p-1 rounded hover:bg-muted/50 transition-colors"
+            className="p-1 rounded-sm hover:bg-surface-2 transition-colors"
             title="Re-run analysis"
           >
-            <RefreshCw className="h-4 w-4 text-muted-foreground" />
+            <RefreshCw className="h-3.5 w-3.5 text-txt-muted" />
           </button>
         )}
       </div>
 
       {/* Changes */}
-      <div className="space-y-2">
+      <div className="p-3 space-y-1.5 bg-canvas">
         {comparison.changes?.map((change, index) => (
           <div 
             key={index} 
-            className="flex items-center gap-2 text-sm"
+            className="flex items-center gap-2 text-micro font-mono uppercase tracking-wider"
           >
             {change.direction === 'increased' ? (
-              <TrendingUp className="h-4 w-4 text-success shrink-0" />
+              <TrendingUp className="h-3.5 w-3.5 text-bull shrink-0" />
             ) : change.direction === 'decreased' ? (
-              <TrendingDown className="h-4 w-4 text-destructive shrink-0" />
+              <TrendingDown className="h-3.5 w-3.5 text-bear shrink-0" />
             ) : (
-              <ArrowRight className="h-4 w-4 text-warning shrink-0" />
+              <ArrowRight className="h-3.5 w-3.5 text-accent shrink-0" />
             )}
             
-            <span className="text-muted-foreground capitalize">
+            <span className="text-txt-muted">
               {change.field}:
             </span>
             
-            <span className="text-foreground/70">
+            <span className="text-txt-secondary">
               {typeof change.from === 'number' 
                 ? `${Math.round(change.from * 100)}%`
                 : change.from}
             </span>
             
-            <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+            <ArrowRight className="h-3 w-3 text-txt-muted/50 shrink-0" />
             
             <span className={
               change.direction === 'increased' 
-                ? 'text-success font-medium'
+                ? 'text-bull font-bold'
                 : change.direction === 'decreased'
-                  ? 'text-destructive font-medium'
-                  : 'text-warning font-medium'
+                  ? 'text-bear font-bold'
+                  : 'text-accent font-bold'
             }>
               {typeof change.to === 'number' 
                 ? `${Math.round(change.to * 100)}%`
@@ -82,9 +84,9 @@ export default function ThesisComparisonBanner({
             </span>
             
             {change.delta && (
-              <span className={`text-xs ${
-                change.delta > 0 ? 'text-success' : 'text-destructive'
-              }`}>
+              <span className={`${
+                change.delta > 0 ? 'text-bull' : 'text-bear'
+              } font-bold`}>
                 ({change.delta > 0 ? '+' : ''}{Math.round(change.delta * 100)}%)
               </span>
             )}
@@ -94,7 +96,7 @@ export default function ThesisComparisonBanner({
 
       {/* Summary */}
       {comparison.change_summary && (
-        <p className="text-xs text-muted-foreground mt-3 pt-2 border-t border-border">
+        <p className="text-micro font-mono text-txt-muted uppercase tracking-wider px-4 py-2 border-t border-border-base/50 bg-surface-1">
           {comparison.change_summary}
         </p>
       )}

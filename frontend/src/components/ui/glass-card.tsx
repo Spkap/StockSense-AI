@@ -8,7 +8,7 @@ const GlassCard = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "glass-panel rounded-xl p-6 shadow-sm ring-1 ring-white/20 transition-all hover:shadow-md",
+      "glass-panel rounded-sm p-6 shadow-none ring-1 ring-white/20 transition-all hover:shadow-none",
       className
     )}
     {...props}

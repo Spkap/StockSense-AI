@@ -1,6 +1,5 @@
-import { TrendingUp } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
+import { cn } from '../utils/cn';
 
 interface QuickSelectProps {
   onSelect: (ticker: string) => void;
@@ -11,39 +10,35 @@ const popularTickers = [
   { symbol: 'AAPL', name: 'Apple' },
   { symbol: 'MSFT', name: 'Microsoft' },
   { symbol: 'NVDA', name: 'NVIDIA' },
-  { symbol: 'GOOGL', name: 'Google' },
-  { symbol: 'AMZN', name: 'Amazon' },
   { symbol: 'TSLA', name: 'Tesla' },
+  { symbol: 'GOOGL', name: 'Google' },
 ];
 
 const QuickSelect = ({ onSelect, disabled = false }: QuickSelectProps) => {
   return (
-    <Card className="h-full border-border bg-card shadow-sm transition-shadow hover:shadow-md">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center rounded-full bg-success/10 p-2 text-success">
-            <TrendingUp className="h-4 w-4" />
-          </div>
-          <CardTitle className="text-sm font-semibold text-foreground">Trending Stocks</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap gap-2">
-          {popularTickers.map(({ symbol }) => (
-            <Button
-              key={symbol}
-              variant="secondary"
-              size="sm"
-              onClick={() => onSelect(symbol)}
-              disabled={disabled}
-              className="rounded-full bg-secondary/50 font-medium hover:bg-secondary hover:text-secondary-foreground"
-            >
-              {symbol}
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex h-12 w-full items-center gap-2 overflow-x-auto px-4 no-scrollbar border border-border-base rounded-sm bg-surface-1">
+      <div className="flex items-center gap-2 border-r border-border-base/50 pr-4 mr-2">
+          <div className="w-1 h-3 bg-accent" />
+          <span className="text-micro font-mono text-txt-muted uppercase tracking-widest shrink-0">
+            QUICK_SEL
+          </span>
+      </div>
+      <div className="flex gap-2">
+        {popularTickers.map(({ symbol }) => (
+          <Button
+            key={symbol}
+            variant="ghost"
+            onClick={() => onSelect(symbol)}
+            disabled={disabled}
+            className={cn(
+              "h-7 px-3 py-1 font-mono text-micro tracking-widest text-txt-secondary hover:text-txt-primary hover:bg-surface-2 border border-transparent hover:border-border-strong transition-colors shrink-0 rounded-sm uppercase"
+            )}
+          >
+            {symbol}
+          </Button>
+        ))}
+      </div>
+    </div>
   );
 };
 

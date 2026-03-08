@@ -3,86 +3,80 @@ export default {
   darkMode: ["class"],
   content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
   theme: {
-  	extend: {
+    extend: {
       fontFamily: {
-        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        mono: ["'Geist Mono'", "monospace"],
+        serif: ["'Lora'", "serif"],
       },
-  		borderRadius: {
-  			lg: 'var(--radius)',
-  			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
-  		},
-  		colors: {
-  			background: 'hsl(var(--background))',
-  			foreground: 'hsl(var(--foreground))',
-  			card: {
-  				DEFAULT: 'hsl(var(--card))',
-  				foreground: 'hsl(var(--card-foreground))'
-  			},
-  			popover: {
-  				DEFAULT: 'hsl(var(--popover))',
-  				foreground: 'hsl(var(--popover-foreground))'
-  			},
-  			primary: {
-  				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
-  			},
-  			secondary: {
-  				DEFAULT: 'hsl(var(--secondary))',
-  				foreground: 'hsl(var(--secondary-foreground))'
-  			},
-  			muted: {
-  				DEFAULT: 'hsl(var(--muted))',
-  				foreground: 'hsl(var(--muted-foreground))'
-  			},
-  			accent: {
-  				DEFAULT: 'hsl(var(--accent))',
-  				foreground: 'hsl(var(--accent-foreground))'
-  			},
-  			destructive: {
-  				DEFAULT: 'hsl(var(--destructive))',
-  				foreground: 'hsl(var(--destructive-foreground))'
-  			},
-  			success: {
-  				DEFAULT: 'hsl(var(--success))',
-  				foreground: 'hsl(var(--success-foreground))'
-  			},
-  			warning: {
-  				DEFAULT: 'hsl(var(--warning))',
-  				foreground: 'hsl(var(--warning-foreground))'
-  			},
-  			border: 'hsl(var(--border))',
-  			input: 'hsl(var(--input))',
-  			ring: 'hsl(var(--ring))',
-  			chart: {
-  				'1': 'hsl(var(--chart-1))',
-  				'2': 'hsl(var(--chart-2))',
-  				'3': 'hsl(var(--chart-3))',
-  				'4': 'hsl(var(--chart-4))',
-  				'5': 'hsl(var(--chart-5))'
-  			}
-  		},
+      colors: {
+        canvas: "var(--canvas)",
+        "surface-1": "var(--surface-1)",
+        "surface-2": "var(--surface-2)",
+        "surface-3": "var(--surface-3)",
+        
+        "border-subtle": "var(--border-subtle)",
+        "border-base": "var(--border-base)",
+        "border-strong": "var(--border-strong)",
+        "border-focus": "var(--border-focus)",
+        
+        "txt-primary": "var(--text-primary)",
+        "txt-secondary": "var(--text-secondary)",
+        "txt-tertiary": "var(--text-tertiary)",
+        "txt-muted": "var(--text-muted)",
+        
+        bull: "var(--bull)",
+        "bull-dim": "var(--bull-dim)",
+        bear: "var(--bear)",
+        "bear-dim": "var(--bear-dim)",
+        kill: "var(--kill)",
+        "kill-dim": "var(--kill-dim)",
+        
+        accent: "var(--accent)",
+        "accent-dim": "var(--accent-dim)",
+      },
+      spacing: {
+        1: "var(--space-1)",
+        2: "var(--space-2)",
+        3: "var(--space-3)",
+        4: "var(--space-4)",
+        6: "var(--space-6)",
+        8: "var(--space-8)",
+        12: "var(--space-12)",
+      },
+      borderRadius: {
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+      },
+      fontSize: {
+        micro: ["var(--type-micro)", "1.4"],
+        sm: ["var(--type-sm)", "1.5"],
+        base: ["var(--type-base)", "1.6"],
+        md: ["var(--type-md)", "1.5"],
+        lg: ["var(--type-lg)", "1.3"],
+        xl: ["var(--type-xl)", "1.2"],
+        "2xl": ["var(--type-2xl)", "1.1"],
+      },
+      transitionTimingFunction: {
+        terminal: "cubic-bezier(0.16, 1, 0.3, 1)",
+      },
+      transitionDuration: {
+        100: "100ms",
+        150: "150ms",
+        200: "200ms",
+        300: "300ms",
+        600: "600ms",
+      },
       keyframes: {
-        'accordion-down': {
-          from: { height: '0' },
-          to: { height: 'var(--radix-accordion-content-height)' }
-        },
-        'accordion-up': {
-          from: { height: 'var(--radix-accordion-content-height)' },
-          to: { height: '0' }
-        },
-        shine: {
-          "0%": { "background-position": "0% 0%" },
-          "50%": { "background-position": "100% 100%" },
-          "to": { "background-position": "0% 0%" },
+        pulseCursor: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0" },
         },
       },
       animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
-        shine: "shine var(--duration) infinite linear",
-      }
-    }
+        "pulse-cursor": "pulseCursor 1s step-end infinite",
+      },
+    },
   },
   plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 }

@@ -1,23 +1,24 @@
 /**
  * StreamingProgress - Real-time progress display for streaming analysis
  * Stage 4: Shows tool completion status as analysis progresses
+ * 
+ * Obsidian Terminal styled — monochrome, dense, mechanical.
  */
 
-import { CheckCircle, Circle, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { cn } from '../utils/cn';
 import type { StreamEvent } from '../hooks/useStreamingAnalysis';
 
 interface Tool {
   name: string;
   label: string;
-  icon: string;
 }
 
 const TOOLS: Tool[] = [
-  { name: 'fetch_news_headlines', label: 'Fetching News', icon: '📰' },
-  { name: 'fetch_price_data', label: 'Getting Prices', icon: '📈' },
-  { name: 'analyze_sentiment', label: 'Analyzing Sentiment', icon: '🧠' },
-  { name: 'generate_skeptic_critique', label: 'Skeptic Review', icon: '🔍' },
+  { name: 'fetch_news_headlines', label: 'FETCH_NEWS' },
+  { name: 'fetch_price_data', label: 'FETCH_PRICE' },
+  { name: 'analyze_sentiment', label: 'AI_SENTIMENT' },
+  { name: 'generate_skeptic_critique', label: 'SKEPTIC_REVIEW' },
 ];
 
 interface StreamingProgressProps {
@@ -60,18 +61,18 @@ export default function StreamingProgress({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+    <div className="border border-border-base bg-surface-1 rounded-sm font-mono overflow-hidden">
       {/* Progress bar */}
-      <div className="space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">
-            {isStreaming ? 'Analyzing...' : error ? 'Failed' : 'Complete'}
+      <div className="p-3 border-b border-border-base/50 bg-canvas">
+        <div className="flex justify-between text-micro tracking-widest uppercase font-bold mb-2">
+          <span className="text-txt-secondary">
+            {isStreaming ? 'PROCESSING' : error ? 'HALTED_ERR' : 'COMPLETE'}
           </span>
-          <span className="font-medium">{Math.round(progress * 100)}%</span>
+          <span className="text-accent">{Math.round(progress * 100)}%</span>
         </div>
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div className="h-[2px] w-full bg-surface-2 rounded-none overflow-hidden">
           <motion.div
-            className={`h-full ${error ? 'bg-destructive' : 'bg-primary'}`}
+            className={`h-full ${error ? 'bg-kill' : 'bg-accent'}`}
             initial={{ width: 0 }}
             animate={{ width: `${progress * 100}%` }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
@@ -80,7 +81,7 @@ export default function StreamingProgress({
       </div>
 
       {/* Tool progress */}
-      <div className="space-y-2">
+      <div className="flex flex-col gap-1 p-3 bg-canvas">
         {TOOLS.map((tool) => {
           const status = getToolStatus(tool.name);
           const message = getToolMessage(tool.name);
@@ -88,40 +89,53 @@ export default function StreamingProgress({
           return (
             <motion.div
               key={tool.name}
-              className={`flex items-center gap-3 p-2 rounded-md transition-colors ${
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 transition-colors duration-100 border rounded-sm",
                 status === 'active' 
-                  ? 'bg-primary/10' 
+                  ? 'bg-surface-2 border-border-strong' 
                   : status === 'completed'
-                    ? 'bg-success/5'
-                    : 'bg-transparent'
-              }`}
+                    ? 'bg-surface-1 border-border-base/50'
+                    : 'bg-surface-1 border-border-base/30'
+              )}
               initial={{ opacity: 0.5 }}
               animate={{ opacity: status === 'pending' ? 0.5 : 1 }}
             >
-              {/* Icon */}
-              <span className="text-lg">{tool.icon}</span>
-
               {/* Status indicator */}
-              {status === 'completed' ? (
-                <CheckCircle className="h-4 w-4 text-success shrink-0" />
-              ) : status === 'active' ? (
-                <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
-              ) : (
-                <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
-              )}
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center font-bold text-micro">
+                {status === 'completed' ? (
+                  <span className="text-bull">[X]</span>
+                ) : status === 'active' ? (
+                  <span className="text-accent animate-pulse text-sm">{'>'}</span>
+                ) : (
+                  <span className="text-txt-muted/50">[ ]</span>
+                )}
+              </div>
 
               {/* Label and message */}
-              <div className="flex-1 min-w-0">
-                <span className={`text-sm ${
-                  status === 'active' ? 'font-medium text-foreground' : 'text-muted-foreground'
-                }`}>
-                  {tool.label}
+              <div className="flex-1 min-w-0 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className={cn(
+                    "text-micro tracking-widest uppercase font-bold",
+                    status === 'active' ? 'text-txt-primary' : 
+                    status === 'completed' ? 'text-txt-secondary' : 'text-txt-muted'
+                  )}>
+                    {tool.label}
+                  </span>
+                  {message && status === 'completed' && (
+                    <span className="text-micro text-txt-muted truncate mt-0.5 tracking-wider uppercase">
+                      {message}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Status Label */}
+                <span className={cn(
+                  "text-micro uppercase tracking-widest text-right font-bold w-12",
+                  status === 'completed' ? 'text-bull' : 
+                  status === 'active' ? 'text-accent animate-pulse' : 'text-txt-muted/30'
+                )}>
+                  {status === 'completed' ? 'OK' : status === 'active' ? 'RUN' : 'WAIT'}
                 </span>
-                {message && status === 'completed' && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {message}
-                  </p>
-                )}
               </div>
             </motion.div>
           );
@@ -130,9 +144,8 @@ export default function StreamingProgress({
 
       {/* Error display */}
       {error && (
-        <div className="flex items-center gap-2 p-2 rounded bg-destructive/10 text-destructive text-sm">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{error}</span>
+        <div className="border-t border-kill bg-kill/10 p-3 text-micro font-bold tracking-widest text-kill uppercase">
+          ERR: {error}
         </div>
       )}
     </div>

@@ -5,11 +5,10 @@
  * Shows beautiful, animated progress as each agent tool completes.
  */
 
-import { CheckCircle, Loader2, X, Zap, TrendingUp, Newspaper, Brain, Search } from 'lucide-react';
+import { X, TrendingUp, Newspaper, Brain, Search, Terminal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { Progress } from './ui/progress';
+import { cn } from '../utils/cn';
 import type { StreamEvent } from '../hooks/useStreamingAnalysis';
 
 interface StreamingAnalysisProgressProps {
@@ -33,31 +32,23 @@ interface StreamingAnalysisProgressProps {
 const TOOLS_CONFIG = [
   { 
     name: 'fetch_news_headlines', 
-    label: 'Fetching News', 
+    label: 'FETCH_NEWS', 
     icon: Newspaper,
-    activeColor: 'text-blue-500',
-    bgColor: 'bg-blue-500/10'
   },
   { 
     name: 'fetch_price_data', 
-    label: 'Getting Prices', 
+    label: 'FETCH_PRICE', 
     icon: TrendingUp,
-    activeColor: 'text-emerald-500',
-    bgColor: 'bg-emerald-500/10'
   },
   { 
     name: 'analyze_sentiment', 
-    label: 'AI Sentiment Analysis', 
+    label: 'AI_SENTIMENT', 
     icon: Brain,
-    activeColor: 'text-purple-500',
-    bgColor: 'bg-purple-500/10'
   },
   { 
     name: 'generate_skeptic_critique', 
-    label: 'Skeptic Review', 
+    label: 'SKEPTIC_REVIEW', 
     icon: Search,
-    activeColor: 'text-amber-500',
-    bgColor: 'bg-amber-500/10'
   },
 ];
 
@@ -95,120 +86,107 @@ export default function StreamingAnalysisProgress({
   const headlinesCount = partialData.headlines?.length || 0;
   const priceDataPoints = Array.isArray(partialData.price_data) ? partialData.price_data.length : 0;
   const sentiment = partialData.overall_sentiment;
-  const confidence = partialData.overall_confidence;
 
   return (
-    <Card className="mx-auto max-w-2xl overflow-hidden border-0 bg-gradient-to-b from-card to-card/80 shadow-xl">
-      <CardContent className="p-0">
-        {/* Animated Header */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 px-6 py-8 text-center">
-          {/* Animated background pulse */}
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent"
-            animate={{ x: ['-100%', '100%'] }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-          />
-          
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="relative"
-          >
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 ring-4 ring-primary/20">
-              <Zap className="h-8 w-8 text-primary" />
-            </div>
-            
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">
-              {ticker}
+    <div className="mx-auto w-full max-w-2xl border border-border-base bg-surface-1 font-mono rounded-sm relative overflow-hidden">
+      
+      <div className="relative z-10 flex flex-col h-full">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border-base bg-surface-2 px-4 py-3">
+          <div className="flex items-center gap-3 text-txt-primary">
+            <Terminal className="h-4 w-4 text-accent animate-pulse" />
+            <h2 className="text-sm font-bold tracking-widest uppercase">
+              {ticker} <span className="text-txt-muted font-normal ml-2">// EXEC_SEQUENCE</span>
             </h2>
-            <p className="mt-1 text-muted-foreground">
-              {isStreaming ? 'AI Agent Running...' : error ? 'Analysis Failed' : 'Analysis Complete'}
-            </p>
-          </motion.div>
+          </div>
+          <span className="text-micro font-bold tracking-widest text-txt-muted uppercase flex items-center gap-2">
+            {isStreaming ? (
+              <>
+               ACTIVE_PROCESS
+               <span className="w-1.5 h-3 bg-accent animate-pulse" />
+              </>
+            ) : error ? 'HALTED_ERR' : 'COMPLETE'}
+          </span>
         </div>
 
         {/* Progress Section */}
-        <div className="px-6 py-4">
-          <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="font-medium text-foreground">Progress</span>
-            <span className="font-mono text-muted-foreground">{Math.round(progress * 100)}%</span>
+        <div className="px-4 py-4 bg-canvas border-b border-border-base/50">
+          <div className="mb-2 flex items-center justify-between text-micro tracking-widest font-bold">
+            <span className="text-txt-secondary uppercase">PROGRESS_RATIO</span>
+            <span className="text-accent">{Math.round(progress * 100)}%</span>
           </div>
-          <Progress value={progress * 100} className="h-2" />
+          <div className="h-[2px] w-full bg-surface-2 rounded-none overflow-hidden">
+            <motion.div 
+              className="h-full bg-accent"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress * 100}%` }}
+              transition={{ ease: "linear", duration: 0.3 }}
+            />
+          </div>
         </div>
 
         {/* Tool Steps */}
-        <div className="space-y-1 px-6 pb-4">
+        <div className="flex flex-col gap-1 p-3 bg-canvas">
           {TOOLS_CONFIG.map((tool, index) => {
             const status = getToolStatus(tool.name);
             const message = getToolMessage(tool.name);
-            const Icon = tool.icon;
 
             return (
               <motion.div
                 key={tool.name}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`
-                  flex items-center gap-3 rounded-lg p-3 transition-all duration-300
-                  ${status === 'active' ? tool.bgColor : 'hover:bg-muted/50'}
-                `}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05, duration: 0.2 }}
+                className={cn(
+                  "flex items-center gap-4 px-3 py-2 transition-colors duration-100 border rounded-sm",
+                  status === 'active' ? "bg-surface-2 border-border-strong" : "bg-surface-1 border-border-base/50"
+                )}
               >
-                {/* Tool Icon */}
-                <div className={`
-                  flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all
-                  ${status === 'completed' ? 'bg-success/10' : status === 'active' ? tool.bgColor : 'bg-muted'}
-                `}>
+                {/* Tool Icon & Status indicator */}
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center font-bold text-micro">
                   {status === 'completed' ? (
-                    <CheckCircle className="h-5 w-5 text-success" />
+                    <span className="text-bull">[X]</span>
                   ) : status === 'active' ? (
-                    <Loader2 className={`h-5 w-5 animate-spin ${tool.activeColor}`} />
+                     <span className="text-accent animate-pulse text-sm">{'>'}</span>
                   ) : (
-                    <Icon className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-txt-muted/50">[ ]</span>
                   )}
                 </div>
 
                 {/* Tool Info */}
-                <div className="flex-1 min-w-0">
-                  <div className={`font-medium ${
-                    status === 'active' ? 'text-foreground' : 
-                    status === 'completed' ? 'text-foreground' : 'text-muted-foreground'
-                  }`}>
-                    {tool.label}
+                <div className="flex-1 min-w-0 flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className={cn(
+                      "text-micro tracking-widest uppercase font-bold",
+                      status === 'active' ? 'text-txt-primary' : 
+                      status === 'completed' ? 'text-txt-secondary' : 'text-txt-muted'
+                    )}>
+                      {tool.label}
+                    </span>
+                    
+                    <AnimatePresence mode="wait">
+                      {message && status === 'completed' && (
+                        <motion.span
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="text-micro text-txt-muted truncate mt-0.5 tracking-wider uppercase"
+                        >
+                          {message}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <AnimatePresence mode="wait">
-                    {message && status === 'completed' && (
-                      <motion.p
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="text-sm text-muted-foreground truncate"
-                      >
-                        {message}
-                      </motion.p>
-                    )}
-                    {status === 'active' && (
-                      <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-sm text-muted-foreground"
-                      >
-                        Processing...
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
+                  
+                  {/* Status Label */}
+                  <span className={cn(
+                    "text-micro uppercase tracking-widest text-right font-bold w-12",
+                    status === 'completed' ? 'text-bull' : 
+                    status === 'active' ? 'text-accent animate-pulse' : 'text-txt-muted/30'
+                  )}>
+                    {status === 'completed' ? 'OK' : status === 'active' ? 'RUN' : 'WAIT'}
+                  </span>
                 </div>
-
-                {/* Status Badge */}
-                {status === 'completed' && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success"
-                  >
-                    Done
-                  </motion.div>
-                )}
               </motion.div>
             );
           })}
@@ -219,34 +197,37 @@ export default function StreamingAnalysisProgress({
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-6 mb-4 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4"
+            transition={{ duration: 0.2 }}
+            className="p-4 border-t border-border-base/50 bg-surface-2/30"
           >
-            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
-              Live Insights
+            <div className="mb-3 flex items-center gap-2">
+              <div className="h-1.5 w-1.5 bg-accent rounded-sm animate-pulse" />
+              <div className="text-micro font-bold uppercase tracking-widest text-txt-secondary">
+                LIVE_DATA_FEED
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-4 text-center">
+            
+            <div className="grid grid-cols-3 gap-2 text-left">
               {headlinesCount > 0 && (
-                <div>
-                  <div className="text-2xl font-bold text-foreground">{headlinesCount}</div>
-                  <div className="text-xs text-muted-foreground">Headlines</div>
+                <div className="border border-border-base/50 bg-surface-1 p-2 rounded-sm border-l-2 border-l-border-strong">
+                  <div className="text-micro text-txt-muted uppercase mb-1 tracking-widest font-bold">HEADLINES</div>
+                  <div className="text-micro text-txt-primary font-bold">{headlinesCount}</div>
                 </div>
               )}
               {priceDataPoints > 0 && (
-                <div>
-                  <div className="text-2xl font-bold text-foreground">{priceDataPoints}</div>
-                  <div className="text-xs text-muted-foreground">Price Points</div>
+                <div className="border border-border-base/50 bg-surface-1 p-2 rounded-sm border-l-2 border-l-border-strong">
+                  <div className="text-micro text-txt-muted uppercase mb-1 tracking-widest font-bold">DATAPOINTS</div>
+                  <div className="text-micro text-txt-primary font-bold">{priceDataPoints}</div>
                 </div>
               )}
               {sentiment && (
-                <div>
-                  <div className={`text-lg font-bold ${
-                    sentiment === 'Bullish' ? 'text-success' :
-                    sentiment === 'Bearish' ? 'text-destructive' : 'text-muted-foreground'
-                  }`}>
+                <div className="border border-border-base/50 bg-surface-1 p-2 rounded-sm border-l-2 border-l-border-strong">
+                  <div className="text-micro text-txt-muted uppercase mb-1 tracking-widest font-bold">SENTIMENT</div>
+                  <div className={cn("text-micro uppercase font-bold tracking-wider",
+                    sentiment === 'Bullish' ? 'text-bull' :
+                    sentiment === 'Bearish' ? 'text-bear' : 'text-txt-secondary'
+                  )}>
                     {sentiment}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {confidence ? `${Math.round(confidence * 100)}% conf` : 'Sentiment'}
                   </div>
                 </div>
               )}
@@ -259,26 +240,26 @@ export default function StreamingAnalysisProgress({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mx-6 mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+            className="border-t border-bear bg-bear/10 p-3 text-micro font-bold tracking-widest text-bear uppercase"
           >
-            {error}
+            ERR: {error}
           </motion.div>
         )}
 
         {/* Cancel Button */}
         {isStreaming && onCancel && (
-          <div className="border-t border-border px-6 py-4">
+          <div className="border-t border-border-base p-3 bg-canvas flex justify-end">
             <Button
-              variant="outline"
+              variant="ghost"
               onClick={onCancel}
-              className="w-full gap-2"
+              className="h-8 gap-2 text-micro font-mono tracking-widest uppercase text-txt-muted hover:text-kill hover:bg-kill-dim border border-transparent hover:border-kill/30 rounded-sm"
             >
-              <X className="h-4 w-4" />
-              Cancel Analysis
+              <X className="h-3 w-3" />
+              ABORT_SEQ
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

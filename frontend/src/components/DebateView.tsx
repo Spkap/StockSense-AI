@@ -1,6 +1,4 @@
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
-import { Badge } from './ui/badge';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -102,12 +100,12 @@ interface DebateViewProps {
 
 const getRecommendationColor = (rec: string) => {
   switch (rec) {
-    case 'Strong Buy': return 'text-success bg-success/10 border-success/20';
-    case 'Buy': return 'text-success/80 bg-success/5 border-success/10';
-    case 'Hold': return 'text-muted-foreground bg-muted border-border';
-    case 'Sell': return 'text-destructive/80 bg-destructive/5 border-destructive/10';
-    case 'Strong Sell': return 'text-destructive bg-destructive/10 border-destructive/20';
-    default: return 'text-muted-foreground bg-muted border-border';
+    case 'Strong Buy': return 'text-bull bg-bull/10 border-bull/30';
+    case 'Buy': return 'text-bull/80 bg-bull/5 border-bull/20';
+    case 'Hold': return 'text-txt-muted bg-surface-2 border-border-base';
+    case 'Sell': return 'text-bear/80 bg-bear/5 border-bear/20';
+    case 'Strong Sell': return 'text-bear bg-bear/10 border-bear/30';
+    default: return 'text-txt-muted bg-surface-2 border-border-base';
   }
 };
 
@@ -122,38 +120,38 @@ const ScenarioProbabilityBar = ({
 }) => {
   return (
     <div className="space-y-2">
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>Bull Case</span>
-        <span>Base Case</span>
-        <span>Bear Case</span>
+      <div className="flex justify-between text-micro font-mono uppercase tracking-widest text-txt-muted font-bold">
+        <span>BULL_CASE</span>
+        <span>BASE_CASE</span>
+        <span>BEAR_CASE</span>
       </div>
-      <div className="h-4 w-full flex rounded-full overflow-hidden">
+      <div className="h-[3px] w-full flex rounded-none overflow-hidden">
         <motion.div 
           initial={{ width: 0 }}
           animate={{ width: `${bullProb * 100}%` }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="bg-success h-full"
+          className="bg-bull h-full"
           title={`Bull: ${(bullProb * 100).toFixed(0)}%`}
         />
         <motion.div 
           initial={{ width: 0 }}
           animate={{ width: `${baseProb * 100}%` }}
           transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
-          className="bg-muted-foreground/30 h-full"
+          className="bg-txt-muted/30 h-full"
           title={`Base: ${(baseProb * 100).toFixed(0)}%`}
         />
         <motion.div 
           initial={{ width: 0 }}
           animate={{ width: `${bearProb * 100}%` }}
           transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-          className="bg-destructive h-full"
+          className="bg-bear h-full"
           title={`Bear: ${(bearProb * 100).toFixed(0)}%`}
         />
       </div>
-      <div className="flex justify-between text-xs font-semibold">
-        <span className="text-success">{(bullProb * 100).toFixed(0)}%</span>
-        <span className="text-muted-foreground">{(baseProb * 100).toFixed(0)}%</span>
-        <span className="text-destructive">{(bearProb * 100).toFixed(0)}%</span>
+      <div className="flex justify-between text-micro font-mono font-bold">
+        <span className="text-bull">{(bullProb * 100).toFixed(0)}%</span>
+        <span className="text-txt-muted">{(baseProb * 100).toFixed(0)}%</span>
+        <span className="text-bear">{(bearProb * 100).toFixed(0)}%</span>
       </div>
     </div>
   );
@@ -180,76 +178,78 @@ const AgentCard = ({
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, delay: isBull ? 0.2 : 0.4 }}
     >
-      <Card className={cn(
-        "h-full border-2",
-        isBull ? "border-success/30" : "border-destructive/30"
+      <div className={cn(
+        "border rounded-sm overflow-hidden bg-surface-1",
+        isBull ? "border-bull/30" : "border-bear/30"
       )}>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {isBull ? (
-                <TrendingUp className="h-5 w-5 text-success" />
-              ) : (
-                <TrendingDown className="h-5 w-5 text-destructive" />
-              )}
-              <CardTitle className="text-lg">
-                {isBull ? 'Bull Case' : 'Bear Case'}
-              </CardTitle>
-            </div>
-            <Badge 
-              variant="outline" 
-              className={cn(
-                "font-mono",
-                isBull ? "text-success border-success/30" : "text-destructive border-destructive/30"
-              )}
-            >
-              {(confidence * 100).toFixed(0)}% confident
-            </Badge>
+        {/* Header */}
+        <div className={cn(
+          "border-b px-4 py-3 flex items-center justify-between",
+          isBull ? "border-bull/20 bg-bull/5" : "border-bear/20 bg-bear/5"
+        )}>
+          <div className="flex items-center gap-2">
+            {isBull ? (
+              <TrendingUp className="h-4 w-4 text-bull" />
+            ) : (
+              <TrendingDown className="h-4 w-4 text-bear" />
+            )}
+            <h3 className="text-sm font-mono font-bold tracking-widest uppercase text-txt-primary">
+              {isBull ? 'BULL_CASE' : 'BEAR_CASE'}
+            </h3>
           </div>
-          <CardDescription className="mt-2 text-sm">
-            {thesis}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Key Points */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold flex items-center gap-1">
-              {isBull ? <Target className="h-3 w-3" /> : <Shield className="h-3 w-3" />}
-              {isBull ? 'Key Catalysts' : 'Key Risks'}
+          <span className={cn(
+            "text-micro font-mono font-bold tracking-widest uppercase border px-2 py-0.5 rounded-sm",
+            isBull ? "text-bull border-bull/30" : "text-bear border-bear/30"
+          )}>
+            {(confidence * 100).toFixed(0)}% CONF
+          </span>
+        </div>
+
+        {/* Thesis */}
+        <div className="px-4 py-3 border-b border-border-base/50 bg-canvas">
+          <p className="text-sm font-serif text-txt-secondary leading-relaxed italic">
+            "{thesis}"
+          </p>
+        </div>
+
+        {/* Key Points */}
+        <div className="p-4 bg-canvas space-y-3">
+          <h4 className="text-micro font-mono font-bold uppercase tracking-widest text-txt-primary flex items-center gap-2">
+            {isBull ? <Target className="h-3 w-3 text-bull" /> : <Shield className="h-3 w-3 text-bear" />}
+            {isBull ? 'KEY_CATALYSTS' : 'KEY_RISKS'}
+          </h4>
+          <ul className="space-y-1.5">
+            {items.slice(0, 3).map((item, i) => (
+              <li key={i} className="text-micro font-mono text-txt-secondary flex items-start gap-2 tracking-wider uppercase">
+                <span className={cn(
+                  "mt-1.5 h-1.5 w-1.5 rounded-sm shrink-0",
+                  isBull ? "bg-bull" : "bg-bear"
+                )} />
+                <span><strong className="text-txt-primary">{item.label}:</strong> {item.value}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        
+        {/* Rebuttals Received */}
+        {rebuttals.length > 0 && (
+          <div className="p-4 border-t border-border-base/50 bg-surface-2/30 space-y-2">
+            <h4 className="text-micro font-mono font-bold uppercase tracking-widest text-accent flex items-center gap-2">
+              <MessageSquare className="h-3 w-3" />
+              REBUTTALS_RECEIVED
             </h4>
-            <ul className="space-y-1">
-              {items.slice(0, 3).map((item, i) => (
-                <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
-                  <span className={cn(
-                    "mt-1.5 h-1.5 w-1.5 rounded-full shrink-0",
-                    isBull ? "bg-success" : "bg-destructive"
-                  )} />
-                  <span><strong>{item.label}:</strong> {item.value}</span>
-                </li>
-              ))}
-            </ul>
+            {rebuttals.slice(0, 2).map((r, i) => (
+              <div key={i} className="border border-border-base/50 bg-surface-1 p-3 rounded-sm">
+                <p className="text-micro font-serif text-txt-muted italic tracking-wider">"{r.target_claim}"</p>
+                <p className="mt-1.5 text-micro font-mono text-txt-secondary uppercase tracking-wider">{r.counter_argument}</p>
+                <span className="inline-block mt-1.5 text-micro font-mono text-accent border border-accent/30 px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-bold">
+                  STRENGTH: {(r.strength * 100).toFixed(0)}%
+                </span>
+              </div>
+            ))}
           </div>
-          
-          {/* Rebuttals Received */}
-          {rebuttals.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-border">
-              <h4 className="text-sm font-semibold flex items-center gap-1 text-amber-500">
-                <MessageSquare className="h-3 w-3" />
-                Rebuttals Received
-              </h4>
-              {rebuttals.slice(0, 2).map((r, i) => (
-                <div key={i} className="text-xs bg-muted/50 rounded p-2">
-                  <p className="text-muted-foreground italic">"{r.target_claim}"</p>
-                  <p className="mt-1 text-foreground">{r.counter_argument}</p>
-                  <Badge variant="outline" className="mt-1 text-[10px]">
-                    Strength: {(r.strength * 100).toFixed(0)}%
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </motion.div>
   );
 };
@@ -277,45 +277,42 @@ export default function DebateView({ data }: DebateViewProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <Card className="overflow-hidden">
-          <div className="bg-gradient-to-r from-primary/5 via-transparent to-primary/5 p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-primary/10">
-                  <Scale className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">{data.ticker} Adversarial Analysis</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Bull and Bear agents debated with {rebuttals?.bear_to_bull?.length || 0} rebuttals
-                  </p>
-                </div>
+        <div className="border border-border-base bg-surface-1 rounded-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-border-base/50 bg-surface-2 flex items-center gap-3">
+            <Scale className="h-4 w-4 text-accent" />
+            <h2 className="text-sm font-mono font-bold tracking-widest uppercase text-txt-primary">
+              {data.ticker} // ADVERSARIAL_ANALYSIS
+            </h2>
+          </div>
+          
+          <div className="p-4 bg-canvas">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+              <div className="flex flex-col gap-1">
+                <span className="text-micro font-mono text-txt-muted uppercase tracking-widest">
+                  REBUTTALS_EXCHANGED: {rebuttals?.bear_to_bull?.length || 0}
+                </span>
               </div>
               <div className="flex items-center gap-3">
-                <Badge 
-                  className={cn(
-                    "text-lg px-4 py-1 border",
-                    getRecommendationColor(verdict.recommendation)
-                  )}
-                >
+                <span className={cn(
+                  "text-sm font-mono font-bold tracking-widest uppercase border px-3 py-1.5 rounded-sm",
+                  getRecommendationColor(verdict.recommendation)
+                )}>
                   {verdict.recommendation}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  Conviction: <strong>{(verdict.conviction * 100).toFixed(0)}%</strong>
+                </span>
+                <span className="text-micro font-mono text-txt-muted uppercase tracking-widest">
+                  CONVICTION: <strong className="text-txt-primary">{(verdict.conviction * 100).toFixed(0)}%</strong>
                 </span>
               </div>
             </div>
             
             {/* Scenario Probability Bar */}
-            <div className="mt-6">
-              <ScenarioProbabilityBar 
-                bullProb={verdict.scenario_probabilities.bull}
-                baseProb={verdict.scenario_probabilities.base}
-                bearProb={verdict.scenario_probabilities.bear}
-              />
-            </div>
+            <ScenarioProbabilityBar 
+              bullProb={verdict.scenario_probabilities.bull}
+              baseProb={verdict.scenario_probabilities.base}
+              bearProb={verdict.scenario_probabilities.bear}
+            />
           </div>
-        </Card>
+        </div>
       </motion.div>
 
       {/* Bull vs Bear - Side by Side */}
@@ -342,29 +339,29 @@ export default function DebateView({ data }: DebateViewProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.6 }}
       >
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-primary" />
-              Synthesis & Decisive Factors
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-muted-foreground">
+        <div className="border border-border-base bg-surface-1 rounded-sm overflow-hidden">
+          <div className="border-b border-border-base/50 bg-surface-2 px-4 py-3 flex items-center gap-2">
+            <Zap className="h-4 w-4 text-accent" />
+            <h3 className="text-sm font-mono font-bold tracking-widest uppercase text-txt-primary">
+              SYNTHESIS_AND_FACTORS
+            </h3>
+          </div>
+          <div className="p-4 bg-canvas space-y-4">
+            <p className="text-sm font-serif text-txt-secondary leading-relaxed italic border-l-2 border-border-strong pl-3">
               {verdict.debate_summary?.synthesis || "No synthesis available."}
             </p>
             
             <div className="grid md:grid-cols-2 gap-4">
               {/* Decisive Factors */}
-              <div className="space-y-2">
-                <h4 className="font-semibold flex items-center gap-1 text-sm">
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  What Tipped the Balance
+              <div className="space-y-2 border border-border-base/50 bg-surface-1 p-3 rounded-sm">
+                <h4 className="text-micro font-mono font-bold uppercase tracking-widest text-bull flex items-center gap-2">
+                  <CheckCircle className="h-3 w-3" />
+                  DECISIVE_FACTORS
                 </h4>
                 <ul className="space-y-1">
                   {verdict.decisive_factors?.map((f, i) => (
-                    <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <span className="text-success">•</span>
+                    <li key={i} className="text-micro font-mono text-txt-secondary flex items-start gap-2 tracking-wider uppercase">
+                      <span className="text-bull shrink-0">&gt;</span>
                       {f}
                     </li>
                   ))}
@@ -372,23 +369,23 @@ export default function DebateView({ data }: DebateViewProps) {
               </div>
               
               {/* Unresolved Questions */}
-              <div className="space-y-2">
-                <h4 className="font-semibold flex items-center gap-1 text-sm">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  Unresolved Questions
+              <div className="space-y-2 border border-border-base/50 bg-surface-1 p-3 rounded-sm">
+                <h4 className="text-micro font-mono font-bold uppercase tracking-widest text-accent flex items-center gap-2">
+                  <AlertTriangle className="h-3 w-3" />
+                  UNRESOLVED_QUESTIONS
                 </h4>
                 <ul className="space-y-1">
                   {verdict.unresolved_questions?.map((q, i) => (
-                    <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <span className="text-amber-500">•</span>
+                    <li key={i} className="text-micro font-mono text-txt-secondary flex items-start gap-2 tracking-wider uppercase">
+                      <span className="text-accent shrink-0">?</span>
                       {q}
                     </li>
                   ))}
                 </ul>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </motion.div>
     </div>
   );

@@ -1,6 +1,4 @@
 import { AlertTriangle, Scale, TrendingDown, CheckCircle, HelpCircle, AlertCircle } from 'lucide-react';
-import { Card, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
 import { cn } from '../utils/cn';
 import type { AnalysisData, Critique, BearCase } from '../types/api';
 
@@ -8,31 +6,35 @@ interface SkepticCardProps {
   data?: AnalysisData;
 }
 
-// Skeptic verdict styling
+// Skeptic verdict styling using Obsidian tokens
 const skepticConfig = {
   'Disagree': {
-    color: 'text-destructive',
-    bgColor: 'bg-destructive/10',
+    color: 'text-kill',
+    bgColor: 'bg-kill/10',
+    borderColor: 'border-kill/30',
     icon: AlertCircle,
-    label: 'Skeptic Disagrees',
+    label: 'DISAGREES',
   },
   'Partially Disagree': {
-    color: 'text-warning',
-    bgColor: 'bg-warning/10',
+    color: 'text-accent',
+    bgColor: 'bg-accent/10',
+    borderColor: 'border-accent/30',
     icon: AlertTriangle,
-    label: 'Partial Disagreement',
+    label: 'PARTIAL_DISAGREEMENT',
   },
   'Agree with Reservations': {
-    color: 'text-amber-500',
-    bgColor: 'bg-amber-500/10',
+    color: 'text-bear',
+    bgColor: 'bg-bear/10',
+    borderColor: 'border-bear/30',
     icon: Scale,
-    label: 'Cautious Agreement',
+    label: 'CAUTIOUS_AGREEMENT',
   },
   'Agree': {
-    color: 'text-success',
-    bgColor: 'bg-success/10',
+    color: 'text-bull',
+    bgColor: 'bg-bull/10',
+    borderColor: 'border-bull/30',
     icon: CheckCircle,
-    label: 'Skeptic Agrees',
+    label: 'AGREES',
   },
 };
 
@@ -42,17 +44,15 @@ const SkepticCard = ({ data }: SkepticCardProps) => {
   
   if (!hasSkepticData || !data) {
     return (
-      <Card className="h-full border-dashed border-muted-foreground/30 bg-muted/20">
-        <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px] text-center">
-          <HelpCircle className="h-8 w-8 text-muted-foreground/50 mb-3" />
-          <p className="text-sm text-muted-foreground">
-            Skeptic analysis will appear here when available
-          </p>
-          <p className="text-xs text-muted-foreground/60 mt-1">
-            Run a fresh analysis to generate contrarian perspective
-          </p>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col border border-dashed border-border-strong bg-surface-1 p-8 rounded-sm items-center justify-center min-h-[250px] text-center opacity-80">
+        <HelpCircle className="h-6 w-6 text-txt-muted mb-4" />
+        <p className="font-mono text-micro tracking-widest text-txt-secondary uppercase font-bold">
+          SKEPTIC_LOGS_UNAVAILABLE
+        </p>
+        <p className="font-mono text-micro text-txt-muted uppercase mt-2 tracking-widest">
+          INITIATE_FRESH_SCAN_FOR_CONTRARIAN_DATA
+        </p>
+      </div>
     );
   }
 
@@ -61,37 +61,44 @@ const SkepticCard = ({ data }: SkepticCardProps) => {
   const Icon = config.icon;
 
   return (
-    <Card className="h-full border-border bg-card shadow-sm">
-      <CardContent className="p-6">
-        {/* Header with skeptic verdict */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl transition-colors", config.bgColor, config.color)}>
-              <Icon className="h-6 w-6" />
-            </div>
-            <div>
-              <h4 className="text-lg font-bold text-foreground leading-tight">
-                {config.label}
-              </h4>
-              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                Skeptic&apos;s Verdict
-              </span>
-            </div>
+    <div className="flex flex-col border border-border-base bg-surface-1 rounded-sm w-full overflow-hidden">
+      {/* Header with skeptic verdict */}
+      <div className="flex items-center justify-between border-b border-border-base/50 px-5 py-4 bg-surface-2/50 relative overflow-hidden">
+        
+        {/* Subtle warning stripe if disagree */}
+        {(sentiment === 'Disagree' || sentiment === 'Partially Disagree') && (
+           <div className="absolute top-0 left-0 right-0 h-1 bg-[repeating-linear-gradient(45deg,var(--kill),var(--kill)_10px,transparent_10px,transparent_20px)] opacity-20" />
+        )}
+
+        <div className="flex items-center gap-3 relative z-10">
+          <div className={cn("flex h-8 w-8 items-center justify-center rounded-sm border", config.bgColor, config.borderColor, config.color)}>
+            <Icon className="h-4 w-4" />
           </div>
-          <div className="text-right">
-            <span className={cn("text-3xl font-bold tracking-tighter", config.color)}>
-              {Math.round((data.skeptic_confidence || 0) * 100)}%
+          <div className="flex flex-col">
+            <h4 className={cn("text-sm font-mono font-bold tracking-widest leading-none", config.color)}>
+              {config.label}
+            </h4>
+            <span className="text-micro font-mono text-txt-muted uppercase tracking-widest mt-1.5">
+              SKEPTIC_VERDICT
             </span>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Critique Strength
-            </p>
           </div>
         </div>
+        <div className="flex flex-col items-end relative z-10">
+          <span className={cn("text-xl font-mono font-bold tracking-tight leading-none", config.color)}>
+            {Math.round((data.skeptic_confidence || 0) * 100)}%
+          </span>
+          <span className="text-micro font-mono text-txt-muted uppercase tracking-widest mt-1.5">
+            CRITIQUE_STR
+          </span>
+        </div>
+      </div>
 
+      <div className="p-4 flex flex-col gap-6">
         {/* Primary Disagreement */}
         {data.primary_disagreement && (
-          <div className="mb-4 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
-            <p className="text-sm font-medium text-foreground">
+          <div className="border border-kill/30 bg-kill/10 p-4 rounded-sm border-l-[3px] border-l-kill">
+            <span className="text-micro font-mono font-bold text-kill uppercase tracking-widest mb-2 block">PRI_DISAGREEMENT</span>
+            <p className="text-micro font-mono text-txt-primary leading-relaxed uppercase tracking-wider">
               {data.primary_disagreement}
             </p>
           </div>
@@ -99,30 +106,33 @@ const SkepticCard = ({ data }: SkepticCardProps) => {
 
         {/* Bear Cases */}
         {data.bear_cases && data.bear_cases.length > 0 && (
-          <div className="mb-4">
-            <div className="flex items-center gap-1 mb-2">
-              <TrendingDown className="h-3.5 w-3.5 text-destructive" />
-              <span className="text-xs text-destructive font-medium uppercase tracking-wider">Bear Cases</span>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 border-b border-border-base/50 pb-1">
+              <TrendingDown className="h-3 w-3 text-bear" />
+              <h5 className="text-micro font-mono font-bold text-txt-primary uppercase tracking-widest">BEAR_CASES</h5>
             </div>
-            <div className="space-y-2">
-              {data.bear_cases.slice(0, 2).map((bearCase: BearCase, index: number) => {
-                const severityColor = {
-                  'High': 'bg-destructive text-destructive-foreground',
-                  'Medium': 'bg-warning text-warning-foreground',
-                  'Low': 'bg-muted text-muted-foreground'
-                }[bearCase.severity] || 'bg-muted';
+            <div className="flex flex-col gap-2">
+              {data.bear_cases.map((bearCase: BearCase, index: number) => {
+                const severityConfig = {
+                  'High': { color: 'text-kill', bg: 'bg-kill/10', border: 'border-kill/30' },
+                  'Medium': { color: 'text-accent', bg: 'bg-accent/10', border: 'border-accent/30' },
+                  'Low': { color: 'text-txt-muted', bg: 'bg-surface-3', border: 'border-border-strong' }
+                }[bearCase.severity] || { color: 'text-txt-muted', bg: 'bg-surface-2', border: 'border-border-base/50' };
                 
                 return (
-                  <div key={index} className="p-2 rounded bg-muted/30">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-sm text-foreground">{bearCase.argument}</span>
-                      <Badge className={cn("text-[10px] shrink-0", severityColor)}>
+                  <div key={index} className="flex flex-col border border-border-base/50 bg-surface-2/30 p-2 rounded-sm gap-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-micro font-mono text-txt-secondary leading-relaxed uppercase tracking-widest">{bearCase.argument}</span>
+                      <span className={cn("text-micro font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm shrink-0 border", severityConfig.bg, severityConfig.color, severityConfig.border)}>
                         {bearCase.severity}
-                      </Badge>
+                      </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Trigger: {bearCase.trigger}
-                    </p>
+                    {bearCase.trigger && (
+                      <div className="flex gap-2 items-center bg-surface-1 p-1.5 px-2 rounded-sm border border-border-base/50 mt-1">
+                        <span className="text-micro font-mono text-txt-muted uppercase tracking-widest font-bold shrink-0">TRIGGER:</span>
+                        <span className="text-micro font-mono text-txt-secondary leading-tight uppercase tracking-widest">{bearCase.trigger}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -132,17 +142,15 @@ const SkepticCard = ({ data }: SkepticCardProps) => {
 
         {/* Critiques */}
         {data.critiques && data.critiques.length > 0 && (
-          <div className="mb-4">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">
-              Key Critiques
-            </p>
-            <ul className="space-y-1">
-              {data.critiques.slice(0, 2).map((critique: Critique, index: number) => (
-                <li key={index} className="text-sm text-muted-foreground">
-                  <span className="text-foreground font-medium">{critique.critique}</span>
+          <div className="flex flex-col gap-3">
+            <h5 className="text-micro font-mono font-bold text-txt-primary uppercase tracking-widest border-b border-border-base/50 pb-1">KEY_CRITIQUES</h5>
+            <ul className="flex flex-col gap-3">
+              {data.critiques.map((critique: Critique, index: number) => (
+                <li key={index} className="flex flex-col gap-1.5 border-l-2 border-border-strong pl-3">
+                  <span className="text-micro font-mono text-txt-primary leading-relaxed uppercase tracking-widest">{critique.critique}</span>
                   {critique.assumption_challenged && (
-                    <span className="text-xs text-muted-foreground/80 ml-1">
-                      (challenges: {critique.assumption_challenged})
+                    <span className="text-micro font-mono text-txt-muted uppercase tracking-widest opacity-80">
+                      // CHALLENGES_ASSUMPTION: {critique.assumption_challenged}
                     </span>
                   )}
                 </li>
@@ -153,16 +161,16 @@ const SkepticCard = ({ data }: SkepticCardProps) => {
 
         {/* Hidden Risks */}
         {data.hidden_risks && data.hidden_risks.length > 0 && (
-          <div className="mb-4">
-            <div className="flex items-center gap-1 mb-2">
-              <AlertTriangle className="h-3 w-3 text-warning" />
-              <span className="text-xs text-warning font-medium uppercase tracking-wider">Hidden Risks</span>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 border-b border-border-base/50 pb-1">
+              <AlertTriangle className="h-3 w-3 text-accent" />
+              <h5 className="text-micro font-mono font-bold text-accent uppercase tracking-widest">HIDDEN_RISKS</h5>
             </div>
-            <ul className="space-y-1">
-              {data.hidden_risks.slice(0, 2).map((risk: string, index: number) => (
-                <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                  <span className="text-warning">•</span>
-                  <span>{risk}</span>
+            <ul className="flex flex-col gap-2 mt-1">
+              {data.hidden_risks.map((risk: string, index: number) => (
+                <li key={index} className="flex items-start gap-2">
+                  <span className="text-accent text-micro mt-0.5 font-bold">{`>`}</span>
+                  <span className="text-micro font-mono text-txt-secondary leading-relaxed uppercase tracking-widest">{risk}</span>
                 </li>
               ))}
             </ul>
@@ -171,25 +179,25 @@ const SkepticCard = ({ data }: SkepticCardProps) => {
 
         {/* What Would Change Mind */}
         {data.would_change_mind && data.would_change_mind.length > 0 && (
-          <div className="pt-3 border-t border-border">
-            <div className="flex items-center gap-1 mb-2">
-              <CheckCircle className="h-3 w-3 text-success" />
-              <span className="text-xs text-success font-medium uppercase tracking-wider">
-                Would Change Skeptic&apos;s Mind
-              </span>
+          <div className="flex flex-col gap-3 pt-4 border-t border-border-base/50">
+            <div className="flex items-center gap-2 border-b border-border-base/50 pb-1">
+              <CheckCircle className="h-3 w-3 text-bull" />
+              <h5 className="text-micro font-mono font-bold text-bull uppercase tracking-widest">
+                INVALIDATION_CRITERIA
+              </h5>
             </div>
-            <ul className="space-y-1">
-              {data.would_change_mind.slice(0, 2).map((item: string, index: number) => (
-                <li key={index} className="text-xs text-muted-foreground flex items-start gap-2">
-                  <span className="text-success">✓</span>
-                  <span>{item}</span>
+            <ul className="flex flex-col gap-2 mt-1">
+              {data.would_change_mind.map((item: string, index: number) => (
+                <li key={index} className="flex items-start gap-2">
+                  <span className="text-bull text-micro mt-0.5 font-bold uppercase tracking-widest shrink-0">{`[ OK ]`}</span>
+                  <span className="text-micro font-mono text-txt-secondary leading-relaxed uppercase tracking-widest">{item}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

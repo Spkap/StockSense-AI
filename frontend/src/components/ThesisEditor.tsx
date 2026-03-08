@@ -1,11 +1,12 @@
 /**
  * ThesisEditor - Modal for creating/editing investment theses
  * Stage 3: User Belief System
+ * 
+ * Obsidian Terminal styled — monochrome, dense, mechanical.
  */
 
 import { useState, useEffect } from 'react';
 import { X, Save, Loader2, AlertTriangle } from 'lucide-react';
-import { Card, CardContent, CardHeader } from './ui/card';
 import { Button } from './ui/button';
 import { useAuth } from '../context/AuthContext';
 import { useCreateThesis, useUpdateThesis } from '../api/theses';
@@ -19,9 +20,9 @@ interface ThesisEditorProps {
 }
 
 const CONVICTION_LEVELS = [
-  { value: 'low', label: 'Low', description: 'Speculative or uncertain' },
-  { value: 'medium', label: 'Medium', description: 'Reasonable confidence' },
-  { value: 'high', label: 'High', description: 'Strong conviction' },
+  { value: 'low', label: 'LOW', description: 'Speculative' },
+  { value: 'medium', label: 'MED', description: 'Reasonable' },
+  { value: 'high', label: 'HIGH', description: 'Strong' },
 ] as const;
 
 export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }: ThesisEditorProps) {
@@ -52,18 +53,18 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
   if (!user) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <Card className="w-full max-w-md mx-4 shadow-2xl">
-          <CardContent className="p-6 text-center">
-            <AlertTriangle className="h-12 w-12 text-warning mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Sign in Required</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              You need to sign in to save investment theses.
+        <div className="w-full max-w-md mx-4 border border-border-base bg-surface-1 rounded-sm overflow-hidden">
+          <div className="p-6 text-center">
+            <AlertTriangle className="h-12 w-12 text-accent mx-auto mb-4" />
+            <h3 className="text-lg font-mono font-bold text-txt-primary mb-2 uppercase tracking-wider">AUTH_REQUIRED</h3>
+            <p className="text-micro font-mono text-txt-muted uppercase tracking-widest mb-4">
+              Sign in required to save theses.
             </p>
-            <Button variant="outline" onClick={onClose}>
-              Close
+            <Button variant="outline" onClick={onClose} className="font-mono text-micro uppercase tracking-widest border-border-base rounded-sm">
+              [CLOSE]
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -112,28 +113,30 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <Card className="w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="relative pb-2 border-b border-border">
+      <div className="w-full max-w-lg mx-4 border border-border-base bg-surface-1 rounded-sm max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="relative border-b border-border-base bg-surface-2 px-4 py-3">
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 p-1 rounded-full hover:bg-muted transition-colors"
+            className="absolute right-3 top-3 p-1 rounded-sm text-txt-muted hover:text-txt-primary hover:bg-surface-3 transition-colors"
           >
-            <X className="h-5 w-5 text-muted-foreground" />
+            <X className="h-4 w-4" />
           </button>
-          <h2 className="text-xl font-bold">
-            {existingThesis ? 'Edit' : 'Create'} Thesis: {ticker}
+          <h2 className="text-sm font-mono font-bold tracking-widest uppercase text-txt-primary">
+            {existingThesis ? 'EDIT' : 'CREATE'}_THESIS: {ticker}
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-micro font-mono text-txt-muted uppercase tracking-widest mt-1">
             Record why you care about this asset
           </p>
-        </CardHeader>
+        </div>
 
-        <CardContent className="pt-4">
+        {/* Form */}
+        <div className="p-4 bg-canvas">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Thesis Summary */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Why do you care about {ticker}?
+              <label className="text-micro font-mono font-bold uppercase tracking-widest text-txt-secondary">
+                THESIS_SUMMARY
               </label>
               <textarea
                 value={thesisSummary}
@@ -142,14 +145,14 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
                 required
                 minLength={10}
                 rows={4}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                className="w-full px-3 py-2 rounded-sm border border-border-base bg-surface-1 text-sm font-mono text-txt-primary placeholder:text-txt-muted/50 focus:outline-none focus:border-border-focus resize-none"
               />
             </div>
 
             {/* Conviction Level */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Conviction Level
+              <label className="text-micro font-mono font-bold uppercase tracking-widest text-txt-secondary">
+                CONVICTION_LEVEL
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {CONVICTION_LEVELS.map((level) => (
@@ -157,14 +160,14 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
                     key={level.value}
                     type="button"
                     onClick={() => setConvictionLevel(level.value)}
-                    className={`p-3 rounded-lg border text-center transition-colors ${
+                    className={`p-3 rounded-sm border text-center transition-colors ${
                       convictionLevel === level.value
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:border-muted-foreground'
+                        ? 'border-accent bg-accent/10 text-accent'
+                        : 'border-border-base hover:border-border-strong bg-surface-1 text-txt-muted hover:text-txt-secondary'
                     }`}
                   >
-                    <span className="block text-sm font-medium">{level.label}</span>
-                    <span className="block text-xs text-muted-foreground mt-0.5">
+                    <span className="block text-micro font-mono font-bold uppercase tracking-widest">{level.label}</span>
+                    <span className="block text-micro font-mono text-txt-muted/70 mt-0.5 uppercase tracking-wider">
                       {level.description}
                     </span>
                   </button>
@@ -174,53 +177,53 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
 
             {/* Kill Criteria */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Kill Criteria (one per line)
+              <label className="text-micro font-mono font-bold uppercase tracking-widest text-txt-secondary">
+                KILL_CRITERIA
               </label>
-              <p className="text-xs text-muted-foreground">
-                What conditions would make you exit this position?
+              <p className="text-micro font-mono text-txt-muted uppercase tracking-wider">
+                What conditions would make you exit? One per line.
               </p>
               <textarea
                 value={killCriteria}
                 onChange={(e) => setKillCriteria(e.target.value)}
                 placeholder="Revenue growth slows below 10%&#10;CEO leaves the company&#10;Major competitor enters market"
                 rows={3}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none font-mono text-sm"
+                className="w-full px-3 py-2 rounded-sm border border-border-base bg-surface-1 text-sm font-mono text-txt-primary placeholder:text-txt-muted/50 focus:outline-none focus:border-border-focus resize-none"
               />
             </div>
 
             {/* Error */}
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <p className="text-micro font-mono font-bold tracking-widest text-kill uppercase">{error}</p>
             )}
 
             {/* Actions */}
             <div className="flex gap-2 pt-2">
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 onClick={onClose}
                 disabled={isLoading}
-                className="flex-1"
+                className="flex-1 font-mono text-micro uppercase tracking-widest border border-border-base rounded-sm h-9 hover:bg-surface-2"
               >
-                Cancel
+                [CANCEL]
               </Button>
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 font-mono text-micro uppercase tracking-widest border border-accent bg-accent/10 text-accent hover:bg-accent/20 rounded-sm h-9"
               >
                 {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
-                  <Save className="h-4 w-4" />
+                  <Save className="h-3 w-3" />
                 )}
-                {existingThesis ? 'Update' : 'Save'} Thesis
+                {existingThesis ? '[UPDATE]' : '[SAVE]'}
               </Button>
             </div>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
