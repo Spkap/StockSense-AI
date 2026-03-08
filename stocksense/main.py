@@ -253,7 +253,7 @@ async def analyze_stock(
                 if cached_analysis.get("timestamp"):
                     try:
                         cached_time = datetime.fromisoformat(cached_analysis["timestamp"])
-                        age_seconds = (datetime.now(timezone.utc) - cached_time.replace(tzinfo=timezone.utc) if cached_time.tzinfo is None else cached_time).total_seconds()
+                        age_seconds = (datetime.now(timezone.utc) - (cached_time.replace(tzinfo=timezone.utc) if cached_time.tzinfo is None else cached_time)).total_seconds()
                         cache_age_hours = round(age_seconds / 3600, 1)
                     except (ValueError, TypeError):
                         pass
