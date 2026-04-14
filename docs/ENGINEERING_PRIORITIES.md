@@ -1,6 +1,6 @@
 # StockSense — Engineering Priority Master Document
 
-> **Last updated:** 2026-04-15  
+> **Last updated:** 2026-04-15 (rev 2 — AI systems + finance domain gaps added)  
 > **Architecture Score:** C+ (74%) — Real pipeline, critical reliability gaps  
 > **Goal:** Fix to B+ (85%+) for recruiter demos. Then elevate to showcase-level AI engineering.
 
@@ -433,6 +433,321 @@ Add integration tests that test the real pipeline end-to-end (not unit by unit).
 
 ---
 
+## PHASE 3-B — STAFF ENGINEER CONCERNS (Fix before calling this "production-grade")
+
+> These are architectural debt items a staff engineer would flag in any serious code review.
+> They don't block demos but expose gaps in AI systems understanding.
+
+### P3F: LangGraph Is Cargo-Culted — Pipeline Isn't a True State Machine
+**File:** `stocksense/orchestration/react_flow.py`  
+**Severity:** [S3] Medium — LangGraph adds complexity with no benefit over sequential `await` calls  
+**What's wrong:** The current "ReAct loop" calls tools in sequence, not based on state transitions. There are no conditional edges based on agent decisions. It's `tool_A() → tool_B() → tool_C()` — a function call chain with LangGraph as the wrapper.  
+**What LangGraph is actually for:**
+```
+Real LangGraph usage:
+  state["phase"] == "needs_more_data" → fetch_data_node
+  state["phase"] == "ready_to_debate" → debate_node
+  state["confidence"] < 0.4          → request_human_review_node
+```
+**Fix path:** Either (a) add real conditional routing that uses agent decisions to branch the graph, or (b) remove LangGraph entirely and use `asyncio.gather()` + sequential awaits — simpler, faster, more readable.  
+**Effort:** 2 days for option (a), 1 day for option (b)  
+**Recruiter signal:** A senior engineer will immediately ask "why LangGraph?" — have a real answer
+
+---
+
+### P3-G: ReAct Loop Is Not Machine-Parseable
+**File:** `stocksense/orchestration/react_flow.py`  
+**Severity:** [S3] Medium — "ReAct" without structured Thought/Action parsing is just prompted iteration  
+**What's wrong:** True ReAct (Yao et al. 2022) requires the agent to output structured reasoning that the framework parses and routes. Currently the loop runs 10 iterations regardless of agent state, with no structured output like:
+```xml
+<Thought>I have price data but no sentiment yet. I should analyze headlines next.</Thought>
+<Action>analyze_sentiment</Action>
+<ActionInput>{"headlines": [...], "ticker": "AAPL"}</ActionInput>
+```
+**Fix:**
+```python
+class ReActStep(BaseModel):
+    thought: str  # agent's reasoning
+    action: Literal["analyze_sentiment", "fetch_price", "generate_skeptic", "finish"]
+    action_input: dict
+    observation: str | None = None  # filled after tool execution
+
+# In the loop:
+step: ReActStep = structured_llm.invoke(messages)
+if step.action == "finish":
+    break
+result = await execute_tool(step.action, step.action_input)
+step.observation = str(result)
+```
+**Effort:** 3 days  
+**Why impressive:** Structured ReAct is how you build auditable, debuggable agents — each step is logged, queryable, replayable
+
+---
+
+### P3-H: Prompt Management — All Prompts Hardcoded, Zero Versioning
+**Severity:** [S3] Medium — Can't A/B test prompts, can't roll back a bad prompt change  
+**Where it hurts:** Bull/Bear/Skeptic/Synthesizer all have prompts embedded in f-strings inside methods. No central registry, no version tags, no diff visibility.  
+**Fix:**
+```python
+# stocksense/core/prompts.py
+PROMPTS = {
+    "bull_analyst_v1": """You are a bullish equity analyst...""",
+    "bear_analyst_v1": """You are a bearish equity analyst...""",
+    "synthesizer_v2": """...""",  # v2 after improvement
+}
+
+def get_prompt(name: str, version: str = "latest") -> str:
+    ...
+```
+Or use LangSmith Hub if going full production.  
+**Effort:** 4 hours  
+**Recruiter signal:** Production AI teams always have prompt management — it's where most quality improvements happen
+
+---
+
+### P3-I: Evidence Grader Formula Is Unjustified
+**File:** `stocksense/agents/synthesizer.py:272-278`  
+**Severity:** [S4] Low — `credibility = confidence * (1 - rebuttal_strength * 0.5)` is just invented math  
+**What's wrong:** The `0.5` multiplier has no theoretical basis. Bayesian evidence weighting, debate scoring rubrics, or even simpler normalized averaging would be more defensible.  
+**Fix:** Replace with explicit Bayesian update:
+```python
+def _update_credibility(self, prior: float, rebuttal_strength: float, evidence_quality: float) -> float:
+    """
+    Bayesian-inspired update: strong evidence + weak rebuttal = high posterior.
+    prior: analyst's stated confidence (0-1)
+    rebuttal_strength: how strong the counter-argument was (0-1)
+    evidence_quality: how well data supports the claim (0-1)
+    """
+    # Posterior increases with evidence quality, decreases with rebuttal strength
+    likelihood_ratio = evidence_quality / max(rebuttal_strength, 0.1)
+    posterior = (prior * likelihood_ratio) / ((prior * likelihood_ratio) + (1 - prior))
+    return round(posterior, 2)
+```
+**Effort:** 2 hours  
+
+---
+
+### P3-J: `_find_matching_rebuttal()` Uses 3-Word Substring Match
+**File:** `stocksense/agents/synthesizer.py` (rebuttal matching function)  
+**Severity:** [S4] Low — Naive substring match misses semantic equivalence, causes wrong rebuttal pairing  
+**What's wrong:**
+```python
+# current (brittle)
+for word in claim.split()[:3]:
+    if word in rebuttal:
+        return rebuttal
+```
+**Fix:** Use semantic similarity (already have Gemini — use embeddings):
+```python
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
+
+def _find_matching_rebuttal(self, claim: str, rebuttals: list[str]) -> str | None:
+    claim_emb = embeddings.embed_query(claim)
+    rebuttal_embs = embeddings.embed_documents(rebuttals)
+    similarities = [cosine_similarity(claim_emb, r) for r in rebuttal_embs]
+    best_idx = max(range(len(similarities)), key=lambda i: similarities[i])
+    return rebuttals[best_idx] if similarities[best_idx] > 0.7 else None
+```
+**Effort:** 2 hours  
+**Why impressive:** Semantic rebuttal matching is a real NLP problem — shows depth beyond basic LLM prompting
+
+---
+
+## PHASE 3-C — AI SYSTEMS ENGINEERING GAPS
+
+> These are the gaps between "LLM app" and "AI system." Recruiters at AI-native companies look for exactly these.
+
+### P3-K: No Evaluation Framework (No Evals = Flying Blind)
+**Severity:** [S2] High — Cannot measure whether prompt changes improve or regress quality  
+**What's missing:** There is no way to know if the agents are performing well. No benchmark, no golden test set, no regression tests against known-good outputs.  
+**What to build:**
+```python
+# tests/evals/eval_runner.py
+GOLDEN_SET = [
+    {
+        "ticker": "AAPL",
+        "headlines": ["Apple beats Q4 earnings", "iPhone sales slow in China"],
+        "expected": {
+            "sentiment": "bullish_with_concerns",
+            "confidence_range": (0.55, 0.75),
+            "must_mention_risks": ["china", "iphone"],
+        }
+    },
+    # 20-30 such cases
+]
+
+def run_evals(golden_set: list) -> EvalReport:
+    for case in golden_set:
+        result = run_analysis(case["ticker"], mock_data=case)
+        score = evaluate_against_expected(result, case["expected"])
+    return EvalReport(pass_rate=..., avg_confidence_error=..., risk_coverage=...)
+```
+Run evals before and after every prompt change. Gate deploys on eval regression.  
+**Effort:** 3 days to build eval infrastructure  
+**Recruiter signal:** This is what separates AI app developers from AI engineers — evals are the discipline
+
+---
+
+### P3-L: No Token Usage Tracking
+**Severity:** [S3] Medium — No visibility into cost, latency, or per-analysis token consumption  
+**What's missing:** Every `llm.invoke()` call burns tokens with no accounting. Can't optimize, can't bill users, can't cap runaway analyses.  
+**Fix:**
+```python
+# stocksense/core/llm_client.py
+from dataclasses import dataclass, field
+
+@dataclass
+class TokenUsage:
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0  # Gemini Flash: $0.075/M input, $0.30/M output
+
+class TrackedLLM:
+    def __init__(self, llm, session_id: str):
+        self.llm = llm
+        self.session_id = session_id
+        self.usage = TokenUsage()
+    
+    def invoke(self, messages, **kwargs):
+        response = self.llm.invoke(messages, **kwargs)
+        # Extract usage from response metadata
+        if hasattr(response, "usage_metadata"):
+            self.usage.prompt_tokens += response.usage_metadata.input_tokens
+            self.usage.completion_tokens += response.usage_metadata.output_tokens
+        return response
+```
+Surface per-analysis token cost in API response headers and in Supabase `analysis_cache`.  
+**Effort:** 4 hours  
+
+---
+
+### P3-M: No Replay / Audit Trail
+**Severity:** [S3] Medium — Cannot reproduce or debug a specific analysis run  
+**What's missing:** Every analysis run is opaque. If an agent returns a bad verdict, you can't inspect what inputs it saw, what it reasoned, or which step went wrong.  
+**What to build:**
+```python
+# Supabase table: analysis_traces
+CREATE TABLE analysis_traces (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticker TEXT NOT NULL,
+    run_id TEXT NOT NULL,  -- correlation_id
+    step_name TEXT,        -- "bull_analyst", "bear_analyst", "synthesizer"
+    prompt_snapshot TEXT,  -- exact prompt sent
+    response_snapshot TEXT,-- exact LLM response
+    token_count INT,
+    duration_ms INT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+Log each agent step. Expose `/debug/trace/{run_id}` endpoint for inspection.  
+**Effort:** 1 day  
+**Recruiter signal:** Audit trails are required for any regulated use case (finance especially) — shows domain awareness
+
+---
+
+## PHASE 3-D — FINANCE/DOMAIN GAPS
+
+> These matter for the product story. Current agents sound smart but miss fundamental finance concepts.
+
+### P3-N: Price Data Collected But Never Used By Agents
+**Severity:** [S2] High — yfinance fetches OHLCV data every analysis. Agents never see it.  
+**Evidence:** `data_collectors.py` fetches price history. `react_flow.py:198` stores it in state. Agents' system prompts reference "fundamentals" but never "price_data" or "technicals."  
+**What's missing:** Zero technical analysis. No trend detection, no volatility, no momentum signals.  
+**Fix — Minimal Technical Analysis Layer:**
+```python
+# stocksense/core/technical_analysis.py
+import pandas as pd
+
+def compute_technical_signals(price_data: list[dict]) -> dict:
+    """Compute basic TA signals from OHLCV data."""
+    df = pd.DataFrame(price_data)
+    df["sma_20"] = df["close"].rolling(20).mean()
+    df["sma_50"] = df["close"].rolling(50).mean()
+    df["rsi"] = compute_rsi(df["close"], period=14)
+    df["volatility_30d"] = df["close"].pct_change().rolling(30).std() * (252 ** 0.5)
+    
+    latest = df.iloc[-1]
+    return {
+        "trend": "uptrend" if latest["sma_20"] > latest["sma_50"] else "downtrend",
+        "rsi": round(latest["rsi"], 1),
+        "rsi_signal": "overbought" if latest["rsi"] > 70 else "oversold" if latest["rsi"] < 30 else "neutral",
+        "annualized_volatility": round(latest["volatility_30d"], 3),
+        "price_vs_sma20": round((df["close"].iloc[-1] / latest["sma_20"] - 1) * 100, 2),  # % above/below
+    }
+```
+Inject `technical_signals` dict into Bull/Bear agent context alongside fundamentals.  
+**Effort:** 4 hours  
+**Recruiter signal:** Shows you understand what financial analysis actually requires — technical and fundamental, not just headlines
+
+---
+
+### P3-O: Sentiment Analysis Is Naive Lexical — No Magnitude, Credibility, or "Priced-In" Weighting
+**File:** `stocksense/agents/analyzer.py`  
+**Severity:** [S3] Medium — Current sentiment = positive/negative/neutral label + confidence score. That's it.  
+**What's missing:**
+1. **Magnitude**: "Apple earnings beat by $0.01" vs "Apple earnings beat by $1.50" — same sentiment label, wildly different signal
+2. **Source credibility**: Reuters headline ≠ random blog post
+3. **Priced-in assessment**: Strong positive earnings that were already priced in → no price movement
+4. **Recency decay**: A week-old headline matters less than today's
+
+**Fix — Enriched Sentiment Schema:**
+```python
+class HeadlineAnalysis(BaseModel):
+    headline: str
+    sentiment: Literal["bullish", "bearish", "neutral"]
+    magnitude: float  # 0.0-1.0 — how significant is this news?
+    credibility: float  # 0.0-1.0 — source quality
+    likely_priced_in: bool  # was this expected by consensus?
+    recency_weight: float  # 1.0 = today, 0.5 = 3 days ago
+    
+    @property
+    def weighted_signal(self) -> float:
+        base = 1.0 if self.sentiment == "bullish" else -1.0 if self.sentiment == "bearish" else 0.0
+        surprise_factor = 1.0 if not self.likely_priced_in else 0.3
+        return base * self.magnitude * self.credibility * self.recency_weight * surprise_factor
+```
+**Effort:** 1 day  
+
+---
+
+### P3-P: No Sector Context or Peer Comparison
+**Severity:** [S3] Medium — Analyzing AAPL without reference to tech sector performance is weak analysis  
+**What's missing:** An equity analyst always compares a stock to its peers. "AAPL down 5%" is very different news if the entire tech sector is down 8% vs. flat.  
+**Fix — Sector Context Injection:**
+```python
+# stocksense/core/sector_context.py
+SECTOR_ETFS = {
+    "Technology": "XLK",
+    "Healthcare": "XLV", 
+    "Financials": "XLF",
+    "Energy": "XLE",
+    "Consumer Discretionary": "XLY",
+}
+
+def get_sector_performance(ticker: str, period: str = "1mo") -> dict:
+    """Get stock's sector ETF performance for relative comparison."""
+    sector = get_sector_for_ticker(ticker)  # from yfinance .info
+    etf = SECTOR_ETFS.get(sector, "SPY")
+    
+    stock_return = get_return(ticker, period)
+    sector_return = get_return(etf, period)
+    
+    return {
+        "sector": sector,
+        "stock_return_1mo": stock_return,
+        "sector_return_1mo": sector_return,
+        "alpha": stock_return - sector_return,  # outperform/underperform
+        "vs_sp500": stock_return - get_return("SPY", period),
+    }
+```
+Inject `sector_context` into synthesizer prompt. Synthesizer should note whether the thesis is stock-specific or sector-wide.  
+**Effort:** 3 hours  
+
+---
+
 ## PHASE 4 — DEFERRED (Save for Later, Full Details Below)
 
 > Too big for current sprint. Fully specced so future you can pick up immediately.
@@ -499,37 +814,53 @@ Debate → Synthesis → MetaEvaluator → confidence_adjustment
 ## Execution Order (Sprint Plan)
 
 ```
-Week 1 — Make it reliable (Phase 1 + 2A/2B/2C):
+Week 1 — Make it reliable (Phase 1 + quick wins):
   Day 1: P1-A (skeptic mock), P1-C (table name), P1-D (validation) — 2h total
   Day 2: P1-B (JSON parser utility) — 2h
   Day 3: P1-E (scheduler service role) — 1h
   Day 4: P2-A (retry logic with tenacity) — 3h
-  Day 5: P2-C (structured output) — 6h
+  Day 5: P2-C (structured output) → replaces P1-B after this (eliminate JSON parsing root cause)
 
-Week 2 — Make it impressive (Phase 2D-2E + Phase 3):
+Week 2 — Make it impressive (Phase 2 + Staff Engineer fixes):
   Day 1: P2-D (observability/correlation IDs) — 3h
   Day 2: P2-B (real information asymmetry) — 4h
-  Day 3: P3-B (LangGraph state cleanup) — 1 day
-  Day 4: P3-D (real streaming) — 2 days
-  Day 5: P3-E (test suite mocks) — 1 day
+  Day 3: P3-N (price data → technical analysis layer) — 4h  ← HIGH SIGNAL
+  Day 4: P3-H (prompt versioning) + P3-I (evidence formula) — 6h
+  Day 5: P3-K (eval framework — golden set + runner) — 1 day  ← HIRE signal
 
-Week 3+ — Deferred (P4-A through P4-E as time allows)
+Week 3 — Elevate to AI systems grade:
+  Day 1: P3-G (structured ReAct with Thought/Action parsing) — 3 days
+  Day 2-3: P3-F (LangGraph real conditional routing or replace with asyncio) — 2 days
+  Day 4: P3-L (token tracking) + P3-M (audit trail/replay) — 2 days
+  Day 5: P3-O (enriched sentiment with magnitude/credibility) — 1 day
+
+Week 4+ — Domain depth + architecture elevation:
+  P3-J (semantic rebuttal matching with embeddings)
+  P3-P (sector context + peer comparison)
+  P3-B (LangGraph typed sub-states cleanup)
+  P3-D (real streaming via astream_events)
+  P3-E (test suite mocks)
+  P3-A (agent memory — persistent priors)
+  P3-C (evidence-grounded synthesis)
+  P4-A through P4-E as time allows
 ```
 
 ---
 
-## Architecture Score After Phase 1+2
+## Architecture Score Projection
 
-| Dimension | Before | After Phase 1 | After Phase 2 |
-|-----------|--------|---------------|---------------|
-| Structural Integrity | 2.5 | 3.0 | 4.0 |
-| Scalability | 3.0 | 3.0 | 3.5 |
-| Security | 3.0 | 3.5 | 3.5 |
-| Performance | 3.0 | 3.0 | 3.5 |
-| Enterprise Readiness | 2.5 | 3.5 | 4.0 |
-| Operational Excellence | 3.0 | 3.5 | 4.0 |
-| Data Architecture | 3.0 | 3.5 | 4.0 |
-| **Overall** | **C+ 74%** | **B 81%** | **B+ 87%** |
+| Dimension | Now | After P1 | After P2 | After P3 (Full) |
+|-----------|-----|----------|----------|-----------------|
+| Structural Integrity | 2.5 | 3.0 | 4.0 | 4.5 |
+| Scalability | 3.0 | 3.0 | 3.5 | 4.0 |
+| Security | 3.0 | 3.5 | 3.5 | 4.0 |
+| Performance | 3.0 | 3.0 | 3.5 | 4.0 |
+| Enterprise Readiness | 2.5 | 3.5 | 4.0 | 4.5 |
+| Operational Excellence | 3.0 | 3.5 | 4.0 | 4.5 |
+| Data Architecture | 3.0 | 3.5 | 4.0 | 4.5 |
+| **Overall** | **C+ 74%** | **B 81%** | **B+ 87%** | **A- 92%** |
+
+> **A- requires:** Evals (P3-K), token tracking (P3-L), audit trail (P3-M), structured ReAct (P3-G), and real TA (P3-N). Not just polish — substantive engineering.
 
 ---
 
@@ -552,7 +883,20 @@ Week 3+ — Deferred (P4-A through P4-E as time allows)
 - Evidence-grounded synthesis ✓
 - Clean typed state machine ✓
 
-### The story you tell:
-> "I built a multi-agent debate system where a Bull and Bear analyst argue using different subsets of market data. A Synthesizer grades evidence quality and produces probability-weighted verdicts. Users define investment theses with kill criteria — the system monitors them 24/7 and alerts when the thesis is invalidated. Every LLM output is Pydantic-validated, retried on failure, and traced with correlation IDs."
+### After Phase 3-B and 3-C (Staff + AI Systems fixes):
+- Structured ReAct loop: every agent step has Thought/Action/Observation — fully auditable ✓
+- Eval framework: prompt changes gated by regression tests on golden set ✓
+- Full token usage accounting per analysis run ✓
+- Replay any past analysis by run ID ✓
+- Prompt versioning — every deployed prompt is tagged and diffable ✓
 
-That's a B+ engineer talking. After Phase 3, it's A-level.
+### After Phase 3-D (Finance domain):
+- Technical analysis layer: SMA/RSI/volatility injected into agent context ✓
+- Enriched sentiment: magnitude + credibility + priced-in assessment ✓
+- Sector context: stock alpha vs. sector ETF, not just absolute return ✓
+- Semantic rebuttal matching via embeddings (not 3-word substring) ✓
+
+### The story you tell (after Phase 3):
+> "I built a multi-agent debate system where Bull and Bear analysts see intentionally asymmetric market data — each only gets the signals that favor their thesis. A Skeptic agent stress-tests the consensus using actual sentiment data, not mock inputs. Every agent step is structured ReAct: Thought → Action → Observation, fully logged and replayable by correlation ID. The system has an eval framework — I maintain a golden test set and gate every prompt change on regression. LLM outputs are Pydantic-validated, retried on transient failures, and traced. Users define investment theses with kill criteria; the system monitors them 24/7 against live price and news data, including technical signals and sector-relative performance."
+
+That's a senior AI engineer talking. That's what gets you through the bar-raiser interview.
