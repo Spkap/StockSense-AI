@@ -74,9 +74,8 @@ def validate_ticker_exists(ticker: str) -> Tuple[bool, Optional[str]]:
         return True, None
         
     except Exception as e:
-        logger.warning(f"Error validating ticker {ticker}: {e}")
-        # Don't block on validation errors - let the analysis try anyway
-        return True, None
+        logger.warning(f"Ticker validation failed for {ticker}: {e}")
+        return False, f"Could not validate ticker '{ticker}'. Please check the symbol and try again."
 
 
 def validate_ticker(ticker: str, check_exists: bool = True) -> Tuple[bool, Optional[str]]:
