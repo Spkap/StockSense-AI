@@ -50,7 +50,11 @@ class AgentToolConfig:
             "market_expansion",
             "competitive_wins"
         ],
-        "data_ordering": "growth_first"
+        "data_ordering": "growth_first",
+        "headline_priority_keywords": [
+            "beat", "upgrade", "buy", "outperform", "record", "growth",
+            "expansion", "launch", "partnership", "raise", "strong", "dividend"
+        ],
     }
     
     # Bear Analyst prioritizes risk signals
@@ -72,7 +76,11 @@ class AgentToolConfig:
             "regulatory_risks",
             "margin_compression"
         ],
-        "data_ordering": "risk_first"
+        "data_ordering": "risk_first",
+        "headline_priority_keywords": [
+            "miss", "downgrade", "sell", "cut", "decline", "risk",
+            "concern", "loss", "investigation", "lawsuit", "recall", "weak", "disruption"
+        ],
     }
 
 
@@ -108,6 +116,7 @@ class BaseAnalystAgent(ABC):
         self.persona = config["persona"]
         self.fundamental_priority = config["fundamental_priority"]
         self.sentiment_focus = config["sentiment_focus"]
+        self.headline_priority_keywords: List[str] = config.get("headline_priority_keywords", [])
         
         try:
             self.llm = get_chat_llm(temperature=0.2)
@@ -179,6 +188,26 @@ class BaseAnalystAgent(ABC):
             **sentiment_analysis,
             "key_themes": scored_themes
         }
+
+    def filter_headlines_for_perspective(self, headlines: List[str]) -> List[str]:
+        """
+        Reorder headlines to surface perspective-relevant signals first.
+
+        Bull: positive catalysts (beats, upgrades, launches) come first.
+        Bear: risk signals (misses, downgrades, investigations) come first.
+
+        All headlines are preserved — just reordered. The LLM sees all of them
+        but the first few receive higher attention due to position bias.
+        """
+        priority = []
+        rest = []
+        for h in headlines:
+            h_lower = h.lower()
+            if any(kw in h_lower for kw in self.headline_priority_keywords):
+                priority.append(h)
+            else:
+                rest.append(h)
+        return priority + rest
     
     @abstractmethod
     async def analyze(
