@@ -9,6 +9,15 @@ from .config import get_newsapi_key, ConfigurationError
 logger = logging.getLogger("stocksense.data_collectors")
 
 
+class DataCollectionError(RuntimeError):
+    """Raised when a data source fetch fails due to infrastructure or API error.
+
+    Distinct from 'empty result' — this means the fetch itself broke.
+    Callers should surface this as an error state, not treat it as no data.
+    """
+    pass
+
+
 def get_news(ticker: str, days: int = 7) -> List[str]:
     """Fetch recent news headlines related to a stock ticker."""
     try:
@@ -41,10 +50,10 @@ def get_news(ticker: str, days: int = 7) -> List[str]:
 
     except ConfigurationError as e:
         logger.warning(f"NewsAPI key error for {ticker}: {e}")
-        return []
+        return []  # Config error = treat as no news (key not set up), don't block analysis
     except Exception as e:
-        logger.warning(f"Failed to fetch news for {ticker}: {e}")
-        return []
+        logger.error(f"News fetch failed for {ticker}: {e}", exc_info=True)
+        raise DataCollectionError(f"News fetch timeout or error for {ticker}: {e}") from e
 
 
 def get_price_history(ticker: str, period: str = "1mo") -> Optional[object]:
@@ -59,8 +68,8 @@ def get_price_history(ticker: str, period: str = "1mo") -> Optional[object]:
         return history
 
     except Exception as e:
-        logger.warning(f"Failed to fetch price history for {ticker}: {e}")
-        return None
+        logger.error(f"Price history fetch failed for {ticker}: {e}", exc_info=True)
+        raise DataCollectionError(f"Could not fetch price history for {ticker}: {e}") from e
 
 
 def get_fundamental_data(ticker: str) -> Optional[dict]:
@@ -108,8 +117,8 @@ def get_fundamental_data(ticker: str) -> Optional[dict]:
         
         return result
     except Exception as e:
-        logger.error(f"Error fetching fundamentals for {ticker}: {e}")
-        return None
+        logger.error(f"Fundamental data fetch failed for {ticker}: {e}", exc_info=True)
+        raise DataCollectionError(f"Could not fetch fundamental data for {ticker}: {e}") from e
 
 
 if __name__ == '__main__':
