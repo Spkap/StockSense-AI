@@ -15,6 +15,21 @@ from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 
+from pydantic import BaseModel, Field
+from typing import Literal as _Literal
+
+
+class SynthesisLLMOutput(BaseModel):
+    """Pydantic schema for synthesizer LLM output via with_structured_output."""
+    bull_probability: float = Field(ge=0.0, le=1.0)
+    base_probability: float = Field(ge=0.0, le=1.0)
+    bear_probability: float = Field(ge=0.0, le=1.0)
+    recommendation: _Literal["Strong Buy", "Buy", "Hold", "Sell", "Strong Sell"]
+    conviction: float = Field(ge=0.0, le=1.0)
+    decisive_factors: list[str]
+    unresolved_questions: list[str]
+    reasoning: str
+
 try:
     from langchain_google_genai import GoogleGenerativeAIEmbeddings
 except Exception:
@@ -402,16 +417,19 @@ The three probabilities should sum to approximately 1.0.
 Return ONLY the JSON object."""
 
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content.strip()
-            
-            from stocksense.core.llm_parser import parse_llm_json, LLMParseError
-            try:
-                return parse_llm_json(content)
-            except LLMParseError as e:
-                logger.error(f"Synthesis JSON parse failed: {e}")
-                raise
-            
+            structured_llm = self.llm.with_structured_output(SynthesisLLMOutput)
+            analysis: SynthesisLLMOutput = structured_llm.invoke(prompt)
+            return {
+                "bull_probability": analysis.bull_probability,
+                "base_probability": analysis.base_probability,
+                "bear_probability": analysis.bear_probability,
+                "recommendation": analysis.recommendation,
+                "conviction": analysis.conviction,
+                "decisive_factors": analysis.decisive_factors,
+                "unresolved_questions": analysis.unresolved_questions,
+                "reasoning": analysis.reasoning,
+            }
+
         except Exception as e:
             logger.error(f"Synthesis generation failed: {e}")
             return {
