@@ -10,9 +10,16 @@ Implements the Evidence Grader protocol to prevent sycophancy.
 
 import json
 import logging
+import math
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
+
+try:
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+except Exception:
+    GoogleGenerativeAIEmbeddings = None  # type: ignore[assignment,misc]
+
 import uuid
 
 from stocksense.core.config import get_chat_llm, ConfigurationError
@@ -254,28 +261,74 @@ class Synthesizer:
         return grades
     
     def _find_matching_rebuttal(
-        self, 
-        claim: Dict[str, Any], 
-        rebuttals: List[Dict[str, Any]]
+        self,
+        claim: Dict[str, Any],
+        rebuttals: List[Dict[str, Any]],
     ) -> Optional[Dict[str, Any]]:
-        """Find a rebuttal that targets this claim."""
-        claim_text = claim.get("statement", "").lower()
-        
-        for rebuttal in rebuttals:
-            target = rebuttal.get("target_claim", "").lower()
-            # Simple matching - in production, use semantic similarity
-            if any(word in target for word in claim_text.split()[:3]):
-                return rebuttal
-        
-        return None
+        """
+        Find the rebuttal most semantically similar to the claim.
+
+        Uses Google text-embedding-004 (already available via langchain-google-genai).
+        Falls back to substring match if the embedding call fails.
+        Threshold: cosine similarity must exceed 0.65 to be considered a match.
+        """
+        if not rebuttals:
+            return None
+
+        claim_text = claim.get("statement", "")
+        rebuttal_texts = [r.get("target_claim", "") for r in rebuttals]
+
+        try:
+            from stocksense.core.config import get_google_api_key
+
+            emb = GoogleGenerativeAIEmbeddings(
+                model="models/text-embedding-004",
+                google_api_key=get_google_api_key(),
+            )
+            claim_vec = emb.embed_query(claim_text)
+            rebuttal_vecs = emb.embed_documents(rebuttal_texts)
+
+            def cosine(a: list, b: list) -> float:
+                dot = sum(x * y for x, y in zip(a, b))
+                mag_a = math.sqrt(sum(x * x for x in a))
+                mag_b = math.sqrt(sum(x * x for x in b))
+                return dot / (mag_a * mag_b) if mag_a * mag_b > 0 else 0.0
+
+            sims = [cosine(claim_vec, rv) for rv in rebuttal_vecs]
+            best_idx = max(range(len(sims)), key=lambda i: sims[i])
+
+            if sims[best_idx] > 0.65:
+                return rebuttals[best_idx]
+            return None
+
+        except Exception:
+            # Fallback: original 3-word substring match
+            claim_lower = claim_text.lower()
+            for rebuttal in rebuttals:
+                target = rebuttal.get("target_claim", "").lower()
+                if any(word in target for word in claim_lower.split()[:3]):
+                    return rebuttal
+            return None
     
-    def _calculate_credibility(self, claim_confidence: float, rebuttal_strength: float) -> float:
+    def _calculate_credibility(self, prior: float, rebuttal_strength: float) -> float:
         """
-        Calculate final credibility of a claim after considering rebuttals.
-        
-        Formula: credibility = claim_confidence * (1 - rebuttal_strength * 0.5)
+        Bayesian-inspired credibility update.
+
+        Strong evidence + weak rebuttal → high posterior.
+        Weak evidence + strong rebuttal → low posterior.
+
+        Formula: posterior = (prior * LR) / (prior * LR + (1 - prior))
+        where LR = evidence_quality / max(rebuttal_strength, 0.1)
+
+        We use `prior` as both the stated confidence AND the evidence quality
+        proxy (a high-confidence claim is assumed to be better evidenced).
+        The rebuttal caps at 0.9 to prevent division instability.
         """
-        return claim_confidence * (1 - rebuttal_strength * 0.5)
+        evidence_quality = prior
+        rebuttal_clipped = min(max(rebuttal_strength, 0.1), 0.9)
+        lr = evidence_quality / rebuttal_clipped
+        posterior = (prior * lr) / ((prior * lr) + max(1 - prior, 1e-9))
+        return round(min(max(posterior, 0.0), 1.0), 4)
     
     def _calculate_argument_strength(
         self, 
