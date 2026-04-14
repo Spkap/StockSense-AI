@@ -63,7 +63,18 @@ def fetch_news_headlines(ticker: str, days: int = 7) -> Dict:
     """
     try:
         ticker = ticker.upper().strip()
-        headlines = get_news(ticker, days=days)
+        from stocksense.core.data_collectors import DataCollectionError
+        try:
+            headlines = get_news(ticker, days=days)
+        except DataCollectionError as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "headlines": [],
+                "count": 0,
+                "ticker": ticker,
+                "days": days
+            }
 
         # Consider retrieval successful only if we have at least one headline.
         if headlines:
@@ -108,7 +119,19 @@ def fetch_price_data(ticker: str, period: str = "1mo") -> Dict:
     """
     try:
         ticker = ticker.upper().strip()
-        df = get_price_history(ticker, period=period)
+        from stocksense.core.data_collectors import DataCollectionError
+        try:
+            df = get_price_history(ticker, period=period)
+        except DataCollectionError as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "price_data": [],
+                "ticker": ticker,
+                "period": period,
+                "data_points": 0,
+                "has_data": False
+            }
 
         if df is None or df.empty:
             return {
@@ -172,7 +195,15 @@ def fetch_fundamentals(ticker: str) -> Dict:
     """
     try:
         ticker = ticker.upper().strip()
-        data = get_fundamental_data(ticker)
+        from stocksense.core.data_collectors import DataCollectionError
+        try:
+            data = get_fundamental_data(ticker)
+        except DataCollectionError as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "ticker": ticker
+            }
 
         if not data or not data.get("info"):
             return {
@@ -322,23 +353,28 @@ def generate_skeptic_critique(ticker: str, headlines: List[str], primary_sentime
         from stocksense.agents.skeptic_agent import generate_skeptic_analysis, format_skeptic_analysis
         from stocksense.core.schemas import SentimentAnalysisResult
         
-        # Create minimal primary analysis for skeptic to critique
-        mock_primary = SentimentAnalysisResult(
+        # Build primary analysis from the sentiment data passed in.
+        # The tool signature only receives sentiment/confidence scalars, so we
+        # reconstruct enough context for the skeptic to do real work.
+        # headline_analyses and key_themes are not available as tool args —
+        # they live in agent state. We pass what we have; the skeptic also
+        # receives the raw headlines list so it can reason directly.
+        primary_analysis = SentimentAnalysisResult(
             overall_sentiment=primary_sentiment,
             overall_confidence=primary_confidence,
-            confidence_reasoning="Based on headline analysis",
+            confidence_reasoning="Based on structured headline analysis",
             bullish_count=0,
             bearish_count=0,
             neutral_count=0,
             insufficient_data_count=0,
-            headline_analyses=[],
+            headline_analyses=[],   # not available in tool args — skeptic uses raw headlines
             key_themes=[],
-            potential_impact="Uncertain",
+            potential_impact="See headlines",
             risks_identified=[],
             information_gaps=[]
         )
         
-        skeptic_result = generate_skeptic_analysis(mock_primary, headlines, ticker)
+        skeptic_result = generate_skeptic_analysis(primary_analysis, headlines, ticker)
         skeptic_report = format_skeptic_analysis(skeptic_result)
         
         return {
