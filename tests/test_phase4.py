@@ -196,3 +196,49 @@ def test_generate_skeptic_uses_structured_output():
     mock_llm.with_structured_output.assert_called_once_with(SkepticAnalysis)
     assert result.skeptic_sentiment == "Partially Disagree"
     assert result.skeptic_confidence == 0.65
+
+
+# ─── Task 4: Analyzer structured output ─────────────────────────────────────
+
+def test_analyze_sentiment_structured_uses_structured_output():
+    """analyze_sentiment_structured must call with_structured_output(SentimentAnalysisResult)."""
+    from unittest.mock import MagicMock, patch
+    from stocksense.core.analyzer import analyze_sentiment_structured
+    from stocksense.core.schemas import SentimentAnalysisResult
+
+    expected = SentimentAnalysisResult(
+        overall_sentiment="Bullish",
+        overall_confidence=0.78,
+        confidence_reasoning="3 of 4 headlines positive",
+        bullish_count=3, bearish_count=1, neutral_count=0, insufficient_data_count=0,
+        headline_analyses=[], key_themes=[],
+        potential_impact="Moderate Positive",
+        risks_identified=[], information_gaps=[],
+    )
+
+    mock_llm = MagicMock()
+    structured_chain = MagicMock()
+    mock_llm.with_structured_output.return_value = structured_chain
+    structured_chain.invoke.return_value = expected
+
+    with patch("stocksense.core.analyzer.get_chat_llm", return_value=mock_llm):
+        result = analyze_sentiment_structured(["Apple beats earnings", "iPhone demand strong"])
+
+    mock_llm.with_structured_output.assert_called_once()
+    call_args = mock_llm.with_structured_output.call_args[0]
+    assert call_args[0].__name__ == "SentimentAnalysisResult"
+    assert result.overall_sentiment == "Bullish"
+    assert result.overall_confidence == 0.78
+
+
+def test_analyze_sentiment_structured_empty_headlines_skips_llm():
+    """Empty headlines must return early without calling LLM."""
+    from unittest.mock import MagicMock, patch
+    from stocksense.core.analyzer import analyze_sentiment_structured
+
+    mock_llm = MagicMock()
+    with patch("stocksense.core.analyzer.get_chat_llm", return_value=mock_llm):
+        result = analyze_sentiment_structured([])
+
+    mock_llm.invoke.assert_not_called()
+    assert result.overall_sentiment == "Insufficient Data"

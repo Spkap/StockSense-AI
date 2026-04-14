@@ -6,16 +6,11 @@ with structured Pydantic outputs for reliable parsing and honest uncertainty.
 """
 
 import os
-import json
 from typing import List
 from datetime import datetime
 
 from .config import get_chat_llm, ConfigurationError
-from .schemas import (
-    HeadlineSentiment,
-    SentimentAnalysisResult,
-    KeyTheme,
-)
+from .schemas import SentimentAnalysisResult
 
 
 def analyze_sentiment_of_headlines(headlines: List[str]) -> str:
@@ -119,58 +114,9 @@ Respond with a JSON object matching this exact structure:
 
 Return ONLY the JSON object, no additional text."""
         
-        response = llm.invoke(prompt)
-        response_text = response.content if hasattr(response, 'content') else str(response)
+        structured_llm = llm.with_structured_output(SentimentAnalysisResult)
+        return structured_llm.invoke(prompt)
         
-        import logging as _logging
-        _logger = _logging.getLogger(__name__)
-        from stocksense.core.llm_parser import parse_llm_json, LLMParseError
-        try:
-            data = parse_llm_json(response_text)
-        except LLMParseError as e:
-            _logger.error(f"Sentiment JSON parse failed: {e}")
-            raise
-        
-        # Build the structured result
-        headline_analyses = [
-            HeadlineSentiment(**ha) for ha in data.get("headline_analyses", [])
-        ]
-        
-        key_themes = [
-            KeyTheme(**kt) for kt in data.get("key_themes", [])
-        ]
-        
-        return SentimentAnalysisResult(
-            overall_sentiment=data.get("overall_sentiment", "Neutral"),
-            overall_confidence=data.get("overall_confidence", 0.5),
-            confidence_reasoning=data.get("confidence_reasoning", ""),
-            bullish_count=data.get("bullish_count", 0),
-            bearish_count=data.get("bearish_count", 0),
-            neutral_count=data.get("neutral_count", 0),
-            insufficient_data_count=data.get("insufficient_data_count", 0),
-            headline_analyses=headline_analyses,
-            key_themes=key_themes,
-            potential_impact=data.get("potential_impact", "Uncertain"),
-            risks_identified=data.get("risks_identified", []),
-            information_gaps=data.get("information_gaps", [])
-        )
-        
-    except json.JSONDecodeError as e:
-        # Return a valid result indicating parsing failure
-        return SentimentAnalysisResult(
-            overall_sentiment="Insufficient Data",
-            overall_confidence=0.0,
-            confidence_reasoning=f"Failed to parse LLM response as structured JSON: {str(e)}",
-            bullish_count=0,
-            bearish_count=0,
-            neutral_count=0,
-            insufficient_data_count=len(headlines),
-            headline_analyses=[],
-            key_themes=[],
-            potential_impact="Uncertain",
-            risks_identified=[],
-            information_gaps=["Analysis could not be completed due to response parsing error"]
-        )
     except ConfigurationError as e:
         return SentimentAnalysisResult(
             overall_sentiment="Insufficient Data",
