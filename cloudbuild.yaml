@@ -1,0 +1,54 @@
+# Cloud Build pipeline for StockSense backend
+# Triggered by push to deploy-prod branch via GitHub Actions
+
+steps:
+  # Step 1: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:$COMMIT_SHA'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:latest'
+      - '.'
+    id: 'build-image'
+
+  # Step 2: Push image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend'
+    id: 'push-image'
+    waitFor: ['build-image']
+
+  # Step 3: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'stocksense-backend'
+      - '--image=us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8080'
+      - '--memory=2Gi'
+      - '--cpu=2'
+      - '--min-instances=0'
+      - '--max-instances=10'
+      - '--timeout=3600'
+      - '--concurrency=80'
+      - '--set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,NEWSAPI_KEY=NEWSAPI_KEY:latest,SUPABASE_URL=SUPABASE_URL:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,SUPABASE_SERVICE_KEY=SUPABASE_SERVICE_KEY:latest,CORS_ORIGINS=CORS_ORIGINS:latest'
+      - '--project=stocksense-prod'
+    id: 'deploy-cloud-run'
+    waitFor: ['push-image']
+
+images:
+  - 'us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:$COMMIT_SHA'
+  - 'us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
