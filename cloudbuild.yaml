@@ -45,20 +45,6 @@ steps:
     id: 'deploy-cloud-run'
     waitFor: ['push-image']
 
-  # Step 4: Allow unauthenticated access (public API)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'services'
-      - 'add-iam-policy-binding'
-      - 'stocksense-backend'
-      - '--region=asia-south1'
-      - '--member=allUsers'
-      - '--role=roles/run.invoker'
-      - '--project=stocksense-prod'
-    id: 'allow-public-access'
-    waitFor: ['deploy-cloud-run']
 
 images:
   - 'asia-south1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:$COMMIT_SHA'
