@@ -1,6 +1,6 @@
 # StockSense — Engineering Priority Master Document
 
-> **Last updated:** 2026-04-15 (rev 2 — AI systems + finance domain gaps added)  
+> **Last updated:** 2026-04-15 (rev 3 — GPT-5.4-mini cross-audit corrections applied)  
 > **Architecture Score:** C+ (74%) — Real pipeline, critical reliability gaps  
 > **Goal:** Fix to B+ (85%+) for recruiter demos. Then elevate to showcase-level AI engineering.
 
@@ -57,33 +57,32 @@ Request → validate_ticker() → check Supabase cache
 > These are production-breaking. A recruiter clicking "Analyze AAPL" will hit these.
 
 ### P1-A: Skeptic Analyzes Mock Empty Data
-**File:** `stocksense/orchestration/react_flow.py:326-341`  
+**File:** `stocksense/orchestration/react_flow.py:325-341`, `stocksense/agents/skeptic_agent.py:91-124`  
 **Severity:** [S1] Critical — Core feature produces invalid output  
-**What's broken:**
+**What's broken:** A `SentimentAnalysisResult` is constructed with `headline_analyses=[]` and `key_themes=[]`. The skeptic gets `overall_sentiment` and `overall_confidence` (non-zero), but has no actual headlines or themes to critique — so any skeptic reasoning is fabricated from no evidence.
 ```python
-# CURRENT (BROKEN) — skeptic always sees zeros and empty lists
 mock_primary = SentimentAnalysisResult(
     overall_sentiment="",
     overall_confidence=0.0,
-    headline_analyses=[],   # ← empty! skeptic has nothing to critique
+    headline_analyses=[],   # ← empty — skeptic cannot critique what isn't here
+    key_themes=[],
     ...
 )
 skeptic_result = generate_skeptic_analysis(mock_primary, headlines, ticker)
 ```
 **Fix:** Pass actual state sentiment result instead:
 ```python
-# CORRECT — pass real sentiment from state
 primary_result = state.get("sentiment_result")  # already in state from earlier tool call
 if primary_result:
     skeptic_result = generate_skeptic_analysis(primary_result, headlines, ticker)
 ```
 **Effort:** 30 minutes  
-**Impact:** Skeptic analysis goes from invalid → genuine counter-perspective
+**Impact:** Skeptic goes from critiquing fabricated data → genuine counter-perspective with evidence
 
 ---
 
 ### P1-B: JSON Parsing Fragile — 9 Identical Broken Patterns
-**Files:** `bull_analyst.py:112,197` | `bear_analyst.py:116,203` | `synthesizer.py:356` | `monitor.py:117,203` | `analyzer.py:127` | `skeptic_agent.py:173`  
+**Files:** `bull_analyst.py:106-117` | `bear_analyst.py:110-121` | `synthesizer.py:351-360` | `analyzer.py:122-137` | `skeptic_agent.py:160-173`  
 **Severity:** [S1] Critical — One malformed LLM response silently kills analysis  
 **What's broken:**
 ```python
@@ -127,22 +126,20 @@ Replace all 9 occurrences. Add `try/except json.JSONDecodeError` with proper log
 
 ---
 
-### P1-C: Kill Alerts Table Name Mismatch
-**File:** `stocksense/api/auth_routes.py:375`  
-**Severity:** [S1] Critical — DB error on every kill alert fetch  
-**What's broken:**
-```python
-# auth_routes.py:375
-response = client.table("kill_alerts")...  # ← table doesn't exist
+### P1-C: Kill Alerts Split-Storage Inconsistency
+**Files:** `stocksense/api/auth_routes.py:366-426`, `stocksense/core/monitor.py:103-129`, `supabase/migrations/001_stage4_features.sql:16-40`, `supabase/migrations/002_phase2_watchman.sql:1-12`  
+**Severity:** [S1] Critical — Alerts written to one table, read/deleted from another  
+**What's actually broken:** Both `kill_alerts` and `alert_history` exist as real tables. The monitoring code (`monitor.py`) writes alerts to `alert_history`. The auth routes read and delete alerts from `kill_alerts`. These are different tables — auth routes never see any alerts the monitor writes.
 
-# everywhere else:
-response = client.table("alert_history")...  # ← actual table name
-```
-**Fix:** One-line change:
+> Note: earlier diagnosis said "table doesn't exist" — that was wrong. GPT-5.4-mini confirmed both tables exist in migrations. The bug is split-storage, not missing table.
+
+**Fix:** Audit what each table is for (one may be a legacy artifact), then point all reads/writes to one canonical table. Most likely `alert_history` is the active one:
 ```python
+# auth_routes.py:375 — change kill_alerts → alert_history  
 response = client.table("alert_history")...
 ```
-**Effort:** 5 minutes  
+Then verify `kill_alerts` is not used anywhere else before removing it.  
+**Effort:** 30 minutes (read migrations first, confirm canonical table)  
 
 ---
 
@@ -164,18 +161,35 @@ except Exception as e:
 
 ---
 
-### P1-E: Scheduler Cannot Create Alerts (Service Role Gap)
-**File:** `stocksense/scheduler.py:66-71`  
-**Severity:** [S2] High — Background thesis monitoring creates no alerts  
-**What's broken:** Scheduler uses anon client, which is blocked by RLS from writing alerts on behalf of users.  
-**Fix:** Use `get_supabase_admin_client()` (already imported) for alert writes:
+### ~~P1-E: Scheduler Service Role Gap~~ — VERIFIED NOT A BUG
+**File:** `stocksense/scheduler.py:8-9, 24-25, 103-129`  
+**Status:** Closed. GPT-5.4-mini confirmed the scheduler already aliases `get_supabase_admin_client` at import and uses it for alert writes. The admin client is active, RLS bypass is in place.  
+**What to verify instead:** Confirm `SUPABASE_SERVICE_KEY` is present in Secret Manager (it is — set during GCP migration). No code change needed.  
+
+---
+
+### P1-F: Data Collectors Swallow All Exceptions (Silent Infrastructure Failures)
+**File:** `stocksense/core/data_collectors.py:42-47, 61-63, 110-112`  
+**Severity:** [S2] High — NewsAPI outage or yfinance timeout looks identical to "no news found"  
+**What's broken:** `get_news()`, `get_price_history()`, and `get_fundamental_data()` all catch broad exceptions and return empty/None silently. A full network failure produces the same result as a valid empty dataset. The LLM agents downstream have no way to distinguish "no data exists" from "data fetch exploded."  
+**Fix:**
 ```python
-# scheduler.py — already imported, just use it
-from stocksense.db.supabase_client import get_supabase_admin_client
-admin_client = get_supabase_admin_client()
-admin_client.table("alert_history").insert({...}).execute()
+# data_collectors.py — differentiate infra failure from empty data
+def get_news(ticker: str) -> list[str]:
+    try:
+        ...
+        return articles
+    except requests.exceptions.Timeout:
+        raise DataCollectionError(f"NewsAPI timeout for {ticker}") from None
+    except requests.exceptions.HTTPError as e:
+        raise DataCollectionError(f"NewsAPI HTTP {e.response.status_code} for {ticker}") from e
+    except Exception as e:
+        logger.error(f"News fetch failed for {ticker}: {e}", exc_info=True)
+        raise DataCollectionError(f"News fetch failed: {e}") from e
 ```
-**Effort:** 1 hour (verify service key is set in Secret Manager — it is)  
+Handle `DataCollectionError` in `react_flow.py` — surface as a proper error state, not empty data.  
+**Effort:** 2 hours  
+**Impact:** Makes infrastructure failures visible and debuggable instead of silently corrupting analysis
 
 ---
 
@@ -438,20 +452,22 @@ Add integration tests that test the real pipeline end-to-end (not unit by unit).
 > These are architectural debt items a staff engineer would flag in any serious code review.
 > They don't block demos but expose gaps in AI systems understanding.
 
-### P3F: LangGraph Is Cargo-Culted — Pipeline Isn't a True State Machine
-**File:** `stocksense/orchestration/react_flow.py`  
-**Severity:** [S3] Medium — LangGraph adds complexity with no benefit over sequential `await` calls  
-**What's wrong:** The current "ReAct loop" calls tools in sequence, not based on state transitions. There are no conditional edges based on agent decisions. It's `tool_A() → tool_B() → tool_C()` — a function call chain with LangGraph as the wrapper.  
-**What LangGraph is actually for:**
+### P3F: LangGraph State Machine Is Shallow — Conditional Routing Exists But Underused
+**File:** `stocksense/orchestration/react_flow.py:622-649, 440-458`  
+**Severity:** [S3] Medium — LangGraph IS used with a real `StateGraph` and conditional edges, but the graph is mostly LLM-directed with minimal structural branching  
+**Clarified after GPT-5.4-mini audit:** There IS a `StateGraph` with `add_conditional_edges` — LangGraph isn't purely cargo-culted. The issue is that the state machine is shallow: most routing decisions are made by the LLM inside the tools node rather than by typed state transitions the graph can reason about.  
+**What to improve:**
 ```
-Real LangGraph usage:
-  state["phase"] == "needs_more_data" → fetch_data_node
-  state["phase"] == "ready_to_debate" → debate_node
-  state["confidence"] < 0.4          → request_human_review_node
+Current: tools_node → LLM decides what to call next (black box routing)
+Better:
+  state["data_complete"] == False  → data_fetch_node
+  state["sentiment_done"] == False → sentiment_node  
+  state["debate_needed"] == True   → debate_node
+  state["confidence"] < 0.4        → skeptic_node (always, not optional)
 ```
-**Fix path:** Either (a) add real conditional routing that uses agent decisions to branch the graph, or (b) remove LangGraph entirely and use `asyncio.gather()` + sequential awaits — simpler, faster, more readable.  
-**Effort:** 2 days for option (a), 1 day for option (b)  
-**Recruiter signal:** A senior engineer will immediately ask "why LangGraph?" — have a real answer
+**Fix path:** Add explicit state fields that drive conditional edges. Each transition becomes observable and testable.  
+**Effort:** 2 days  
+**Recruiter signal:** Shows LangGraph mastery — typed state-driven routing vs. LLM-as-router
 
 ---
 
@@ -684,32 +700,29 @@ Inject `technical_signals` dict into Bull/Bear agent context alongside fundament
 
 ---
 
-### P3-O: Sentiment Analysis Is Naive Lexical — No Magnitude, Credibility, or "Priced-In" Weighting
-**File:** `stocksense/agents/analyzer.py`  
-**Severity:** [S3] Medium — Current sentiment = positive/negative/neutral label + confidence score. That's it.  
-**What's missing:**
-1. **Magnitude**: "Apple earnings beat by $0.01" vs "Apple earnings beat by $1.50" — same sentiment label, wildly different signal
-2. **Source credibility**: Reuters headline ≠ random blog post
-3. **Priced-in assessment**: Strong positive earnings that were already priced in → no price movement
-4. **Recency decay**: A week-old headline matters less than today's
+### ~~P3-O: Naive Sentiment~~ — REVISED AFTER GPT-5.4-MINI AUDIT
 
-**Fix — Enriched Sentiment Schema:**
+> GPT-5.4-mini confirmed: `stocksense/core/analyzer.py:38-160` and `react_flow.py:587-598, 725-733` already produce structured LLM output with confidence, per-headline analysis, and explicit uncertainty. Not a naive lexical labeler.
+
+**What actually IS missing (updated):**
+- No `magnitude` per headline (significance of the news, not just direction)
+- No `likely_priced_in` flag (was this surprise or consensus?)
+- No `recency_weight` (today's news vs 5-day-old news treated equally)
+- No source credibility scoring (Reuters vs blog)
+
+These are enhancements to an existing solid foundation — not a rewrite. Lower priority than originally assessed.
+
+**Fix — Add missing fields to existing `HeadlineAnalysis` schema:**
 ```python
 class HeadlineAnalysis(BaseModel):
     headline: str
     sentiment: Literal["bullish", "bearish", "neutral"]
-    magnitude: float  # 0.0-1.0 — how significant is this news?
-    credibility: float  # 0.0-1.0 — source quality
-    likely_priced_in: bool  # was this expected by consensus?
-    recency_weight: float  # 1.0 = today, 0.5 = 3 days ago
-    
-    @property
-    def weighted_signal(self) -> float:
-        base = 1.0 if self.sentiment == "bullish" else -1.0 if self.sentiment == "bearish" else 0.0
-        surprise_factor = 1.0 if not self.likely_priced_in else 0.3
-        return base * self.magnitude * self.credibility * self.recency_weight * surprise_factor
+    confidence: float
+    magnitude: float = 0.5     # NEW: 0.0-1.0 — how significant?
+    likely_priced_in: bool = False  # NEW: expected vs surprise
+    recency_days: int = 0      # NEW: age of headline in days
 ```
-**Effort:** 1 day  
+**Revised Effort:** 3 hours (extending existing schema, not rebuilding)  
 
 ---
 
@@ -823,10 +836,10 @@ Week 1 — Make it reliable (Phase 1 + quick wins):
 
 Week 2 — Make it impressive (Phase 2 + Staff Engineer fixes):
   Day 1: P2-D (observability/correlation IDs) — 3h
-  Day 2: P2-B (real information asymmetry) — 4h
+  Day 2: P3-K (eval framework — golden set + runner) — 1 day  ← MOVED UP: evals BEFORE prompt tuning
   Day 3: P3-N (price data → technical analysis layer) — 4h  ← HIGH SIGNAL
-  Day 4: P3-H (prompt versioning) + P3-I (evidence formula) — 6h
-  Day 5: P3-K (eval framework — golden set + runner) — 1 day  ← HIRE signal
+  Day 4: P3-H (prompt versioning) + P3-I (evidence formula) — 6h  ← now measurable via evals
+  Day 5: P2-B (real information asymmetry) — 4h
 
 Week 3 — Elevate to AI systems grade:
   Day 1: P3-G (structured ReAct with Thought/Action parsing) — 3 days
