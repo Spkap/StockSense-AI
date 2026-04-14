@@ -7,9 +7,9 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:$COMMIT_SHA'
+      - 'asia-south1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:$COMMIT_SHA'
       - '-t'
-      - 'us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:latest'
+      - 'asia-south1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:latest'
       - '.'
     id: 'build-image'
 
@@ -18,7 +18,7 @@ steps:
     args:
       - 'push'
       - '--all-tags'
-      - 'us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend'
+      - 'asia-south1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend'
     id: 'push-image'
     waitFor: ['build-image']
 
@@ -29,15 +29,15 @@ steps:
       - 'run'
       - 'deploy'
       - 'stocksense-backend'
-      - '--image=us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:$COMMIT_SHA'
-      - '--region=us-central1'
+      - '--image=asia-south1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:$COMMIT_SHA'
+      - '--region=asia-south1'
       - '--platform=managed'
       - '--allow-unauthenticated'
       - '--port=8080'
-      - '--memory=2Gi'
-      - '--cpu=2'
-      - '--min-instances=0'
-      - '--max-instances=10'
+      - '--memory=4Gi'
+      - '--cpu=4'
+      - '--min-instances=1'
+      - '--max-instances=5'
       - '--timeout=3600'
       - '--concurrency=80'
       - '--set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,NEWSAPI_KEY=NEWSAPI_KEY:latest,SUPABASE_URL=SUPABASE_URL:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,SUPABASE_SERVICE_KEY=SUPABASE_SERVICE_KEY:latest,CORS_ORIGINS=CORS_ORIGINS:latest'
@@ -45,9 +45,24 @@ steps:
     id: 'deploy-cloud-run'
     waitFor: ['push-image']
 
+  # Step 4: Allow unauthenticated access (public API)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'services'
+      - 'add-iam-policy-binding'
+      - 'stocksense-backend'
+      - '--region=asia-south1'
+      - '--member=allUsers'
+      - '--role=roles/run.invoker'
+      - '--project=stocksense-prod'
+    id: 'allow-public-access'
+    waitFor: ['deploy-cloud-run']
+
 images:
-  - 'us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:$COMMIT_SHA'
-  - 'us-central1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:latest'
+  - 'asia-south1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:$COMMIT_SHA'
+  - 'asia-south1-docker.pkg.dev/stocksense-prod/stocksense-repo/stocksense-backend:latest'
 
 options:
   logging: CLOUD_LOGGING_ONLY

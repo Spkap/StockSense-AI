@@ -27,7 +27,7 @@ jobs:
 
       - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+          gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
 
       - name: Submit Cloud Build job
         run: |
@@ -39,7 +39,7 @@ jobs:
       - name: Get Cloud Run service URL
         run: |
           URL=$(gcloud run services describe stocksense-backend \
-            --region=us-central1 \
+            --region=asia-south1 \
             --project=${{ secrets.GCP_PROJECT_ID }} \
             --format="value(status.url)")
           echo "Deployed to: $URL"
