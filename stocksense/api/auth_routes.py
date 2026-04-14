@@ -372,7 +372,7 @@ async def get_kill_alert(alert_id: str, user = Depends(get_current_user)):
         client = get_supabase_client()
         client.postgrest.auth(user["access_token"])
         
-        response = client.table("kill_alerts").select("*").eq("id", alert_id).eq("user_id", user["id"]).single().execute()
+        response = client.table("alert_history").select("*").eq("id", alert_id).eq("user_id", user["id"]).single().execute()
         
         if not response.data:
             raise HTTPException(status_code=404, detail="Alert not found")
@@ -421,7 +421,7 @@ async def delete_kill_alert(alert_id: str, user = Depends(get_current_user)):
         client = get_supabase_client()
         client.postgrest.auth(user["access_token"])
         
-        client.table("kill_alerts").delete().eq("id", alert_id).eq("user_id", user["id"]).execute()
+        client.table("alert_history").delete().eq("id", alert_id).eq("user_id", user["id"]).execute()
         return {"message": "Alert deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to delete alert: {e}")
