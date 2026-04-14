@@ -10,9 +10,39 @@ import logging
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 
+from pydantic import BaseModel, Field
+from typing import Literal
+
 from .base_agent import BaseAnalystAgent, AgentToolConfig, Claim, Rebuttal
 
 logger = logging.getLogger("stocksense.agents.bull")
+
+
+# ── Pydantic models for with_structured_output ──────────────────────────────
+
+class CatalystModel(BaseModel):
+    description: str
+    timeframe: Literal["near-term", "medium-term", "long-term"] = "medium-term"
+    probability: float = Field(ge=0.0, le=1.0)
+    potential_impact: Literal["low", "medium", "high"] = "medium"
+
+
+class ClaimModel(BaseModel):
+    statement: str
+    evidence: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    data_source: str = "fundamentals"
+
+
+class BullLLMOutput(BaseModel):
+    """Schema enforced by Gemini via with_structured_output."""
+    thesis: str
+    catalysts: list[CatalystModel]
+    key_metrics: dict[str, str]
+    upside_reasoning: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    weaknesses: list[str]
+    key_claims: list[ClaimModel]
 
 
 @dataclass
@@ -75,6 +105,10 @@ class BullAnalyst(BaseAnalystAgent):
     
     def __init__(self):
         super().__init__(AgentToolConfig.BULL_CONFIG)
+
+    def _build_system_prompt(self) -> str:
+        from stocksense.core.prompts import get_prompt
+        return get_prompt("bull_system_v1")
     
     async def analyze(
         self,
@@ -104,43 +138,36 @@ class BullAnalyst(BaseAnalystAgent):
         )
         
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content.strip()
-            
-            from stocksense.core.llm_parser import parse_llm_json, LLMParseError
-            try:
-                analysis = parse_llm_json(content)
-            except LLMParseError as e:
-                logger.error(f"Bull analysis JSON parse failed for {ticker}: {e}")
-                raise
-            
+            structured_llm = self.llm.with_structured_output(BullLLMOutput)
+            analysis: BullLLMOutput = structured_llm.invoke(prompt)
+
             return BullCase(
                 ticker=ticker,
-                thesis=analysis.get("thesis", ""),
+                thesis=analysis.thesis,
                 catalysts=[
                     Catalyst(
-                        description=c.get("description", ""),
-                        timeframe=c.get("timeframe", "medium-term"),
-                        probability=float(c.get("probability", 0.5)),
-                        potential_impact=c.get("potential_impact", "medium")
+                        description=c.description,
+                        timeframe=c.timeframe,
+                        probability=c.probability,
+                        potential_impact=c.potential_impact,
                     )
-                    for c in analysis.get("catalysts", [])
+                    for c in analysis.catalysts
                 ],
-                key_metrics=analysis.get("key_metrics", {}),
-                upside_reasoning=analysis.get("upside_reasoning", ""),
-                confidence=float(analysis.get("confidence", 0.5)),
-                weaknesses=analysis.get("weaknesses", []),
+                key_metrics=analysis.key_metrics,
+                upside_reasoning=analysis.upside_reasoning,
+                confidence=analysis.confidence,
+                weaknesses=analysis.weaknesses,
                 key_claims=[
                     Claim(
-                        statement=c.get("statement", ""),
-                        evidence=c.get("evidence", ""),
-                        confidence=float(c.get("confidence", 0.5)),
-                        data_source=c.get("data_source", "fundamentals")
+                        statement=c.statement,
+                        evidence=c.evidence,
+                        confidence=c.confidence,
+                        data_source=c.data_source,
                     )
-                    for c in analysis.get("key_claims", [])
-                ]
+                    for c in analysis.key_claims
+                ],
             )
-            
+
         except Exception as e:
             logger.error(f"Bull analysis failed: {e}")
             return self._fallback_analysis(ticker, fundamentals)

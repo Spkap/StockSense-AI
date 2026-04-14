@@ -10,9 +10,41 @@ import logging
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 
+from pydantic import BaseModel, Field
+from typing import Literal
+
 from .base_agent import BaseAnalystAgent, AgentToolConfig, Claim, Rebuttal
 
 logger = logging.getLogger("stocksense.agents.bear")
+
+
+# ── Pydantic models for with_structured_output ──────────────────────────────
+
+class RiskModel(BaseModel):
+    description: str
+    category: Literal["financial", "competitive", "operational", "regulatory", "management"] = "financial"
+    severity: Literal["low", "medium", "high", "critical"] = "medium"
+    probability: float = Field(ge=0.0, le=1.0)
+    timeframe: Literal["near-term", "medium-term", "long-term"] = "medium-term"
+
+
+class BearClaimModel(BaseModel):
+    statement: str
+    evidence: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    data_source: str = "fundamentals"
+
+
+class BearLLMOutput(BaseModel):
+    """Schema enforced by Gemini via with_structured_output."""
+    thesis: str
+    risks: list[RiskModel]
+    red_flags: list[str]
+    key_metrics: dict[str, str]
+    downside_reasoning: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    what_would_make_bullish: list[str]
+    key_claims: list[BearClaimModel]
 
 
 @dataclass
@@ -79,6 +111,10 @@ class BearAnalyst(BaseAnalystAgent):
     
     def __init__(self):
         super().__init__(AgentToolConfig.BEAR_CONFIG)
+
+    def _build_system_prompt(self) -> str:
+        from stocksense.core.prompts import get_prompt
+        return get_prompt("bear_system_v1")
     
     async def analyze(
         self,
@@ -108,45 +144,38 @@ class BearAnalyst(BaseAnalystAgent):
         )
         
         try:
-            response = self.llm.invoke(prompt)
-            content = response.content.strip()
-            
-            from stocksense.core.llm_parser import parse_llm_json, LLMParseError
-            try:
-                analysis = parse_llm_json(content)
-            except LLMParseError as e:
-                logger.error(f"Bear analysis JSON parse failed for {ticker}: {e}")
-                raise
-            
+            structured_llm = self.llm.with_structured_output(BearLLMOutput)
+            analysis: BearLLMOutput = structured_llm.invoke(prompt)
+
             return BearCase(
                 ticker=ticker,
-                thesis=analysis.get("thesis", ""),
+                thesis=analysis.thesis,
                 risks=[
                     Risk(
-                        description=r.get("description", ""),
-                        category=r.get("category", "operational"),
-                        severity=r.get("severity", "medium"),
-                        probability=float(r.get("probability", 0.5)),
-                        timeframe=r.get("timeframe", "medium-term")
+                        description=r.description,
+                        category=r.category,
+                        severity=r.severity,
+                        probability=r.probability,
+                        timeframe=r.timeframe,
                     )
-                    for r in analysis.get("risks", [])
+                    for r in analysis.risks
                 ],
-                red_flags=analysis.get("red_flags", []),
-                key_metrics=analysis.get("key_metrics", {}),
-                downside_reasoning=analysis.get("downside_reasoning", ""),
-                confidence=float(analysis.get("confidence", 0.5)),
-                what_would_make_bullish=analysis.get("what_would_make_bullish", []),
+                red_flags=analysis.red_flags,
+                key_metrics=analysis.key_metrics,
+                downside_reasoning=analysis.downside_reasoning,
+                confidence=analysis.confidence,
+                what_would_make_bullish=analysis.what_would_make_bullish,
                 key_claims=[
                     Claim(
-                        statement=c.get("statement", ""),
-                        evidence=c.get("evidence", ""),
-                        confidence=float(c.get("confidence", 0.5)),
-                        data_source=c.get("data_source", "fundamentals")
+                        statement=c.statement,
+                        evidence=c.evidence,
+                        confidence=c.confidence,
+                        data_source=c.data_source,
                     )
-                    for c in analysis.get("key_claims", [])
-                ]
+                    for c in analysis.key_claims
+                ],
             )
-            
+
         except Exception as e:
             logger.error(f"Bear analysis failed: {e}")
             return self._fallback_analysis(ticker, fundamentals)
