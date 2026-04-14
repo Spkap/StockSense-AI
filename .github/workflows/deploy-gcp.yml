@@ -1,0 +1,57 @@
+name: Deploy to Google Cloud Run
+
+on:
+  push:
+    branches:
+      - deploy-prod
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Submit Cloud Build job
+        run: |
+          gcloud builds submit \
+            --config=cloudbuild.yaml \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --substitutions=COMMIT_SHA=${{ github.sha }}
+
+      - name: Get Cloud Run service URL
+        run: |
+          URL=$(gcloud run services describe stocksense-backend \
+            --region=us-central1 \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --format="value(status.url)")
+          echo "Deployed to: $URL"
+          echo "SERVICE_URL=$URL" >> $GITHUB_ENV
+
+      - name: Health check
+        run: |
+          sleep 10
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/health")
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ Health check passed (HTTP $STATUS)"
+          else
+            echo "❌ Health check failed (HTTP $STATUS)"
+            exit 1
+          fi
