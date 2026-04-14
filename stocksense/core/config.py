@@ -1,6 +1,17 @@
 import os
 from typing import Optional
 from dotenv import load_dotenv
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
+try:
+    from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable as GServiceUnavailable
+    _GOOGLE_EXCEPTIONS = (ResourceExhausted, GServiceUnavailable)
+except ImportError:
+    _GOOGLE_EXCEPTIONS = (Exception,)  # type: ignore[assignment]
 
 # Optional import: minimal deployment may not include backend LLM deps
 try:
@@ -73,15 +84,34 @@ def get_chat_llm(model: str = "gemini-2.5-flash-lite",
 
     api_key = get_google_api_key()
 
-    return ChatGoogleGenerativeAI(  # type: ignore
+    _llm = ChatGoogleGenerativeAI(  # type: ignore
         model=model,
         google_api_key=api_key,
         temperature=temperature,
         max_output_tokens=max_output_tokens,
         max_retries=3,
         timeout=30
-        # Removed requests_per_minute - deprecated parameter
     )
+
+    class _RetryLLM:
+        """Thin proxy that wraps ChatGoogleGenerativeAI with tenacity retry on invoke."""
+
+        def __init__(self, inner):
+            self._inner = inner
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+        @retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=2, max=10),
+            retry=retry_if_exception_type(_GOOGLE_EXCEPTIONS),
+            reraise=True,
+        )
+        def invoke(self, input, **kwargs):
+            return self._inner.invoke(input, **kwargs)
+
+    return _RetryLLM(_llm)
 
 
 def get_newsapi_key() -> str:
