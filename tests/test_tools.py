@@ -1,231 +1,207 @@
-#!/usr/bin/env python3
 """
 Unit Tests for StockSense Agent Tools
 
-This module contains unit tests for the core data collection tools
-used by the StockSense ReAct Agent.
-
-Test Coverage:
-- fetch_news_headlines tool
-- fetch_price_data tool  
-- Error handling for invalid tickers
+All tests use deterministic mocks — zero live API calls.
+Patch targets: stocksense.orchestration.react_flow.get_news
+               stocksense.orchestration.react_flow.get_price_history
 """
-
 import pytest
-import sys
-from pathlib import Path
-
-# Add the project root to Python path for imports
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
+from unittest.mock import patch, MagicMock
 from stocksense.orchestration.react_flow import fetch_news_headlines, fetch_price_data
+from stocksense.core.data_collectors import DataCollectionError
+
+# ── Fixtures ──────────────────────────────────────────────────────────────────
+
+FAKE_HEADLINES = [
+    "Apple beats Q4 earnings by $0.15 per share",
+    "iPhone demand exceeds analyst expectations",
+    "Apple faces EU antitrust investigation",
+]
+
+
+def _make_fake_price_df():
+    """Build a fake DataFrame-like object that satisfies fetch_price_data's processing."""
+    # fetch_price_data does:
+    #   df.empty  -> False
+    #   df.reset_index() -> df_reset
+    #   df_reset['Date'].dt.strftime('%Y-%m-%d') -> list of date strings
+    #   df_reset.to_dict(orient='records') -> list of dicts
+
+    # We need a Series-like for df_reset['Date'] with a .dt accessor
+    class _DateSeries:
+        class _DT:
+            def strftime(self, fmt):
+                return ["2026-01-01", "2026-01-02"]
+        dt = _DT()
+
+    class _FakeDFReset:
+        def __getitem__(self, key):
+            if key == "Date":
+                return _DateSeries()
+            raise KeyError(key)
+
+        def __setitem__(self, key, value):
+            # fetch_price_data assigns: df_reset['Date'] = df_reset['Date'].dt.strftime(...)
+            pass  # no-op, we ignore the assignment
+
+        def to_dict(self, orient):
+            return [
+                {
+                    "Date": "2026-01-01",
+                    "Open": 218.0,
+                    "High": 222.0,
+                    "Low": 217.0,
+                    "Close": 220.5,
+                    "Volume": 1_200_000,
+                },
+                {
+                    "Date": "2026-01-02",
+                    "Open": 220.5,
+                    "High": 224.0,
+                    "Low": 219.0,
+                    "Close": 223.0,
+                    "Volume": 980_000,
+                },
+            ]
+
+    class _FakePriceDF:
+        empty = False
+
+        def reset_index(self):
+            return _FakeDFReset()
+
+    return _FakePriceDF()
+
+
+FAKE_PRICE_DATA_RAW = _make_fake_price_df()
+
+
+@pytest.fixture
+def mock_news():
+    with patch("stocksense.orchestration.react_flow.get_news", return_value=FAKE_HEADLINES) as m:
+        yield m
+
+
+@pytest.fixture
+def mock_price():
+    with patch("stocksense.orchestration.react_flow.get_price_history", return_value=FAKE_PRICE_DATA_RAW) as m:
+        yield m
+
+
+@pytest.fixture
+def mock_news_empty():
+    with patch("stocksense.orchestration.react_flow.get_news", return_value=[]) as m:
+        yield m
+
+
+@pytest.fixture
+def mock_news_error():
+    with patch(
+        "stocksense.orchestration.react_flow.get_news",
+        side_effect=DataCollectionError("NewsAPI timeout"),
+    ) as m:
+        yield m
+
+
+@pytest.fixture
+def mock_price_none():
+    with patch("stocksense.orchestration.react_flow.get_price_history", return_value=None) as m:
+        yield m
+
+
+# ── News Headlines Tests ───────────────────────────────────────────────────────
 
 
 class TestNewsHeadlines:
-    """Test cases for the fetch_news_headlines tool"""
-    
-    def test_fetch_news_headlines_success(self):
-        """Test successful news headlines retrieval with valid ticker"""
-        # Use a common, stable ticker for testing
-        ticker = "MSFT"
 
-        # Call the tool function
-        result = fetch_news_headlines.invoke({"ticker": ticker})
+    def test_fetch_news_headlines_success(self, mock_news):
+        result = fetch_news_headlines.invoke({"ticker": "AAPL"})
+        assert result["success"] is True
+        assert result["ticker"] == "AAPL"
+        assert result["headlines"] == FAKE_HEADLINES
+        assert result["count"] == 3
 
-        # Print the full result for debugging in CI logs
-        print(result)
+    def test_fetch_news_headlines_structure(self, mock_news):
+        result = fetch_news_headlines.invoke({"ticker": "MSFT"})
+        for key in ["success", "headlines", "ticker", "count"]:
+            assert key in result
+        assert isinstance(result["headlines"], list)
+        assert all(isinstance(h, str) for h in result["headlines"])
 
-        # Assertions
-        assert isinstance(result, dict), "Result should be a dictionary"
-        assert "headlines" in result, "Result should contain 'headlines' key"
-        assert isinstance(result["headlines"], list), "Headlines should be a list"
+    def test_fetch_news_headlines_ticker_normalized_to_uppercase(self, mock_news):
+        result = fetch_news_headlines.invoke({"ticker": "aapl"})
+        assert result["ticker"] == "AAPL"
 
-        # Check for successful retrieval
-        if result.get("success", False):
-            assert len(result["headlines"]) > 0, f"Headlines list was empty. Full tool result: {result}"
+    def test_fetch_news_headlines_empty_returns_success_false(self, mock_news_empty):
+        result = fetch_news_headlines.invoke({"ticker": "AAPL"})
+        assert result["success"] is False
+        assert result["headlines"] == []
 
-        # Verify expected structure
-        assert "ticker" in result, "Result should contain ticker information"
-        assert result["ticker"] == ticker.upper(), "Ticker should be normalized to uppercase"
-    
-    def test_fetch_news_headlines_structure(self):
-        """Test the structure of news headlines response"""
-        ticker = "AAPL"
-        result = fetch_news_headlines.invoke({"ticker": ticker})
-        
-        # Check response structure
-        expected_keys = ["success", "headlines", "ticker"]
-        for key in expected_keys:
-            assert key in result, f"Result should contain '{key}' key"
-        
-        # If successful, check headlines structure
-        if result.get("success") and result.get("headlines"):
-            headlines = result["headlines"]
-            assert all(isinstance(headline, str) for headline in headlines), \
-                "All headlines should be strings"
-    
-    def test_fetch_news_headlines_invalid_ticker(self):
-        """Test news headlines tool with invalid ticker"""
-        invalid_ticker = "INVALIDTICKERXYZ"
-        
-        # Call the tool function
-        result = fetch_news_headlines.invoke({"ticker": invalid_ticker})
-        
-        # Assertions for graceful error handling
-        assert isinstance(result, dict), "Result should be a dictionary even for invalid ticker"
-        assert "headlines" in result, "Result should contain 'headlines' key"
-        assert isinstance(result["headlines"], list), "Headlines should be a list"
-        
-        # Should handle gracefully - either empty list or error indicator
-        assert (
-            len(result["headlines"]) == 0 or 
-            result.get("success") == False or
-            any("error" in str(result).lower() for key in result.keys())
-        ), "Invalid ticker should be handled gracefully"
+    def test_fetch_news_headlines_data_collection_error(self, mock_news_error):
+        result = fetch_news_headlines.invoke({"ticker": "AAPL"})
+        assert result["success"] is False
+        assert "NewsAPI timeout" in result.get("error", "")
+        assert result["headlines"] == []
+
+
+# ── Price Data Tests ───────────────────────────────────────────────────────────
 
 
 class TestPriceData:
-    """Test cases for the fetch_price_data tool"""
-    
-    def test_fetch_price_data_success(self):
-        """Test successful price data retrieval with valid ticker"""
-        ticker = "GOOGL"
-        
-        # Call the tool function
-        result = fetch_price_data.invoke({"ticker": ticker})
-        
-        # Assertions
-        assert isinstance(result, dict), "Result should be a dictionary"
-        assert "price_data" in result, "Result should contain 'price_data' key"
-        assert isinstance(result["price_data"], list), "Price data should be a list"
-        
-        # Check for successful retrieval
-        if result.get("success", False):
-            assert len(result["price_data"]) > 0, "Price data list should not be empty for valid ticker"
-            
-            # Verify OHLCV structure if data is present
-            if result["price_data"]:
-                sample_record = result["price_data"][0]
-                assert isinstance(sample_record, dict), "Each price record should be a dictionary"
-                
-                # Check for required OHLCV fields
-                expected_fields = ["Date", "Open", "High", "Low", "Close", "Volume"]
-                for field in expected_fields:
-                    assert field in sample_record, f"Price record should contain '{field}' field"
-        
-        # Verify expected metadata
-        assert "ticker" in result, "Result should contain ticker information"
-        assert result["ticker"] == ticker.upper(), "Ticker should be normalized to uppercase"
-    
-    def test_fetch_price_data_structure(self):
-        """Test the structure of price data response"""
-        ticker = "AAPL"
-        result = fetch_price_data.invoke({"ticker": ticker, "period": "5d"})
-        
-        # Check response structure
-        expected_keys = ["success", "price_data", "ticker", "has_data"]
-        for key in expected_keys:
-            assert key in result, f"Result should contain '{key}' key"
-        
-        # If successful, validate data structure
-        if result.get("success") and result.get("price_data"):
-            price_data = result["price_data"]
-            
-            for record in price_data[:3]:  # Check first 3 records
-                assert isinstance(record, dict), "Each price record should be a dictionary"
-                
-                # Validate data types
-                if "Date" in record:
-                    assert isinstance(record["Date"], str), "Date should be a string"
-                
-                numeric_fields = ["Open", "High", "Low", "Close"]
-                for field in numeric_fields:
-                    if field in record and record[field] is not None:
-                        assert isinstance(record[field], (int, float)), \
-                            f"{field} should be numeric"
-                
-                if "Volume" in record and record["Volume"] is not None:
-                    assert isinstance(record["Volume"], (int, float)), \
-                        "Volume should be numeric"
-    
-    def test_fetch_price_data_invalid_ticker(self):
-        """Test price data tool with invalid ticker"""
-        invalid_ticker = "INVALIDTICKERXYZ"
-        
-        # Call the tool function
-        result = fetch_price_data.invoke({"ticker": invalid_ticker})
-        
-        # Assertions for graceful error handling
-        assert isinstance(result, dict), "Result should be a dictionary even for invalid ticker"
-        assert "price_data" in result, "Result should contain 'price_data' key"
-        assert isinstance(result["price_data"], list), "Price data should be a list"
-        
-        # Should handle gracefully - either empty list or error indicator
-        assert (
-            len(result["price_data"]) == 0 or 
-            result.get("success") == False or
-            "error" in str(result).lower()
-        ), "Invalid ticker should be handled gracefully"
+
+    def test_fetch_price_data_success(self, mock_price):
+        result = fetch_price_data.invoke({"ticker": "GOOGL"})
+        assert isinstance(result, dict)
+        assert "price_data" in result
+        assert result["ticker"] == "GOOGL"
+
+    def test_fetch_price_data_structure(self, mock_price):
+        result = fetch_price_data.invoke({"ticker": "AAPL", "period": "5d"})
+        for key in ["success", "price_data", "ticker", "has_data"]:
+            assert key in result
+        if result["price_data"]:
+            record = result["price_data"][0]
+            for field in ["Date", "Open", "High", "Low", "Close", "Volume"]:
+                assert field in record
+
+    def test_fetch_price_data_ticker_normalized(self, mock_price):
+        result = fetch_price_data.invoke({"ticker": "tsla"})
+        assert result["ticker"] == "TSLA"
+
+    def test_fetch_price_data_none_returns_empty(self, mock_price_none):
+        result = fetch_price_data.invoke({"ticker": "AAPL"})
+        assert isinstance(result["price_data"], list)
+        assert result["price_data"] == []
+
+
+# ── Combined Tests ─────────────────────────────────────────────────────────────
 
 
 class TestCombinedDataRetrieval:
-    """Test cases for combined data retrieval scenarios"""
-    
-    def test_fetch_data_consistency(self):
-        """Test that both tools return consistent ticker formatting"""
-        ticker = "msft"  # Use lowercase to test normalization
-        
+
+    def test_fetch_data_consistency(self, mock_news, mock_price):
+        ticker = "msft"
         news_result = fetch_news_headlines.invoke({"ticker": ticker})
         price_result = fetch_price_data.invoke({"ticker": ticker})
-        
-        # Both should return the ticker (case-insensitive comparison)
-        assert news_result.get("ticker").upper() == ticker.upper()
-        assert price_result.get("ticker").upper() == ticker.upper()
-    
-    def test_error_handling_consistency(self):
-        """Test that both tools handle errors consistently"""
-        invalid_ticker = "INVALIDTICKER123"
-        
-        news_result = fetch_news_headlines.invoke({"ticker": invalid_ticker})
-        price_result = fetch_price_data.invoke({"ticker": invalid_ticker})
-        
-        # Both should return dictionary structure even on error
+        assert news_result["ticker"].upper() == ticker.upper()
+        assert price_result["ticker"].upper() == ticker.upper()
+
+    def test_error_handling_consistency(self, mock_news_error, mock_price_none):
+        news_result = fetch_news_headlines.invoke({"ticker": "AAPL"})
+        price_result = fetch_price_data.invoke({"ticker": "AAPL"})
         assert isinstance(news_result, dict)
         assert isinstance(price_result, dict)
-        
-        # Both should have expected keys
         assert "headlines" in news_result
         assert "price_data" in price_result
 
 
-# Pytest fixtures for common test data
-@pytest.fixture
-def valid_tickers():
-    """Fixture providing list of valid test tickers"""
-    return ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
+# ── Parametrized coverage ──────────────────────────────────────────────────────
 
 
-@pytest.fixture
-def invalid_tickers():
-    """Fixture providing list of invalid test tickers"""
-    return ["INVALIDXYZ", "NOTREAL123", "BADTICKER"]
-
-
-# Integration test using fixtures
-def test_multiple_valid_tickers(valid_tickers):
-    """Test tools with multiple valid tickers"""
-    for ticker in valid_tickers[:2]:  # Test first 2 to avoid rate limits
-        news_result = fetch_news_headlines.invoke({"ticker": ticker})
-        price_result = fetch_price_data.invoke({"ticker": ticker})
-        
-        # Basic structure checks
-        assert isinstance(news_result, dict)
-        assert isinstance(price_result, dict)
-        assert news_result.get("ticker") == ticker
-        assert price_result.get("ticker") == ticker
-
-
-if __name__ == "__main__":
-    # Allow running this file directly for quick testing
-    pytest.main([__file__, "-v"])
+@pytest.mark.parametrize("ticker", ["AAPL", "MSFT", "GOOGL"])
+def test_multiple_valid_tickers(ticker, mock_news, mock_price):
+    news_result = fetch_news_headlines.invoke({"ticker": ticker})
+    price_result = fetch_price_data.invoke({"ticker": ticker})
+    assert news_result["ticker"] == ticker
+    assert price_result["ticker"] == ticker
+    assert news_result["success"] is True
