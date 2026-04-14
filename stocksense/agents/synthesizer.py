@@ -13,7 +13,7 @@ import logging
 import math
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
 from typing import Literal as _Literal
