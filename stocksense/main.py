@@ -131,6 +131,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Correlation ID middleware — every request/response gets a traceable 8-char hex ID
+import uuid as _uuid
+
+@app.middleware("http")
+async def add_correlation_id(request: Request, call_next):
+    """Attach a short correlation ID to every request and response."""
+    correlation_id = _uuid.uuid4().hex[:8]
+    request.state.correlation_id = correlation_id
+    response = await call_next(request)
+    response.headers["X-Correlation-ID"] = correlation_id
+    return response
+
 # Register auth routes (Stage 3: User Belief System)
 try:
     from stocksense.api.auth_routes import router as auth_router
