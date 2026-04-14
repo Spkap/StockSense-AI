@@ -99,7 +99,11 @@ def save_analysis(
             "fundamental_data": fundamental_data or {},
         }
         
-        response = client.table("analysis_cache").insert(data).execute()
+        response = (
+            client.table("analysis_cache")
+            .upsert(data, on_conflict="ticker")
+            .execute()
+        )
         
         if response.data:
             logger.info(f"Analysis saved to Supabase for {ticker}")
@@ -116,10 +120,14 @@ def get_latest_analysis(ticker: str) -> Optional[Dict[str, Any]]:
     try:
         client = get_supabase_client()
         
+        from datetime import datetime, timezone, timedelta
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+
         response = (
             client.table("analysis_cache")
             .select("*")
             .eq("ticker", ticker.upper())
+            .gte("created_at", cutoff)
             .order("created_at", desc=True)
             .limit(1)
             .execute()
