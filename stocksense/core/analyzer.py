@@ -122,19 +122,14 @@ Return ONLY the JSON object, no additional text."""
         response = llm.invoke(prompt)
         response_text = response.content if hasattr(response, 'content') else str(response)
         
-        # Parse the JSON response
-        
-        # Clean up response - handle markdown code blocks
-        cleaned = response_text.strip()
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[7:]
-        if cleaned.startswith("```"):
-            cleaned = cleaned[3:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
-        
-        data = json.loads(cleaned)
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+        from stocksense.core.llm_parser import parse_llm_json, LLMParseError
+        try:
+            data = parse_llm_json(response_text)
+        except LLMParseError as e:
+            _logger.error(f"Sentiment JSON parse failed: {e}")
+            raise
         
         # Build the structured result
         headline_analyses = [

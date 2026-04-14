@@ -5,12 +5,14 @@ This module provides a contrarian perspective that critiques the primary analysi
 surfaces bear cases, and identifies assumptions that may be wrong.
 """
 
-import json
+import logging
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from stocksense.core.config import get_chat_llm, ConfigurationError
 from stocksense.core.schemas import SentimentAnalysisResult
+
+logger = logging.getLogger("stocksense.agents.skeptic")
 
 
 class SkepticCritique(BaseModel):
@@ -160,17 +162,12 @@ Return ONLY the JSON object."""
         response = llm.invoke(prompt)
         response_text = response.content if hasattr(response, 'content') else str(response)
         
-        # Clean up response
-        cleaned = response_text.strip()
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[7:]
-        if cleaned.startswith("```"):
-            cleaned = cleaned[3:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
-        
-        data = json.loads(cleaned)
+        from stocksense.core.llm_parser import parse_llm_json, LLMParseError
+        try:
+            data = parse_llm_json(response_text)
+        except LLMParseError as e:
+            logger.error(f"Skeptic JSON parse failed for {ticker}: {e}")
+            raise
         
         # Build structured result
         critiques = [

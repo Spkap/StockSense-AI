@@ -352,12 +352,12 @@ Return ONLY the JSON object."""
             response = self.llm.invoke(prompt)
             content = response.content.strip()
             
-            if content.startswith("```"):
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:]
-            
-            return json.loads(content)
+            from stocksense.core.llm_parser import parse_llm_json, LLMParseError
+            try:
+                return parse_llm_json(content)
+            except LLMParseError as e:
+                logger.error(f"Synthesis JSON parse failed: {e}")
+                raise
             
         except Exception as e:
             logger.error(f"Synthesis generation failed: {e}")

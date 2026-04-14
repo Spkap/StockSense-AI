@@ -107,13 +107,12 @@ class BullAnalyst(BaseAnalystAgent):
             response = self.llm.invoke(prompt)
             content = response.content.strip()
             
-            # Parse JSON response
-            if content.startswith("```"):
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:]
-            
-            analysis = json.loads(content)
+            from stocksense.core.llm_parser import parse_llm_json, LLMParseError
+            try:
+                analysis = parse_llm_json(content)
+            except LLMParseError as e:
+                logger.error(f"Bull analysis JSON parse failed for {ticker}: {e}")
+                raise
             
             return BullCase(
                 ticker=ticker,
@@ -193,12 +192,12 @@ Only return the JSON array."""
             response = self.llm.invoke(prompt)
             content = response.content.strip()
             
-            if content.startswith("```"):
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:]
-            
-            rebuttals_data = json.loads(content)
+            from stocksense.core.llm_parser import parse_llm_json, LLMParseError
+            try:
+                rebuttals_data = parse_llm_json(content)
+            except LLMParseError as e:
+                logger.error(f"Bull rebuttal JSON parse failed for {ticker}: {e}")
+                return []
             
             return [
                 Rebuttal(
