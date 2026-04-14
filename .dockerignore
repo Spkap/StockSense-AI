@@ -1,0 +1,35 @@
+# Development files
+.env
+.env.*
+!.env.example
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+
+# Frontend (not needed in backend image)
+frontend/
+
+# Docs and tests
+docs/
+tests/
+*.md
+!requirements-backend.txt
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+
+# GCP key files
+github-actions-key.json
