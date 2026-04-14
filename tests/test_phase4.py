@@ -21,9 +21,10 @@ def test_llm_invoke_retries_on_resource_exhausted():
         AIMessage(content="success"),
     ]
 
-    with patch("stocksense.core.config.ChatGoogleGenerativeAI", return_value=mock_inner):
-        llm = get_chat_llm()
-        result = llm.invoke("prompt")
+    with patch("stocksense.core.config.get_google_api_key", return_value="fake-key"):
+        with patch("stocksense.core.config.ChatGoogleGenerativeAI", return_value=mock_inner):
+            llm = get_chat_llm()
+            result = llm.invoke("prompt")
 
     assert result.content == "success"
     assert mock_inner.invoke.call_count == 3
@@ -37,10 +38,11 @@ def test_llm_invoke_raises_after_max_retries():
     mock_inner = MagicMock()
     mock_inner.invoke.side_effect = ResourceExhausted("quota exceeded")
 
-    with patch("stocksense.core.config.ChatGoogleGenerativeAI", return_value=mock_inner):
-        llm = get_chat_llm()
-        with pytest.raises(ResourceExhausted):
-            llm.invoke("prompt")
+    with patch("stocksense.core.config.get_google_api_key", return_value="fake-key"):
+        with patch("stocksense.core.config.ChatGoogleGenerativeAI", return_value=mock_inner):
+            llm = get_chat_llm()
+            with pytest.raises(ResourceExhausted):
+                llm.invoke("prompt")
 
     assert mock_inner.invoke.call_count == 3
 
@@ -52,10 +54,11 @@ def test_llm_invoke_does_not_retry_on_value_error():
     mock_inner = MagicMock()
     mock_inner.invoke.side_effect = ValueError("bad input")
 
-    with patch("stocksense.core.config.ChatGoogleGenerativeAI", return_value=mock_inner):
-        llm = get_chat_llm()
-        with pytest.raises(ValueError):
-            llm.invoke("prompt")
+    with patch("stocksense.core.config.get_google_api_key", return_value="fake-key"):
+        with patch("stocksense.core.config.ChatGoogleGenerativeAI", return_value=mock_inner):
+            llm = get_chat_llm()
+            with pytest.raises(ValueError):
+                llm.invoke("prompt")
 
     assert mock_inner.invoke.call_count == 1  # no retry
 
@@ -71,9 +74,10 @@ def test_llm_retries_on_service_unavailable():
         AIMessage(content="recovered"),
     ]
 
-    with patch("stocksense.core.config.ChatGoogleGenerativeAI", return_value=mock_inner):
-        llm = get_chat_llm()
-        result = llm.invoke("prompt")
+    with patch("stocksense.core.config.get_google_api_key", return_value="fake-key"):
+        with patch("stocksense.core.config.ChatGoogleGenerativeAI", return_value=mock_inner):
+            llm = get_chat_llm()
+            result = llm.invoke("prompt")
 
     assert result.content == "recovered"
     assert mock_inner.invoke.call_count == 2

@@ -89,7 +89,7 @@ def get_chat_llm(model: str = "gemini-2.5-flash-lite",
         google_api_key=api_key,
         temperature=temperature,
         max_output_tokens=max_output_tokens,
-        max_retries=3,
+        max_retries=1,
         timeout=30
     )
 
