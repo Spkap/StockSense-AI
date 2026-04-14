@@ -221,23 +221,30 @@ Only return the JSON array."""
         price_data: List[Dict[str, Any]],
         sentiment: Dict[str, Any]
     ) -> str:
+        from stocksense.core.technical_analysis import compute_technical_signals, format_technical_signals
+
         info = fundamentals.get("info", {})
-        
-        # Format key metrics
+
+        # Format key metrics (growth-weighted ordering already applied by prepare_fundamentals)
         metrics_str = "\n".join([
             f"- {k}: {v}" for k, v in list(info.items())[:15]
         ])
-        
-        # Format headlines
-        headlines_str = "\n".join([f"- {h}" for h in headlines[:10]])
-        
-        # Format sentiment themes
+
+        # Bull-biased headline filter: use base method (beats, upgrades, launches first)
+        ordered_headlines = self.filter_headlines_for_perspective(headlines)[:10]
+        headlines_str = "\n".join([f"- {h}" for h in ordered_headlines])
+
+        # Sentiment themes
         themes = sentiment.get("key_themes", [])
         themes_str = "\n".join([
             f"- {t.get('theme', '')}: {t.get('sentiment_direction', '')}"
             for t in themes[:5]
         ])
-        
+
+        # Technical signals (price data now actively used in prompt)
+        tech_signals = compute_technical_signals(price_data)
+        tech_str = format_technical_signals(tech_signals)
+
         return f"""{self._build_system_prompt()}
 
 TICKER: {ticker}
@@ -245,7 +252,9 @@ TICKER: {ticker}
 KEY FINANCIAL METRICS (Growth-Weighted):
 {metrics_str}
 
-RECENT HEADLINES:
+{tech_str}
+
+RECENT HEADLINES (Bull-Signal Priority):
 {headlines_str}
 
 SENTIMENT THEMES:
@@ -273,7 +282,7 @@ Return a JSON object with this structure:
       "statement": "Specific factual claim",
       "evidence": "Data supporting this claim",
       "confidence": 0.0-1.0,
-      "data_source": "fundamentals|news|price"
+      "data_source": "fundamentals|news|price|technical"
     }}
   ]
 }}
