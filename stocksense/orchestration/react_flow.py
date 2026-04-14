@@ -827,9 +827,19 @@ async def run_debate_analysis(ticker: str) -> Dict:
     Returns a SynthesizedVerdict with probability-weighted scenarios.
     """
     import logging
+    import time as _time
+    from stocksense.core.llm_client import TrackedLLM, TokenUsage
+    from stocksense.db.trace_logger import TraceLogger
     logger = logging.getLogger("stocksense.debate")
-    
+
     ticker = ticker.upper()
+
+    # Correlation ID: generate a fresh run_id (HTTP middleware sets X-Correlation-ID
+    # on the response; here we track the same span for token accounting).
+    import uuid as _uuid
+    run_id = _uuid.uuid4().hex[:8]
+    tracer = TraceLogger(run_id=run_id, ticker=ticker)
+    combined_usage = TokenUsage()
     logger.info(f"Starting debate analysis for {ticker}")
     
     try:
@@ -873,6 +883,15 @@ async def run_debate_analysis(ticker: str) -> Dict:
         bull_agent = BullAnalyst()
         bear_agent = BearAnalyst()
         synthesizer = Synthesizer()
+
+        # Inject TrackedLLM wrappers so token usage flows up to this function
+        from stocksense.core.config import get_chat_llm
+        bull_tracked = TrackedLLM(get_chat_llm(temperature=0.2), session_id=run_id)
+        bear_tracked = TrackedLLM(get_chat_llm(temperature=0.2), session_id=run_id)
+        synth_tracked = TrackedLLM(get_chat_llm(temperature=0.1), session_id=run_id)
+        bull_agent.llm = bull_tracked
+        bear_agent.llm = bear_tracked
+        synthesizer.llm = synth_tracked
         
         # Step 2: Phase 1 - Parallel initial analysis
         logger.info("Phase 1: Parallel Bull/Bear analysis")
@@ -958,7 +977,23 @@ async def run_debate_analysis(ticker: str) -> Dict:
             "fundamentals": fundamentals,
             "headlines": headlines,
             "timestamp": datetime.now().isoformat(),
-            "error": None
+            "error": None,
+            "token_usage": {
+                "bull_tokens": bull_tracked.usage.total_tokens,
+                "bear_tokens": bear_tracked.usage.total_tokens,
+                "synth_tokens": synth_tracked.usage.total_tokens,
+                "total_tokens": (
+                    bull_tracked.usage.total_tokens
+                    + bear_tracked.usage.total_tokens
+                    + synth_tracked.usage.total_tokens
+                ),
+                "estimated_cost_usd": (
+                    bull_tracked.usage.estimated_cost_usd
+                    + bear_tracked.usage.estimated_cost_usd
+                    + synth_tracked.usage.estimated_cost_usd
+                ),
+            },
+            "run_id": run_id,
         }
         
     except Exception as e:
@@ -973,7 +1008,9 @@ async def run_debate_analysis(ticker: str) -> Dict:
             "fundamentals": None,
             "headlines": None,
             "timestamp": datetime.now().isoformat(),
-            "error": str(e)
+            "error": str(e),
+            "token_usage": {"total_tokens": 0, "estimated_cost_usd": 0.0},
+            "run_id": run_id,
         }
 
 
