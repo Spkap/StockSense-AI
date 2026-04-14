@@ -155,3 +155,44 @@ def test_generate_synthesis_uses_structured_output():
     mock_llm.with_structured_output.assert_called_once_with(SynthesisLLMOutput)
     assert result["recommendation"] == "Buy"
     assert result["bull_probability"] == 0.45
+
+
+# ─── Task 3: Skeptic structured output ──────────────────────────────────────
+
+def test_generate_skeptic_uses_structured_output():
+    """generate_skeptic_analysis must use with_structured_output, not parse_llm_json."""
+    from unittest.mock import MagicMock, patch
+    from stocksense.agents.skeptic_agent import generate_skeptic_analysis, SkepticAnalysis, SkepticCritique, BearCase
+    from stocksense.core.schemas import SentimentAnalysisResult
+
+    primary = SentimentAnalysisResult(
+        overall_sentiment="Bullish",
+        overall_confidence=0.7,
+        confidence_reasoning="Strong earnings",
+        bullish_count=3, bearish_count=1, neutral_count=1, insufficient_data_count=0,
+        headline_analyses=[], key_themes=[],
+        potential_impact="Moderate Positive",
+        risks_identified=[], information_gaps=[],
+    )
+
+    expected_result = SkepticAnalysis(
+        skeptic_sentiment="Partially Disagree",
+        primary_disagreement="China risk ignored",
+        critiques=[SkepticCritique(critique="Overconfident", assumption_challenged="Growth", evidence="Slowdown data")],
+        bear_cases=[BearCase(argument="Competition", trigger="Market share loss", severity="High")],
+        would_change_mind=["Revenue acceleration"],
+        hidden_risks=["Regulatory risk"],
+        skeptic_confidence=0.65,
+    )
+
+    mock_llm = MagicMock()
+    structured_chain = MagicMock()
+    mock_llm.with_structured_output.return_value = structured_chain
+    structured_chain.invoke.return_value = expected_result
+
+    with patch("stocksense.agents.skeptic_agent.get_chat_llm", return_value=mock_llm):
+        result = generate_skeptic_analysis(primary, ["Apple beats earnings"], "AAPL")
+
+    mock_llm.with_structured_output.assert_called_once_with(SkepticAnalysis)
+    assert result.skeptic_sentiment == "Partially Disagree"
+    assert result.skeptic_confidence == 0.65

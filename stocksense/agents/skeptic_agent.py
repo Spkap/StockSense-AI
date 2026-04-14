@@ -159,34 +159,8 @@ Respond with a JSON object:
 
 Return ONLY the JSON object."""
 
-        response = llm.invoke(prompt)
-        response_text = response.content if hasattr(response, 'content') else str(response)
-        
-        from stocksense.core.llm_parser import parse_llm_json, LLMParseError
-        try:
-            data = parse_llm_json(response_text)
-        except LLMParseError as e:
-            logger.error(f"Skeptic JSON parse failed for {ticker}: {e}")
-            raise
-        
-        # Build structured result
-        critiques = [
-            SkepticCritique(**c) for c in data.get("critiques", [])
-        ]
-        
-        bear_cases = [
-            BearCase(**b) for b in data.get("bear_cases", [])
-        ]
-        
-        return SkepticAnalysis(
-            skeptic_sentiment=data.get("skeptic_sentiment", "Agree with Reservations"),
-            primary_disagreement=data.get("primary_disagreement", ""),
-            critiques=critiques,
-            bear_cases=bear_cases,
-            would_change_mind=data.get("would_change_mind", []),
-            hidden_risks=data.get("hidden_risks", []),
-            skeptic_confidence=data.get("skeptic_confidence", 0.5)
-        )
+        structured_llm = llm.with_structured_output(SkepticAnalysis)
+        return structured_llm.invoke(prompt)
         
     except json.JSONDecodeError as e:
         return SkepticAnalysis(
