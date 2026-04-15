@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, FileText, BarChart3, ShieldAlert } from 'lucide-react';
+import { RefreshCw, FileText, BarChart3, ShieldAlert, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Badge } from './ui/badge';
 import FundamentalsCard from './FundamentalsCard';
 import SkepticCard from './SkepticCard';
 import SentimentCard from './SentimentCard';
+import { useDeleteAnalysis } from '../api/hooks';
 import type { AnalysisData } from '../types/api';
 import { cn } from '../utils/cn';
 
@@ -25,6 +26,25 @@ const tabs = [
 
 const ResultsTabs = ({ result, onRefresh, isRefreshing }: ResultsTabsProps) => {
   const [activeTab, setActiveTab] = useState('thesis');
+  const [freshRunArmed, setFreshRunArmed] = useState(false);
+  const deleteAnalysis = useDeleteAnalysis();
+
+  // Auto-disarm after 3 seconds if user doesn't confirm
+  useEffect(() => {
+    if (!freshRunArmed) return;
+    const timer = setTimeout(() => setFreshRunArmed(false), 3000);
+    return () => clearTimeout(timer);
+  }, [freshRunArmed]);
+
+  const handleFreshRun = async () => {
+    if (!freshRunArmed) {
+      setFreshRunArmed(true);
+      return;
+    }
+    setFreshRunArmed(false);
+    await deleteAnalysis.mutateAsync(result.ticker);
+    onRefresh();
+  };
 
   // Helper to safely render markdown paragraphs
   const renderMarkdown = (text: string) => {
@@ -50,16 +70,33 @@ const ResultsTabs = ({ result, onRefresh, isRefreshing }: ResultsTabsProps) => {
             Generated on {new Date(result.timestamp).toLocaleDateString()} at {new Date(result.timestamp).toLocaleTimeString()}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onRefresh}
-          disabled={isRefreshing}
-          className="gap-2 rounded-full border-border/60 bg-background/50 backdrop-blur-sm transition-all hover:bg-background"
-        >
-          <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-          <span>Refresh Analysis</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            disabled={isRefreshing || deleteAnalysis.isPending}
+            className="gap-2 rounded-full border-border/60 bg-background/50 backdrop-blur-sm transition-all hover:bg-background"
+          >
+            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+            <span>Refresh</span>
+          </Button>
+          <Button
+            variant={freshRunArmed ? "destructive" : "outline"}
+            size="sm"
+            onClick={handleFreshRun}
+            disabled={isRefreshing || deleteAnalysis.isPending}
+            className={cn(
+              "gap-2 rounded-full backdrop-blur-sm transition-all",
+              freshRunArmed
+                ? "animate-pulse"
+                : "border-border/60 bg-background/50 hover:bg-background"
+            )}
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>{freshRunArmed ? "Confirm?" : "Fresh Run"}</span>
+          </Button>
+        </div>
       </div>
 
       {/* Custom Segmented Control */}
