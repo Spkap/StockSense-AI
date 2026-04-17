@@ -23,6 +23,7 @@ export interface Thesis {
   time_horizon: 'short' | 'medium' | 'long';
   thesis_type: 'growth' | 'value' | 'income' | 'turnaround' | 'special_situation';
   status: 'active' | 'validated' | 'invalidated' | 'exited';
+  position_id?: string | null;
   // Stage 4: Analysis-Thesis Linkage
   origin_analysis_id?: number;
   origin_analysis_snapshot?: AnalysisSnapshot;
@@ -54,6 +55,7 @@ export interface CreateThesisRequest {
   kill_criteria?: string[];
   time_horizon?: 'short' | 'medium' | 'long';
   thesis_type?: 'growth' | 'value' | 'income' | 'turnaround' | 'special_situation';
+  position_id?: string;
   // Stage 4: Analysis-Thesis Linkage
   origin_analysis_id?: number;
   origin_analysis_snapshot?: AnalysisSnapshot;
@@ -110,4 +112,3 @@ export interface ThesisHistoryResponse {
   history: ThesisHistoryEntry[];
   count: number;
 }
-

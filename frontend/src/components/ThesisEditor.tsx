@@ -9,13 +9,16 @@ import { Card, CardContent, CardHeader } from './ui/card';
 import { Button } from './ui/button';
 import { useAuth } from '../context/AuthContext';
 import { useCreateThesis, useUpdateThesis } from '../api/theses';
+import { usePositions } from '../api/user';
 import type { Thesis, CreateThesisRequest } from '../types/thesis';
+import type { AnalysisData } from '../types/api';
 
 interface ThesisEditorProps {
   isOpen: boolean;
   onClose: () => void;
   ticker: string;
   existingThesis?: Thesis | null;
+  analysisData?: AnalysisData | null;
 }
 
 const CONVICTION_LEVELS = [
@@ -24,15 +27,45 @@ const CONVICTION_LEVELS = [
   { value: 'high', label: 'High', description: 'Strong conviction' },
 ] as const;
 
-export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }: ThesisEditorProps) {
+const TIME_HORIZONS = [
+  { value: 'short', label: 'Short', description: '< 12 months' },
+  { value: 'medium', label: 'Medium', description: '1-3 years' },
+  { value: 'long', label: 'Long', description: '3+ years' },
+] as const;
+
+const THESIS_TYPES = [
+  { value: 'growth', label: 'Growth' },
+  { value: 'value', label: 'Value' },
+  { value: 'income', label: 'Income' },
+  { value: 'turnaround', label: 'Turnaround' },
+  { value: 'special_situation', label: 'Special Situation' },
+] as const;
+
+const THESIS_STATUSES = [
+  { value: 'active', label: 'Active' },
+  { value: 'validated', label: 'Validated' },
+  { value: 'invalidated', label: 'Invalidated' },
+  { value: 'exited', label: 'Exited' },
+] as const;
+
+export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis, analysisData }: ThesisEditorProps) {
   const { user } = useAuth();
   const createThesis = useCreateThesis();
   const updateThesis = useUpdateThesis();
+  const { data: positionsData } = usePositions(isOpen && !!user);
 
   const [thesisSummary, setThesisSummary] = useState('');
   const [convictionLevel, setConvictionLevel] = useState<'low' | 'medium' | 'high'>('medium');
   const [killCriteria, setKillCriteria] = useState('');
+  const [timeHorizon, setTimeHorizon] = useState<'short' | 'medium' | 'long'>('medium');
+  const [thesisType, setThesisType] = useState<'growth' | 'value' | 'income' | 'turnaround' | 'special_situation'>('growth');
+  const [status, setStatus] = useState<'active' | 'validated' | 'invalidated' | 'exited'>('active');
+  const [positionId, setPositionId] = useState('');
+  const [changeReason, setChangeReason] = useState('');
+  const [invalidationReason, setInvalidationReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const matchingPositions = (positionsData?.positions ?? []).filter((position) => position.ticker === ticker.toUpperCase());
 
   // Populate form if editing existing thesis
   useEffect(() => {
@@ -40,10 +73,22 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
       setThesisSummary(existingThesis.thesis_summary);
       setConvictionLevel(existingThesis.conviction_level);
       setKillCriteria(existingThesis.kill_criteria.join('\n'));
+      setTimeHorizon(existingThesis.time_horizon);
+      setThesisType(existingThesis.thesis_type);
+      setStatus(existingThesis.status);
+      setPositionId(existingThesis.position_id ?? '');
+      setChangeReason('');
+      setInvalidationReason('');
     } else {
       setThesisSummary('');
       setConvictionLevel('medium');
       setKillCriteria('');
+      setTimeHorizon('medium');
+      setThesisType('growth');
+      setStatus('active');
+      setPositionId('');
+      setChangeReason('');
+      setInvalidationReason('');
     }
   }, [existingThesis, isOpen]);
 
@@ -68,6 +113,17 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
     );
   }
 
+  const buildOriginSnapshot = () => {
+    if (!analysisData) return undefined;
+    return {
+      sentiment: analysisData.overall_sentiment || analysisData.sentiment_report || '',
+      confidence: analysisData.overall_confidence ?? 0,
+      skeptic_verdict: analysisData.skeptic_sentiment || undefined,
+      key_themes: (analysisData.key_themes ?? []).map((theme) => theme.theme),
+      timestamp: analysisData.timestamp,
+    };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -90,7 +146,9 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
             thesis_summary: thesisSummary.trim(),
             conviction_level: convictionLevel,
             kill_criteria: killCriteriaList,
-            change_reason: 'Updated thesis',
+            status,
+            invalidation_reason: invalidationReason.trim() || undefined,
+            change_reason: changeReason.trim() || 'Updated thesis',
           },
         });
       } else {
@@ -99,6 +157,11 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
           thesis_summary: thesisSummary.trim(),
           conviction_level: convictionLevel,
           kill_criteria: killCriteriaList,
+          time_horizon: timeHorizon,
+          thesis_type: thesisType,
+          position_id: positionId || undefined,
+          origin_analysis_id: analysisData?.id,
+          origin_analysis_snapshot: buildOriginSnapshot(),
         };
         await createThesis.mutateAsync(newThesis);
       }
@@ -188,6 +251,106 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
                 className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none font-mono text-sm"
               />
             </div>
+
+            {!existingThesis && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Time Horizon</label>
+                  <select
+                    value={timeHorizon}
+                    onChange={(event) => setTimeHorizon(event.target.value as typeof timeHorizon)}
+                    className="flex h-12 w-full rounded-xl bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                  >
+                    {TIME_HORIZONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label} · {option.description}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Thesis Type</label>
+                  <select
+                    value={thesisType}
+                    onChange={(event) => setThesisType(event.target.value as typeof thesisType)}
+                    className="flex h-12 w-full rounded-xl bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                  >
+                    {THESIS_TYPES.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {!existingThesis && matchingPositions.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Link to Position</label>
+                <select
+                  value={positionId}
+                  onChange={(event) => setPositionId(event.target.value)}
+                  className="flex h-12 w-full rounded-xl bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                >
+                  <option value="">No linked position</option>
+                  {matchingPositions.map((position) => (
+                    <option key={position.id} value={position.id}>
+                      {position.position_type.toUpperCase()} · {position.ticker}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {existingThesis && (
+              <>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Status</label>
+                    <select
+                      value={status}
+                      onChange={(event) => setStatus(event.target.value as typeof status)}
+                      className="flex h-12 w-full rounded-xl bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                    >
+                      {THESIS_STATUSES.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Change Reason</label>
+                    <input
+                      value={changeReason}
+                      onChange={(event) => setChangeReason(event.target.value)}
+                      placeholder="What changed in your thesis?"
+                      className="flex h-12 w-full rounded-xl bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                    />
+                  </div>
+                </div>
+
+                {(status === 'invalidated' || status === 'exited') && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Invalidation / Exit Reason</label>
+                    <textarea
+                      value={invalidationReason}
+                      onChange={(event) => setInvalidationReason(event.target.value)}
+                      rows={3}
+                      placeholder="What specifically invalidated the thesis or triggered the exit?"
+                      className="w-full rounded-xl bg-secondary/80 px-4 py-3 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {!existingThesis && analysisData && (
+              <div className="rounded-xl border border-primary/15 bg-primary/5 p-4 text-sm text-muted-foreground">
+                This thesis will be linked to the current analysis snapshot so you can compare what changed later.
+              </div>
+            )}
 
             {/* Error */}
             {error && (

@@ -4,16 +4,20 @@
  */
 
 import { useState } from 'react';
-import { User, LogOut, Settings, BookOpen, ChevronDown } from 'lucide-react';
+import { User, LogOut, BriefcaseBusiness, BookOpen, ChevronDown, Bell, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
+import { useBackendProfile } from '../api/user';
+import type { AppView } from '../types/navigation';
 
 interface UserMenuProps {
   onOpenAuth: () => void;
+  onNavigate: (view: AppView) => void;
 }
 
-export default function UserMenu({ onOpenAuth }: UserMenuProps) {
+export default function UserMenu({ onOpenAuth, onNavigate }: UserMenuProps) {
   const { user, loading, signOut } = useAuth();
+  const { data: profile } = useBackendProfile(!!user);
   const [isOpen, setIsOpen] = useState(false);
 
   if (loading) {
@@ -34,8 +38,8 @@ export default function UserMenu({ onOpenAuth }: UserMenuProps) {
     );
   }
 
-  const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-  const avatarUrl = user.user_metadata?.avatar_url;
+  const displayName = profile?.display_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url;
 
   return (
     <div className="relative">
@@ -79,13 +83,45 @@ export default function UserMenu({ onOpenAuth }: UserMenuProps) {
             </div>
 
             <div className="py-1">
-              <button className="flex items-center gap-3 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+              <button
+                onClick={() => {
+                  onNavigate('dashboard');
+                  setIsOpen(false);
+                }}
+                className="flex items-center gap-3 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+              >
+                <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
+                Dashboard
+              </button>
+              <button
+                onClick={() => {
+                  onNavigate('positions');
+                  setIsOpen(false);
+                }}
+                className="flex items-center gap-3 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+              >
+                <BriefcaseBusiness className="h-4 w-4 text-muted-foreground" />
+                Positions
+              </button>
+              <button
+                onClick={() => {
+                  onNavigate('theses');
+                  setIsOpen(false);
+                }}
+                className="flex items-center gap-3 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+              >
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
                 My Theses
               </button>
-              <button className="flex items-center gap-3 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
-                <Settings className="h-4 w-4 text-muted-foreground" />
-                Settings
+              <button
+                onClick={() => {
+                  onNavigate('alerts');
+                  setIsOpen(false);
+                }}
+                className="flex items-center gap-3 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+              >
+                <Bell className="h-4 w-4 text-muted-foreground" />
+                Alerts
               </button>
             </div>
 

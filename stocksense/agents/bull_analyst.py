@@ -30,7 +30,7 @@ class CatalystModel(BaseModel):
 class ClaimModel(BaseModel):
     statement: str
     evidence: str
-    confidence: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     data_source: str = "fundamentals"
 
 
@@ -223,7 +223,7 @@ Only return the JSON array."""
             try:
                 rebuttals_data = parse_llm_json(content)
             except LLMParseError as e:
-                logger.error(f"Bull rebuttal JSON parse failed for {ticker}: {e}")
+                logger.error(f"Bull rebuttal JSON parse failed: {e}")
                 return []
             
             return [

@@ -357,3 +357,19 @@ def test_run_debate_analysis_returns_run_id():
 
     assert "run_id" in result, "result must have 'run_id' key"
     assert len(result["run_id"]) == 8, f"run_id should be 8 chars, got '{result['run_id']}'"
+
+
+def test_bear_claim_model_defaults_missing_confidence():
+    from stocksense.agents.bear_analyst import BearClaimModel
+
+    claim = BearClaimModel(statement="Valuation is stretched", evidence="PE multiple is elevated")
+
+    assert claim.confidence == 0.5
+
+
+def test_bull_claim_model_defaults_missing_confidence():
+    from stocksense.agents.bull_analyst import ClaimModel
+
+    claim = ClaimModel(statement="Revenue is compounding", evidence="Revenue growth remains positive")
+
+    assert claim.confidence == 0.5

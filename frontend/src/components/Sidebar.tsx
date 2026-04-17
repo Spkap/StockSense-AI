@@ -4,22 +4,25 @@ import {
   LineChart, 
   BookOpen,
   Bell,
+  BriefcaseBusiness,
+  Scale,
   ChevronLeft,
   X,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { useSidebar } from '../context/SidebarContext';
 import { Button } from './ui/button';
-
-type ViewType = 'dashboard' | 'theses' | 'alerts';
+import type { AppView } from '../types/navigation';
 
 const menuItems: Array<{
   icon: typeof LayoutDashboard;
   label: string;
-  viewId: ViewType;
+  viewId: AppView;
   implemented: boolean;
 }> = [
   { icon: LayoutDashboard, label: 'Dashboard', viewId: 'dashboard', implemented: true },
+  { icon: Scale, label: 'Debate Lab', viewId: 'debate', implemented: true },
+  { icon: BriefcaseBusiness, label: 'Positions', viewId: 'positions', implemented: true },
   { icon: BookOpen, label: 'My Theses', viewId: 'theses', implemented: true },
   { icon: Bell, label: 'Alerts', viewId: 'alerts', implemented: true },
 ];
@@ -31,8 +34,8 @@ interface SidebarContentProps {
   isMobile?: boolean;
   onClose?: () => void;
   tabIndex?: number;
-  currentView: ViewType;
-  onNavigate: (view: ViewType) => void;
+  currentView: AppView;
+  onNavigate: (view: AppView) => void;
 }
 
 const SidebarContent = ({ isCollapsed, isMobile, onClose, tabIndex = 0, currentView, onNavigate }: SidebarContentProps) => {
@@ -105,8 +108,8 @@ const SidebarContent = ({ isCollapsed, isMobile, onClose, tabIndex = 0, currentV
 };
 
 interface SidebarProps {
-  onNavigate: (view: ViewType) => void;
-  currentView: ViewType;
+  onNavigate: (view: AppView) => void;
+  currentView: AppView;
 }
 
 const Sidebar = ({ onNavigate, currentView }: SidebarProps) => {

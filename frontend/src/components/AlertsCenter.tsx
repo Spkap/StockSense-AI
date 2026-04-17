@@ -1,226 +1,235 @@
-import { useState, useEffect } from 'react';
-import { Bell, CheckCheck, Clock, ShieldAlert } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Bell, CheckCheck, Eye, ShieldAlert, Trash2, XCircle } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { supabase } from '../utils/supabase';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { useDeleteKillAlert, useKillAlertDetail, useKillAlertsList, useUpdateKillAlert } from '../api/user';
+import type { KillAlertStatus } from '../types/api';
 import { cn } from '../utils/cn';
-import { API_BASE_URL } from '../config/env';
+import { useAuth } from '../context/AuthContext';
 
-interface Alert {
-  id: string;
-  user_id: string;
-  thesis_id: string;
-  ticker: string;
-  alert_type: string;
-  message: string;
-  data: Record<string, any>;
-  is_read: boolean;
-  created_at: string;
-}
+const STATUS_OPTIONS: Array<{ value: KillAlertStatus | 'all'; label: string }> = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'acknowledged', label: 'Acknowledged' },
+  { value: 'dismissed', label: 'Dismissed' },
+  { value: 'acted', label: 'Acted' },
+  { value: 'all', label: 'All' },
+];
 
 export default function AlertsCenter() {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'unread'>('unread');
+  const { user } = useAuth();
+  const [status, setStatus] = useState<KillAlertStatus | 'all'>('pending');
+  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
+  const { data, isLoading, error } = useKillAlertsList({ status, enabled: !!user });
+  const { data: selectedAlert } = useKillAlertDetail(selectedAlertId, !!user);
+  const updateAlert = useUpdateKillAlert();
+  const deleteAlert = useDeleteKillAlert();
 
-  const fetchAlerts = async () => {
-    setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-        setLoading(false);
-        return;
-    }
+  const alerts = data?.alerts ?? [];
+  const unreadAlerts = useMemo(() => alerts.filter((alert) => !alert.is_read), [alerts]);
 
-    let query = supabase
-      .from('alert_history')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (filter === 'unread') {
-      query = query.eq('is_read', false);
-    }
-    
-    const { data } = await query;
-    if (data) setAlerts(data);
-    setLoading(false);
+  const mutateAlertStatus = async (alertId: string, nextStatus: KillAlertStatus, userAction: string) => {
+    await updateAlert.mutateAsync({
+      alertId,
+      update: {
+        status: nextStatus,
+        user_action: userAction,
+      },
+    });
   };
 
-  useEffect(() => {
-    fetchAlerts();
-    const interval = setInterval(fetchAlerts, 30000);
-    return () => clearInterval(interval);
-  }, [filter]);
-
-  const markAsRead = async (id: string) => {
-    // Use backend PATCH so data.status is also updated to "acknowledged"
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        await fetch(`${API_BASE_URL}/api/kill-alerts/${id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ status: 'acknowledged' }),
-        });
-      }
-    } catch {
-      // Fallback: direct Supabase write for is_read only
-      await supabase.from('alert_history').update({ is_read: true }).eq('id', id);
-    }
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, is_read: true } : a));
-    if (filter === 'unread') {
-      setAlerts(prev => prev.filter(a => a.id !== id));
-    }
-  };
-
-  const markAllRead = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    // Mark all as read — status merge inside JSONB is done per-alert by the backend,
-    // but for bulk we just set is_read which is the primary unread indicator.
-    await supabase.from('alert_history').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false);
-    fetchAlerts();
-  };
+  if (!user) {
+    return (
+      <Card className="border-dashed border-border/60 bg-card/60">
+        <CardContent className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Bell className="h-8 w-8" />
+          </div>
+          <h3 className="text-lg font-semibold">Sign in to review alerts</h3>
+          <p className="mt-2 max-w-md text-sm text-muted-foreground">
+            Alert workflows are tied to your theses and positions, so the backend only returns them for authenticated users.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      {/* Minimal Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Alerts</h2>
-          <p className="text-sm text-muted-foreground">Monitor your active thesis alerts</p>
-        </div>
-        <div className="flex items-center gap-2">
-            <div className="flex bg-secondary/50 p-1 rounded-full backdrop-blur-sm border border-border/40">
-                <button 
-                    onClick={() => setFilter('unread')}
-                    className={cn(
-                        "px-4 py-1.5 text-xs font-medium rounded-full transition-all duration-300",
-                        filter === 'unread' ? "bg-background shadow-sm text-foreground ring-1 ring-black/5 dark:ring-white/10" : "text-muted-foreground hover:text-foreground"
-                    )}
-                >
-                    Unread
-                </button>
-                <button 
-                    onClick={() => setFilter('all')}
-                    className={cn(
-                        "px-4 py-1.5 text-xs font-medium rounded-full transition-all duration-300",
-                        filter === 'all' ? "bg-background shadow-sm text-foreground ring-1 ring-black/5 dark:ring-white/10" : "text-muted-foreground hover:text-foreground"
-                    )}
-                >
-                    All
-                </button>
+    <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="space-y-6">
+        <Card className="border-border/50 bg-card shadow-sm">
+          <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="text-2xl">Alerts</CardTitle>
+              <CardDescription>Use the backend alert workflow to acknowledge, dismiss, act, or delete thesis alerts.</CardDescription>
             </div>
-            {alerts.length > 0 && filter === 'unread' && (
-                <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-9 gap-2 text-xs"
-                    onClick={markAllRead}
+            <div className="flex flex-wrap gap-2">
+              {STATUS_OPTIONS.map((option) => (
+                <Button
+                  key={option.value}
+                  variant={status === option.value ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatus(option.value)}
                 >
-                    <CheckCheck className="h-3 w-3" /> 
-                    Mark All Read
+                  {option.label}
                 </Button>
+              ))}
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-2">
+            {unreadAlerts.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={async () => {
+                  await Promise.all(
+                    unreadAlerts.map((alert) =>
+                      mutateAlertStatus(alert.id, 'acknowledged', 'Bulk acknowledged from alerts center')
+                    )
+                  );
+                }}
+              >
+                <CheckCheck className="h-4 w-4" />
+                Acknowledge Visible
+              </Button>
             )}
-        </div>
-      </div>
+            <span className="text-sm text-muted-foreground">{alerts.length} alerts in this filter</span>
+          </CardContent>
+        </Card>
 
-      {/* Alerts Feed */}
-      <div className="min-h-[400px]">
-        {loading && alerts.length === 0 ? (
-            <div className="flex h-64 items-center justify-center text-muted-foreground">
-                <div className="bg-background/50 p-4 rounded-full">
-                    <Bell className="h-6 w-6 animate-pulse opacity-50" />
-                </div>
-            </div>
+        {error && (
+          <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+            Failed to load alerts: {error.message}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((index) => (
+              <div key={index} className="h-28 animate-pulse rounded-xl bg-muted/40" />
+            ))}
+          </div>
         ) : alerts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/40 py-24 text-center">
-                <div className="bg-background/50 p-4 rounded-full mb-4">
-                     <Bell className="h-8 w-8 text-muted-foreground/30" />
-                </div>
-                <h3 className="text-sm font-medium">No alerts found</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                    {filter === 'unread' ? "You're all caught up!" : "No alert history available."}
-                </p>
-            </div>
+          <Card className="border-dashed border-border/60 bg-card/60">
+            <CardContent className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Bell className="h-8 w-8" />
+              </div>
+              <h3 className="text-lg font-semibold">No alerts in this state</h3>
+              <p className="mt-2 max-w-md text-sm text-muted-foreground">
+                New kill-criteria matches will appear here once your theses and analysis pipeline produce them.
+              </p>
+            </CardContent>
+          </Card>
         ) : (
-            <div className="space-y-3">
-                {alerts.map(alert => (
-                    <div 
-                        key={alert.id} 
-                        className={cn(
-                            "group relative flex flex-col gap-3 rounded-xl border p-5 transition-all duration-300",
-                            alert.is_read 
-                                ? "bg-card border-border/40 opacity-80" 
-                                : "bg-background border-primary/10 shadow-sm ring-1 ring-primary/5"
-                        )}
-                    >
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                                {/* Ticker Badge */}
-                                <div className={cn(
-                                    "flex items-center justify-center h-10 w-10 rounded-full font-bold text-xs",
-                                    alert.alert_type === 'kill_criteria' 
-                                        ? "bg-destructive/10 text-destructive"
-                                        : "bg-primary/10 text-primary"
-                                )}>
-                                    {alert.ticker.substring(0, 2)}
-                                </div>
-                                
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <h4 className="font-semibold text-foreground text-sm">
-                                            {alert.ticker}
-                                        </h4>
-                                        <Badge variant="secondary" className="text-[10px] font-normal lowercase bg-secondary/50">
-                                            {alert.alert_type.replace('_', ' ')}
-                                        </Badge>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                        <Clock className="h-3 w-3 text-muted-foreground/60" />
-                                        <span className="text-xs text-muted-foreground/80">
-                                            {new Date(alert.created_at).toLocaleString()}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {!alert.is_read && (
-                                <button 
-                                    onClick={() => markAsRead(alert.id)}
-                                    className="p-2 rounded-full hover:bg-secondary/80 text-muted-foreground transition-colors group-hover:opacity-100 opacity-0"
-                                    title="Mark as read"
-                                >
-                                    <CheckCheck className="h-4 w-4" />
-                                </button>
-                            )}
+          <div className="space-y-4">
+            {alerts.map((alert) => (
+              <Card
+                key={alert.id}
+                className={cn(
+                  'border-border/50 bg-card shadow-sm transition-colors',
+                  !alert.is_read && 'border-amber-500/30 bg-amber-500/5'
+                )}
+              >
+                <CardContent className="flex flex-col gap-4 p-5 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
+                        <ShieldAlert className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-semibold">{alert.ticker}</h3>
+                          <Badge variant="outline" className="capitalize">{alert.data.status}</Badge>
                         </div>
-                        
-                        <div className="ml-12.5 pl-0.5">
-                            <h5 className="text-sm font-medium leading-normal mb-1">
-                                {alert.message || (alert.data?.match_confidence ? 
-                                    <span className="flex items-center gap-2">
-                                        <ShieldAlert className="h-4 w-4 text-destructive" />
-                                        Kill Criteria Triggered: <span className="text-destructive font-semibold">{alert.data.triggered_criteria}</span>
-                                    </span> 
-                                    : "New Alert")}
-                            </h5>
-                            
-                            {alert.data?.analysis_summary && (
-                                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 bg-muted/20 p-2 rounded-lg">
-                                    "{alert.data.analysis_summary}"
-                                </p>
-                            )}
-                        </div>
+                        <p className="text-sm text-muted-foreground">{new Date(alert.created_at).toLocaleString()}</p>
+                      </div>
                     </div>
-                ))}
-            </div>
+                    <div className="rounded-xl bg-background/70 p-4">
+                      <p className="text-sm font-medium text-foreground">{alert.message || alert.data.triggered_criteria}</p>
+                      {alert.data.triggering_signal && (
+                        <p className="mt-2 text-sm text-muted-foreground">{alert.data.triggering_signal}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 md:max-w-[260px] md:justify-end">
+                    <Button variant="outline" size="sm" className="gap-2" onClick={() => setSelectedAlertId(alert.id)}>
+                      <Eye className="h-4 w-4" />
+                      Details
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => mutateAlertStatus(alert.id, 'acknowledged', 'Acknowledged from alerts center')}>
+                      Acknowledge
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => mutateAlertStatus(alert.id, 'dismissed', 'Dismissed from alerts center')}>
+                      <XCircle className="h-4 w-4" />
+                      Dismiss
+                    </Button>
+                    <Button size="sm" onClick={() => mutateAlertStatus(alert.id, 'acted', 'Marked acted from alerts center')}>
+                      Mark Acted
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => deleteAlert.mutate(alert.id)}
+                      title="Delete alert"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
       </div>
+
+      <Card className="sticky top-24 h-fit border-border/50 bg-card shadow-sm">
+        <CardHeader>
+          <CardTitle>Alert Detail</CardTitle>
+          <CardDescription>Reads through `GET /api/kill-alerts/{'{id}'}` for the selected alert.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!selectedAlert ? (
+            <div className="rounded-xl border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground">
+              Select an alert to inspect its backend detail payload.
+            </div>
+          ) : (
+            <div className="space-y-4 text-sm">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ticker</div>
+                <div className="mt-1 font-medium text-foreground">{selectedAlert.ticker}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Triggered Criteria</div>
+                <div className="mt-1 text-foreground">{selectedAlert.data.triggered_criteria}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Signal</div>
+                <div className="mt-1 text-foreground">{selectedAlert.data.triggering_signal}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-secondary/40 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Match Confidence</div>
+                  <div className="mt-1 text-lg font-semibold text-foreground">{Math.round(selectedAlert.data.match_confidence * 100)}%</div>
+                </div>
+                <div className="rounded-xl bg-secondary/40 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</div>
+                  <div className="mt-1 text-lg font-semibold capitalize text-foreground">{selectedAlert.data.status}</div>
+                </div>
+              </div>
+              {selectedAlert.data.analysis_summary && (
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Analysis Summary</div>
+                  <div className="mt-1 text-muted-foreground">{selectedAlert.data.analysis_summary}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

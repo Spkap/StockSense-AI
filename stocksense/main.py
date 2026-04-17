@@ -245,7 +245,7 @@ async def analyze_stock(
     try:
         # Validate ticker format and existence
         ticker = ticker.upper().strip()
-        is_valid, error_msg = validate_ticker(ticker)
+        is_valid, error_msg = validate_ticker(ticker, check_exists=False)
         if not is_valid:
             logger.info(f"Invalid ticker rejected: {ticker} - {error_msg}")
             raise HTTPException(status_code=400, detail=error_msg)
@@ -608,7 +608,7 @@ async def analyze_stock_stream(
     
     # Validate ticker
     ticker = ticker.upper().strip()
-    is_valid, error_msg = validate_ticker(ticker)
+    is_valid, error_msg = validate_ticker(ticker, check_exists=False)
     if not is_valid:
         async def error_response():
             yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
@@ -736,7 +736,7 @@ async def analyze_stock_debate(ticker: str, request: Request) -> Dict[str, Any]:
     
     # Validate ticker
     ticker = ticker.upper().strip()
-    is_valid, error_msg = validate_ticker(ticker)
+    is_valid, error_msg = validate_ticker(ticker, check_exists=False)
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_msg)
     
@@ -811,7 +811,7 @@ async def analyze_stock_debate_stream(ticker: str, request: Request):
     
     # Validate ticker
     ticker = ticker.upper().strip()
-    is_valid, error_msg = validate_ticker(ticker)
+    is_valid, error_msg = validate_ticker(ticker, check_exists=False)
     if not is_valid:
         async def error_response():
             yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"

@@ -1,14 +1,15 @@
-
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BookOpen, ChevronDown, ChevronRight, Clock, AlertTriangle, Target, ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
 import { useAuth } from '../context/AuthContext';
-import { useTheses, useThesisHistory } from '../api/theses';
+import { useTheses, useThesisHistory, useThesisComparison } from '../api/theses';
 import ThesisEditor from '../components/ThesisEditor';
 import type { Thesis } from '../types/thesis';
+import type { AnalysisData } from '../types/api';
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
+import ThesisComparisonBanner from '../components/ThesisComparisonBanner';
 
 const CONVICTION_STYLES = {
   low: 'bg-muted text-muted-foreground border-border/40',
@@ -23,9 +24,10 @@ const STATUS_STYLES = {
   exited: 'bg-muted text-muted-foreground border-border/40',
 };
 
-function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) {
+function ThesisCard({ thesis, onEdit, enabled }: { thesis: Thesis; onEdit: () => void; enabled: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const { data: historyData } = useThesisHistory(expanded ? thesis.id : null);
+  const { data: historyData } = useThesisHistory(expanded ? thesis.id : null, enabled);
+  const { data: comparison } = useThesisComparison(expanded ? thesis.id : null, enabled);
 
   const statusStyle = STATUS_STYLES[thesis.status] || STATUS_STYLES.active;
 
@@ -144,6 +146,23 @@ function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) 
                   </div>
                 </div>
               )}
+
+              <ThesisComparisonBanner comparison={comparison ?? null} />
+
+              <div className="grid gap-3 text-xs text-muted-foreground md:grid-cols-3">
+                <div className="rounded-lg border border-border/40 bg-background/50 p-3">
+                  <div className="font-semibold uppercase tracking-wider text-foreground/70">Time Horizon</div>
+                  <div className="mt-1 capitalize">{thesis.time_horizon}</div>
+                </div>
+                <div className="rounded-lg border border-border/40 bg-background/50 p-3">
+                  <div className="font-semibold uppercase tracking-wider text-foreground/70">Thesis Type</div>
+                  <div className="mt-1 capitalize">{thesis.thesis_type.replace('_', ' ')}</div>
+                </div>
+                <div className="rounded-lg border border-border/40 bg-background/50 p-3">
+                  <div className="font-semibold uppercase tracking-wider text-foreground/70">Linked Analysis</div>
+                  <div className="mt-1">{thesis.origin_analysis_id ? `Analysis #${thesis.origin_analysis_id}` : 'Not linked'}</div>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
@@ -152,11 +171,30 @@ function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) 
   );
 }
 
-export default function ThesesPage({ onBack }: { onBack: () => void }) {
+interface ThesesPageProps {
+  onBack: () => void;
+  initialTicker?: string | null;
+  initialAnalysisData?: AnalysisData | null;
+  openCreateSignal?: number;
+}
+
+export default function ThesesPage({ onBack, initialTicker, initialAnalysisData, openCreateSignal = 0 }: ThesesPageProps) {
   const { user } = useAuth();
-  const { data, isLoading, error } = useTheses();
+  const { data, isLoading, error } = useTheses(undefined, !!user);
   const [editingThesis, setEditingThesis] = useState<Thesis | null>(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [draftTicker, setDraftTicker] = useState(initialTicker ?? '');
+
+  useEffect(() => {
+    setDraftTicker(initialTicker ?? '');
+  }, [initialTicker]);
+
+  useEffect(() => {
+    if (!openCreateSignal || !initialTicker) return;
+    setEditingThesis(null);
+    setDraftTicker(initialTicker);
+    setShowEditor(true);
+  }, [initialTicker, openCreateSignal]);
 
   if (!user) {
     return (
@@ -225,6 +263,7 @@ export default function ThesesPage({ onBack }: { onBack: () => void }) {
             <ThesisCard
               key={thesis.id}
               thesis={thesis}
+              enabled={!!user}
               onEdit={() => {
                 setEditingThesis(thesis);
                 setShowEditor(true);
@@ -241,8 +280,9 @@ export default function ThesesPage({ onBack }: { onBack: () => void }) {
           setShowEditor(false);
           setEditingThesis(null);
         }}
-        ticker={editingThesis?.ticker || ''}
+        ticker={editingThesis?.ticker || draftTicker}
         existingThesis={editingThesis}
+        analysisData={editingThesis ? null : initialAnalysisData}
       />
     </div>
   );

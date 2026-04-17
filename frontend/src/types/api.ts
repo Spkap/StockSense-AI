@@ -123,6 +123,52 @@ export interface KillAlert {
   };
 }
 
+export type KillAlertStatus = 'pending' | 'dismissed' | 'acknowledged' | 'acted';
+
+export interface KillAlertStatusUpdate {
+  status: KillAlertStatus;
+  user_action?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
+}
+
+export type PositionType = 'long' | 'short' | 'watching';
+
+export interface Position {
+  id: string;
+  ticker: string;
+  position_type: PositionType;
+  entry_date?: string | null;
+  entry_price?: number | null;
+  current_shares?: number | null;
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface CreatePositionRequest {
+  ticker: string;
+  position_type?: PositionType;
+  entry_date?: string;
+  entry_price?: number;
+  current_shares?: number;
+  notes?: string;
+}
+
+export interface PositionsResponse {
+  positions: Position[];
+  count: number;
+}
+
+export interface KillAlertsResponse {
+  alerts: KillAlert[];
+  count: number;
+}
+
 /**
  * Full API response wrapper for /analyze and /results endpoints
  */

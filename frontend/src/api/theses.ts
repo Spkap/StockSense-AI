@@ -4,7 +4,6 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
 import type { 
   Thesis, 
   ThesesResponse, 
@@ -13,33 +12,7 @@ import type {
   ThesisHistoryResponse,
   ThesisComparison
 } from '../types/thesis';
-import { supabase } from '../utils/supabase';
-import { API_BASE_URL } from '../config/env';
-
-/**
- * Get authorization header with current session token
- */
-async function getAuthHeader(): Promise<{ Authorization: string } | {}> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    return { Authorization: `Bearer ${session.access_token}` };
-  }
-  return {};
-}
-
-/**
- * Create axios instance for thesis API
- */
-const createThesisClient = async () => {
-  const headers = await getAuthHeader();
-  return axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-  });
-};
+import { createAuthenticatedClient } from './authenticated';
 
 // Query keys
 export const thesisKeys = {
@@ -51,7 +24,7 @@ export const thesisKeys = {
 /**
  * Hook to fetch all user theses
  */
-export function useTheses(ticker?: string) {
+export function useTheses(ticker?: string, enabled: boolean = true) {
   return useQuery({
     queryKey: ticker ? thesisKeys.byTicker(ticker) : thesisKeys.all,
     queryFn: async () => {
@@ -61,13 +34,16 @@ export function useTheses(ticker?: string) {
       return data;
     },
     staleTime: 1000 * 60 * 2, // 2 minutes
+    enabled,
   });
 }
+
+const createThesisClient = createAuthenticatedClient;
 
 /**
  * Hook to check if user has thesis for a specific ticker
  */
-export function useThesisForTicker(ticker: string | null) {
+export function useThesisForTicker(ticker: string | null, enabled: boolean = true) {
   return useQuery({
     queryKey: thesisKeys.byTicker(ticker || ''),
     queryFn: async () => {
@@ -78,7 +54,7 @@ export function useThesisForTicker(ticker: string | null) {
       });
       return data;
     },
-    enabled: !!ticker,
+    enabled: !!ticker && enabled,
     staleTime: 1000 * 60 * 2,
   });
 }
@@ -125,7 +101,7 @@ export function useUpdateThesis() {
 /**
  * Hook to get thesis history
  */
-export function useThesisHistory(thesisId: string | null) {
+export function useThesisHistory(thesisId: string | null, enabled: boolean = true) {
   return useQuery({
     queryKey: thesisKeys.history(thesisId || ''),
     queryFn: async () => {
@@ -134,14 +110,14 @@ export function useThesisHistory(thesisId: string | null) {
       const { data } = await client.get<ThesisHistoryResponse>(`/api/theses/${thesisId}/history`);
       return data;
     },
-    enabled: !!thesisId,
+    enabled: !!thesisId && enabled,
   });
 }
 
 /**
  * Hook to compare thesis with current analysis (Stage 4)
  */
-export function useThesisComparison(thesisId: string | null) {
+export function useThesisComparison(thesisId: string | null, enabled: boolean = true) {
   return useQuery({
     queryKey: ['thesis-comparison', thesisId],
     queryFn: async () => {
@@ -150,7 +126,7 @@ export function useThesisComparison(thesisId: string | null) {
       const { data } = await client.get<ThesisComparison>(`/api/theses/${thesisId}/compare`);
       return data;
     },
-    enabled: !!thesisId,
+    enabled: !!thesisId && enabled,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }

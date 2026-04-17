@@ -12,6 +12,9 @@ import AlertsCenter from './components/AlertsCenter';
 import EmptyState from './components/EmptyState';
 import ErrorBoundary from './components/ErrorBoundary';
 import ThesesPage from './pages/ThesesPage';
+import PositionsPage from './pages/PositionsPage';
+import DebatePage from './pages/DebatePage';
+import ThesisEditor from './components/ThesisEditor';
 import { ThemeProvider } from './context/ThemeContext';
 import { SidebarProvider, useSidebar } from './context/SidebarContext';
 import { ToastProvider, useToast } from './components/ui/toast';
@@ -20,8 +23,16 @@ import { useAppKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useHealthCheck, useAnalysisResults, useKillAlerts } from './api/hooks';
 import { useStreamingAnalysis } from './hooks/useStreamingAnalysis';
 import type { AnalysisData, KillAlert } from './types/api';
-import { AlertCircle } from 'lucide-react';
+import { useThesisComparison, useThesisForTicker } from './api/theses';
+import { useUpdateKillAlert } from './api/user';
+import { AlertCircle, BriefcaseBusiness, BookOpen, Scale } from 'lucide-react';
 import { cn } from './utils/cn';
+import type { AppView } from './types/navigation';
+import ThesisComparisonBanner from './components/ThesisComparisonBanner';
+import { useAuth } from './context/AuthContext';
+import type { Thesis } from './types/thesis';
+import type { KillAlertStatusUpdate } from './types/api';
+import { Button } from './components/ui/button';
 
 function normalizeAnalysisData(data: AnalysisData | null): AnalysisData | null {
   if (!data) return null;
@@ -61,9 +72,13 @@ function normalizeAnalysisData(data: AnalysisData | null): AnalysisData | null {
 
 function AppContent() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'theses' | 'alerts'>('dashboard');
+  const [currentView, setCurrentView] = useState<AppView>('dashboard');
+  const [showThesisEditor, setShowThesisEditor] = useState(false);
+  const [debateInitialTicker, setDebateInitialTicker] = useState<string | null>(null);
+  const [positionInitialTicker, setPositionInitialTicker] = useState<string | null>(null);
   const { isCollapsed } = useSidebar();
   const { addToast } = useToast();
+  const { user } = useAuth();
   const tickerInputRef = useRef<TickerInputRef>(null);
   
   // Keyboard shortcuts (Cmd/Ctrl+K to focus search)
@@ -84,6 +99,10 @@ function AppContent() {
   const [killAlerts, setKillAlerts] = useState<KillAlert[]>([]);
   const [alertTicker, setAlertTicker] = useState<string | null>(null);
   const { data: killAlertsData } = useKillAlerts(alertTicker);
+  const updateKillAlert = useUpdateKillAlert();
+  const { data: thesisData } = useThesisForTicker(selectedTicker, !!user);
+  const activeThesis: Thesis | null = thesisData?.theses?.[0] ?? null;
+  const { data: thesisComparison } = useThesisComparison(activeThesis?.id ?? null, !!user);
 
   // Fetch cached results when ticker changes
   const { data: resultsData, refetch: refetchResults } = useAnalysisResults(
@@ -107,6 +126,16 @@ function AppContent() {
     if (selectedTicker) {
       handleAnalyze(selectedTicker, true);
     }
+  };
+
+  const handleOpenDebate = (ticker: string) => {
+    setDebateInitialTicker(ticker);
+    setCurrentView('debate');
+  };
+
+  const handleOpenPositions = (ticker?: string | null) => {
+    setPositionInitialTicker(ticker ?? null);
+    setCurrentView('positions');
   };
 
   const handleSelectHistory = (ticker: string) => {
@@ -193,8 +222,55 @@ function AppContent() {
           "md:ml-64",
           isCollapsed && "md:ml-16"
         )}>
-          <Header />
-          <ThesesPage onBack={() => setCurrentView('dashboard')} />
+          <Header currentView={currentView} onNavigate={setCurrentView} />
+          <ThesesPage
+            onBack={() => setCurrentView('dashboard')}
+            initialTicker={selectedTicker}
+            initialAnalysisData={analysisData}
+          />
+        </main>
+      </div>
+    );
+  }
+
+  if (currentView === 'positions') {
+    return (
+      <div className="flex min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-primary">
+        <Sidebar onNavigate={setCurrentView} currentView={currentView} />
+        <main className={cn(
+          "flex flex-1 flex-col transition-all duration-300 ease-in-out",
+          "md:ml-64",
+          isCollapsed && "md:ml-16"
+        )}>
+          <Header currentView={currentView} onNavigate={setCurrentView} />
+          <div className="p-4 md:p-6 lg:p-8">
+            <PositionsPage
+              onBack={() => setCurrentView('dashboard')}
+              onAnalyzeTicker={(ticker) => {
+                setCurrentView('dashboard');
+                handleAnalyze(ticker);
+              }}
+              initialTicker={positionInitialTicker}
+            />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (currentView === 'debate') {
+    return (
+      <div className="flex min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/20 selection:text-primary">
+        <Sidebar onNavigate={setCurrentView} currentView={currentView} />
+        <main className={cn(
+          "flex flex-1 flex-col transition-all duration-300 ease-in-out",
+          "md:ml-64",
+          isCollapsed && "md:ml-16"
+        )}>
+          <Header currentView={currentView} onNavigate={setCurrentView} />
+          <div className="p-4 md:p-6 lg:p-8">
+            <DebatePage onBack={() => setCurrentView('dashboard')} initialTicker={debateInitialTicker ?? selectedTicker} />
+          </div>
         </main>
       </div>
     );
@@ -210,7 +286,7 @@ function AppContent() {
           "md:ml-64",
           isCollapsed && "md:ml-16"
         )}>
-          <Header />
+          <Header currentView={currentView} onNavigate={setCurrentView} />
           <div className="flex-1 mt-6">
              <AlertsCenter />
           </div>
@@ -232,7 +308,7 @@ function AppContent() {
         isCollapsed && "md:ml-16"
       )}>
         {/* Top Bar */}
-        <Header />
+        <Header currentView={currentView} onNavigate={setCurrentView} />
 
         {/* Dashboard Content Padded Area */}
         <div className="p-4 md:p-6 lg:p-8">
@@ -299,20 +375,73 @@ function AppContent() {
                 {killAlerts.length > 0 && (
                   <KillAlertBanner
                     alerts={killAlerts}
-                    onDismiss={(id) => setKillAlerts(prev => prev.filter(a => a.id !== id))}
-                    onAcknowledge={(id) => {
+                    onDismiss={async (id) => {
+                      const update: KillAlertStatusUpdate = { status: 'dismissed', user_action: 'Dismissed from analysis banner' };
+                      await updateKillAlert.mutateAsync({ alertId: id, update });
+                      setKillAlerts(prev => prev.filter(a => a.id !== id));
+                    }}
+                    onAcknowledge={async (id) => {
+                      const update: KillAlertStatusUpdate = { status: 'acknowledged', user_action: 'Acknowledged from analysis banner' };
+                      await updateKillAlert.mutateAsync({ alertId: id, update });
                       setKillAlerts(prev => prev.filter(a => a.id !== id));
                       addToast({ type: 'info', title: 'Alert Acknowledged', message: 'Review your thesis to take action.' });
                     }}
                     onViewThesis={() => setCurrentView('theses')}
                   />
                 )}
-                
-                <ResultsTabs 
-                  result={analysisData} 
-                  onRefresh={handleRefresh}
-                  isRefreshing={isLoading}
-                />
+
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                  <div className="space-y-4">
+                    {activeThesis && (
+                      <ThesisComparisonBanner comparison={thesisComparison ?? null} onRefresh={handleRefresh} />
+                    )}
+                    <ResultsTabs 
+                      result={analysisData} 
+                      onRefresh={handleRefresh}
+                      isRefreshing={isLoading}
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Action Center</h3>
+                      <div className="mt-4 flex flex-col gap-3">
+                        <Button
+                          onClick={() => setShowThesisEditor(true)}
+                          className="justify-start gap-2"
+                        >
+                          <BookOpen className="h-4 w-4" />
+                          {activeThesis ? 'Edit Thesis' : 'Save Thesis'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleOpenPositions(analysisData.ticker)}
+                          className="justify-start gap-2"
+                        >
+                          <BriefcaseBusiness className="h-4 w-4" />
+                          Track Position
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleOpenDebate(analysisData.ticker)}
+                          className="justify-start gap-2"
+                        >
+                          <Scale className="h-4 w-4" />
+                          Run Debate Analysis
+                        </Button>
+                      </div>
+
+                      {activeThesis && (
+                        <div className="mt-4 rounded-xl bg-secondary/40 p-4 text-sm text-muted-foreground">
+                          <div className="font-medium text-foreground">{activeThesis.ticker} thesis already exists</div>
+                          <div className="mt-1 capitalize">
+                            {activeThesis.status} · {activeThesis.thesis_type.replace('_', ' ')} · {activeThesis.time_horizon} horizon
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             ) : !isLoading && !error ? (
               <motion.div
@@ -336,21 +465,37 @@ function AppContent() {
         </div>
       </main>
 
+      <ThesisEditor
+        isOpen={showThesisEditor}
+        onClose={() => setShowThesisEditor(false)}
+        ticker={selectedTicker ?? ''}
+        existingThesis={activeThesis}
+        analysisData={activeThesis ? null : analysisData}
+      />
+
       {/* Status Indicator (Fixed Bottom Right) */}
       <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
         <div className={cn(
           "flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold shadow-lg backdrop-blur-md border",
           backendStatus === 'online' 
-            ? 'bg-success/10 text-success border-success/20' 
-            : 'bg-destructive/10 text-destructive border-destructive/20'
+            ? 'bg-success/10 text-success border-success/20'
+            : backendStatus === 'checking...'
+              ? 'bg-secondary/80 text-muted-foreground border-border/40'
+              : 'bg-destructive/10 text-destructive border-destructive/20'
         )}>
            <div className={cn(
              "h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-background",
              backendStatus === 'online'
                ? 'bg-success shadow-[0_0_10px_rgba(34,197,94,0.55)]'
+               : backendStatus === 'checking...'
+                 ? 'bg-muted-foreground/70'
                : 'bg-destructive shadow-[0_0_10px_rgba(239,68,68,0.45)]'
            )} />
-           {backendStatus === 'online' ? 'Agent Available' : 'Agent Unavailable'}
+           {backendStatus === 'online'
+             ? 'Agent Available'
+             : backendStatus === 'checking...'
+               ? 'Checking Agent'
+               : 'Agent Unavailable'}
         </div>
       </div>
     </div>
