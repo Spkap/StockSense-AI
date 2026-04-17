@@ -310,11 +310,15 @@ Analysis completed using streaming mode.
             "summary": summary,
             "sentiment_report": state["sentiment_report"],
             "headlines": state["headlines"],
+            "headlines_count": len(state["headlines"]),
             "price_data": state["price_data"],
+            "reasoning_steps": state["reasoning_steps"],
             "overall_sentiment": state["overall_sentiment"],
             "overall_confidence": state["overall_confidence"],
             "confidence_reasoning": state["confidence_reasoning"],
+            "headline_analyses": state["headline_analyses"],
             "key_themes": state["key_themes"],
+            "potential_impact": state["potential_impact"],
             "risks_identified": state["risks_identified"],
             "information_gaps": state["information_gaps"],
             "skeptic_report": state["skeptic_report"],
@@ -325,7 +329,9 @@ Analysis completed using streaming mode.
             "bear_cases": state["bear_cases"],
             "hidden_risks": state["hidden_risks"],
             "would_change_mind": state["would_change_mind"],
+            "fundamental_data": state["fundamental_data"],
             "tools_used": tools_used,
+            "iterations": state["iterations"],
             "timestamp": datetime.now().isoformat()
         }
         

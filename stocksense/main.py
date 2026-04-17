@@ -637,9 +637,9 @@ async def analyze_stock_stream(
                             sentiment_report=event.data.get("sentiment_report", ""),
                             price_data=event.data.get("price_data", []),
                             headlines=event.data.get("headlines", []),
-                            reasoning_steps=[],
+                            reasoning_steps=event.data.get("reasoning_steps", []),
                             tools_used=event.data.get("tools_used", []),
-                            iterations=1,
+                            iterations=event.data.get("iterations", 1),
                             # Stage 1: Structured sentiment
                             overall_sentiment=event.data.get("overall_sentiment", ""),
                             overall_confidence=event.data.get("overall_confidence", 0.0),

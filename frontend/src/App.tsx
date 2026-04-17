@@ -23,6 +23,42 @@ import type { AnalysisData, KillAlert } from './types/api';
 import { AlertCircle } from 'lucide-react';
 import { cn } from './utils/cn';
 
+function normalizeAnalysisData(data: AnalysisData | null): AnalysisData | null {
+  if (!data) return null;
+
+  return {
+    ...data,
+    summary: typeof data.summary === 'string' ? data.summary : '',
+    sentiment_report: typeof data.sentiment_report === 'string' ? data.sentiment_report : '',
+    price_data: Array.isArray(data.price_data) ? data.price_data : [],
+    headlines: Array.isArray(data.headlines) ? data.headlines : [],
+    headlines_count:
+      typeof data.headlines_count === 'number'
+        ? data.headlines_count
+        : Array.isArray(data.headlines)
+          ? data.headlines.length
+          : 0,
+    reasoning_steps: Array.isArray(data.reasoning_steps) ? data.reasoning_steps : [],
+    tools_used: Array.isArray(data.tools_used) ? data.tools_used : [],
+    iterations: typeof data.iterations === 'number' ? data.iterations : 0,
+    headline_analyses: Array.isArray(data.headline_analyses) ? data.headline_analyses : [],
+    key_themes: Array.isArray(data.key_themes) ? data.key_themes : [],
+    risks_identified: Array.isArray(data.risks_identified) ? data.risks_identified : [],
+    information_gaps: Array.isArray(data.information_gaps) ? data.information_gaps : [],
+    critiques: Array.isArray(data.critiques) ? data.critiques : [],
+    bear_cases: Array.isArray(data.bear_cases) ? data.bear_cases : [],
+    hidden_risks: Array.isArray(data.hidden_risks) ? data.hidden_risks : [],
+    would_change_mind: Array.isArray(data.would_change_mind) ? data.would_change_mind : [],
+    fundamental_data:
+      data.fundamental_data && typeof data.fundamental_data === 'object'
+        ? data.fundamental_data
+        : undefined,
+    source: data.source ?? 'react_analysis',
+    agent_type: data.agent_type ?? 'ReAct',
+    timestamp: typeof data.timestamp === 'string' ? data.timestamp : new Date().toISOString(),
+  };
+}
+
 function AppContent() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'dashboard' | 'theses' | 'alerts'>('dashboard');
@@ -53,8 +89,9 @@ function AppContent() {
   const { data: resultsData, refetch: refetchResults } = useAnalysisResults(selectedTicker);
   
   // Use streaming final data or cached results
-  const analysisData: AnalysisData | null = 
-    streaming.finalData || resultsData?.data || null;
+  const analysisData: AnalysisData | null = normalizeAnalysisData(
+    streaming.finalData || resultsData?.data || null
+  );
 
   const handleAnalyze = (ticker: string, _force: boolean = false) => {
     setSelectedTicker(ticker);
@@ -305,8 +342,10 @@ function AppContent() {
             : 'bg-destructive/10 text-destructive border-destructive/20'
         )}>
            <div className={cn(
-             "h-2 w-2 rounded-full",
-             backendStatus === 'online' ? 'bg-success' : 'bg-destructive'
+             "h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-background",
+             backendStatus === 'online'
+               ? 'bg-success shadow-[0_0_10px_rgba(34,197,94,0.55)]'
+               : 'bg-destructive shadow-[0_0_10px_rgba(239,68,68,0.45)]'
            )} />
            {backendStatus === 'online' ? 'Agent Available' : 'Agent Unavailable'}
         </div>
