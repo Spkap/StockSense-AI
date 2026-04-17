@@ -36,11 +36,20 @@ const skepticConfig = {
   },
 };
 
+function extractReportSections(report: string): string[] {
+  return report
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-*]\s*/, '').trim())
+    .filter((line) => line.length > 0);
+}
+
 const SkepticCard = ({ data }: SkepticCardProps) => {
   // Check if we have skeptic data (skeptic_sentiment is truthy)
   const hasSkepticData = Boolean(data?.skeptic_sentiment);
+  const skepticReportSections = data?.skeptic_report ? extractReportSections(data.skeptic_report) : [];
+  const hasFallbackReport = skepticReportSections.length > 0;
   
-  if (!hasSkepticData || !data) {
+  if ((!hasSkepticData && !hasFallbackReport) || !data) {
     return (
       <Card className="h-full border-dashed border-muted-foreground/30 bg-muted/20">
         <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px] text-center">
@@ -71,21 +80,23 @@ const SkepticCard = ({ data }: SkepticCardProps) => {
             </div>
             <div>
               <h4 className="text-lg font-bold text-foreground leading-tight">
-                {config.label}
+                {hasSkepticData ? config.label : 'Skeptic Notes'}
               </h4>
               <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                Skeptic&apos;s Verdict
+                {hasSkepticData ? "Skeptic's Verdict" : 'Contrarian Readout'}
               </span>
             </div>
           </div>
-          <div className="text-right">
-            <span className={cn("text-3xl font-bold tracking-tighter", config.color)}>
-              {Math.round((data.skeptic_confidence || 0) * 100)}%
-            </span>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Critique Strength
-            </p>
-          </div>
+          {hasSkepticData && (
+            <div className="text-right">
+              <span className={cn("text-3xl font-bold tracking-tighter", config.color)}>
+                {Math.round((data.skeptic_confidence || 0) * 100)}%
+              </span>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                Critique Strength
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Primary Disagreement */}
@@ -97,8 +108,18 @@ const SkepticCard = ({ data }: SkepticCardProps) => {
           </div>
         )}
 
+        {!hasSkepticData && hasFallbackReport && (
+          <div className="space-y-3">
+            {skepticReportSections.slice(0, 6).map((section, index) => (
+              <div key={index} className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                <p className="text-sm leading-relaxed text-muted-foreground">{section}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Bear Cases */}
-        {data.bear_cases && data.bear_cases.length > 0 && (
+        {hasSkepticData && data.bear_cases && data.bear_cases.length > 0 && (
           <div className="mb-4">
             <div className="flex items-center gap-1 mb-2">
               <TrendingDown className="h-3.5 w-3.5 text-destructive" />
@@ -131,7 +152,7 @@ const SkepticCard = ({ data }: SkepticCardProps) => {
         )}
 
         {/* Critiques */}
-        {data.critiques && data.critiques.length > 0 && (
+        {hasSkepticData && data.critiques && data.critiques.length > 0 && (
           <div className="mb-4">
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">
               Key Critiques
@@ -152,7 +173,7 @@ const SkepticCard = ({ data }: SkepticCardProps) => {
         )}
 
         {/* Hidden Risks */}
-        {data.hidden_risks && data.hidden_risks.length > 0 && (
+        {hasSkepticData && data.hidden_risks && data.hidden_risks.length > 0 && (
           <div className="mb-4">
             <div className="flex items-center gap-1 mb-2">
               <AlertTriangle className="h-3 w-3 text-warning" />
@@ -170,7 +191,7 @@ const SkepticCard = ({ data }: SkepticCardProps) => {
         )}
 
         {/* What Would Change Mind */}
-        {data.would_change_mind && data.would_change_mind.length > 0 && (
+        {hasSkepticData && data.would_change_mind && data.would_change_mind.length > 0 && (
           <div className="pt-3 border-t border-border">
             <div className="flex items-center gap-1 mb-2">
               <CheckCircle className="h-3 w-3 text-success" />

@@ -34,6 +34,33 @@ import type { Thesis } from './types/thesis';
 import type { KillAlertStatusUpdate } from './types/api';
 import { Button } from './components/ui/button';
 
+function isNonEmptyValue(value: unknown): boolean {
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === 'object') return Object.keys(value).length > 0;
+  if (typeof value === 'string') return value.trim().length > 0;
+  return value !== undefined && value !== null;
+}
+
+function mergeAnalysisData(
+  preferred: AnalysisData | null,
+  fallback: AnalysisData | null
+): AnalysisData | null {
+  if (!preferred) return fallback;
+  if (!fallback) return preferred;
+
+  const merged: Record<string, unknown> = { ...fallback };
+
+  for (const [key, value] of Object.entries(preferred)) {
+    if (isNonEmptyValue(value)) {
+      merged[key] = value;
+    } else if (!(key in merged)) {
+      merged[key] = value;
+    }
+  }
+
+  return merged as unknown as AnalysisData;
+}
+
 function normalizeAnalysisData(data: AnalysisData | null): AnalysisData | null {
   if (!data) return null;
 
@@ -112,7 +139,7 @@ function AppContent() {
   
   // Use streaming final data or cached results
   const analysisData: AnalysisData | null = normalizeAnalysisData(
-    streaming.finalData || resultsData?.data || null
+    mergeAnalysisData(resultsData?.data ?? null, streaming.finalData)
   );
 
   const handleAnalyze = (ticker: string, _force: boolean = false) => {

@@ -24,6 +24,29 @@ const tabs = [
   // { id: 'news', label: 'News & Sentiment', icon: Newspaper }, // Merged into Thesis/Sentiment
 ];
 
+function splitParagraphs(text: string): string[] {
+  return text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
+function splitBullets(text: string): string[] {
+  return text
+    .split(/\s+-\s+|\n+/)
+    .map((item) => item.replace(/^[-*]\s*/, '').trim())
+    .filter(Boolean);
+}
+
+function titleizeToolName(tool: string): string {
+  return tool
+    .replace(/^fetch_/, 'Fetch ')
+    .replace(/^generate_/, 'Generate ')
+    .replace(/^analyze_/, 'Analyze ')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 const ResultsTabs = ({ result, onRefresh, isRefreshing }: ResultsTabsProps) => {
   const [activeTab, setActiveTab] = useState('thesis');
   const [freshRunArmed, setFreshRunArmed] = useState(false);
@@ -46,14 +69,37 @@ const ResultsTabs = ({ result, onRefresh, isRefreshing }: ResultsTabsProps) => {
     onRefresh();
   };
 
-  // Helper to safely render markdown paragraphs
-  const renderMarkdown = (text: string) => {
-    return text.split('\n\n').map((paragraph, idx) => (
-      <p key={idx} className="mb-4 text-sm leading-relaxed text-muted-foreground last:mb-0">
-        {paragraph}
-      </p>
-    ));
-  };
+  const summaryParagraphs = (() => {
+    if (result.confidence_reasoning?.trim()) {
+      const paragraphs = [
+        `Market Sentiment: ${result.overall_sentiment || 'Unavailable'} (${Math.round((result.overall_confidence || 0) * 100)}% confidence).`,
+        result.confidence_reasoning,
+      ];
+
+      if (result.potential_impact) {
+        paragraphs.push(`Expected impact: ${result.potential_impact}.`);
+      }
+
+      return paragraphs;
+    }
+
+    return splitParagraphs(result.summary);
+  })();
+
+  const methodologySteps = (() => {
+    if (result.reasoning_steps.length > 0) {
+      return result.reasoning_steps;
+    }
+
+    if (result.tools_used.length > 0) {
+      return result.tools_used.map((tool, index) => `${index + 1}. ${titleizeToolName(tool)}`);
+    }
+
+    const summaryBullets = splitBullets(result.summary).filter(
+      (item) => !item.toLowerCase().startsWith('stock analysis summary')
+    );
+    return summaryBullets.slice(0, 5);
+  })();
 
   return (
     <div className="space-y-6">
@@ -156,7 +202,11 @@ const ResultsTabs = ({ result, onRefresh, isRefreshing }: ResultsTabsProps) => {
                   </CardHeader>
                   <CardContent>
                     <div className="prose prose-sm dark:prose-invert max-w-none">
-                      {renderMarkdown(result.summary)}
+                      {summaryParagraphs.map((paragraph, idx) => (
+                        <p key={idx} className="mb-4 text-sm leading-relaxed text-muted-foreground last:mb-0">
+                          {paragraph}
+                        </p>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -168,16 +218,22 @@ const ResultsTabs = ({ result, onRefresh, isRefreshing }: ResultsTabsProps) => {
                     <CardDescription>Steps taken by the agent</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ul className="space-y-4">
-                      {result.reasoning_steps.map((step, i) => (
-                        <li key={i} className="flex gap-3">
-                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                            {i + 1}
-                          </div>
-                          <p className="text-sm text-muted-foreground">{step}</p>
-                        </li>
-                      ))}
-                    </ul>
+                    {methodologySteps.length > 0 ? (
+                      <ul className="space-y-4">
+                        {methodologySteps.map((step, i) => (
+                          <li key={i} className="flex gap-3">
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                              {i + 1}
+                            </div>
+                            <p className="text-sm text-muted-foreground">{step.replace(/^\d+\.\s*/, '')}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                        Agent methodology is not available for this run yet.
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>

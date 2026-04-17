@@ -175,6 +175,7 @@ async def run_streaming_analysis(
         
         if news_result.get("success"):
             state["headlines"] = news_result.get("headlines", [])
+        state["reasoning_steps"].append(f"Collected {len(state['headlines'])} recent headlines for {ticker}.")
         
         yield emit(StreamEvent(
             event_type=StreamEventType.TOOL_COMPLETED,
@@ -200,6 +201,7 @@ async def run_streaming_analysis(
         
         if price_result.get("success"):
             state["price_data"] = price_result.get("price_data", [])
+        state["reasoning_steps"].append(f"Loaded {len(state['price_data'])} recent price data points.")
         
         yield emit(StreamEvent(
             event_type=StreamEventType.TOOL_COMPLETED,
@@ -224,6 +226,9 @@ async def run_streaming_analysis(
 
         if fundamentals_result.get("success"):
             state["fundamental_data"] = fundamentals_result.get("data", {}) or {}
+            state["reasoning_steps"].append("Fetched company fundamentals and financial statements.")
+        else:
+            state["reasoning_steps"].append("Fundamental dataset was unavailable for this run.")
 
         info = state["fundamental_data"].get("info", {})
         yield emit(StreamEvent(
@@ -266,6 +271,9 @@ async def run_streaming_analysis(
                 state["potential_impact"] = sentiment_result.get("potential_impact", "")
                 state["risks_identified"] = sentiment_result.get("risks_identified", [])
                 state["information_gaps"] = sentiment_result.get("information_gaps", [])
+                state["reasoning_steps"].append(
+                    f"Analyzed news sentiment as {state['overall_sentiment']} with {state['overall_confidence']:.0%} confidence."
+                )
             
             yield emit(StreamEvent(
                 event_type=StreamEventType.TOOL_COMPLETED,
@@ -307,6 +315,10 @@ async def run_streaming_analysis(
                 state["bear_cases"] = skeptic_result.get("bear_cases", [])
                 state["hidden_risks"] = skeptic_result.get("hidden_risks", [])
                 state["would_change_mind"] = skeptic_result.get("would_change_mind", [])
+                if state["skeptic_sentiment"]:
+                    state["reasoning_steps"].append(
+                        f"Generated skeptic review with verdict: {state['skeptic_sentiment']}."
+                    )
             
             yield emit(StreamEvent(
                 event_type=StreamEventType.TOOL_COMPLETED,
@@ -369,7 +381,9 @@ Analysis completed using streaming mode.
             "fundamental_data": state.get("fundamental_data", {}),
             "tools_used": tools_used,
             "iterations": state["iterations"],
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "source": "react_analysis",
+            "agent_type": "ReAct",
         }
         
         yield emit(StreamEvent(
