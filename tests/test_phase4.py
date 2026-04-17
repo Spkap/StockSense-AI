@@ -242,3 +242,51 @@ def test_analyze_sentiment_structured_empty_headlines_skips_llm():
 
     mock_llm.invoke.assert_not_called()
     assert result.overall_sentiment == "Insufficient Data"
+
+
+def test_run_streaming_analysis_emits_completed_event_without_fundamentals_keyerror():
+    """Streaming analysis should default missing fundamentals to an empty object."""
+    import asyncio
+    from types import SimpleNamespace
+    from stocksense.orchestration.streaming import run_streaming_analysis, StreamEventType
+
+    async def collect_events():
+        events = []
+        async for event in run_streaming_analysis("AAPL"):
+            events.append(event)
+        return events
+
+    with patch("stocksense.orchestration.react_flow.fetch_news_headlines", new=SimpleNamespace(invoke=lambda _: {
+        "success": True,
+        "headlines": ["Apple beats earnings expectations"],
+    })), patch("stocksense.orchestration.react_flow.fetch_price_data", new=SimpleNamespace(invoke=lambda _: {
+        "success": True,
+        "price_data": [],
+    })), patch("stocksense.orchestration.react_flow.analyze_sentiment", new=SimpleNamespace(invoke=lambda _: {
+        "success": True,
+        "sentiment_report": "Bullish",
+        "overall_sentiment": "Bullish",
+        "overall_confidence": 0.8,
+        "confidence_reasoning": "Positive headline",
+        "headline_analyses": [],
+        "key_themes": [],
+        "potential_impact": "Moderate Positive",
+        "risks_identified": [],
+        "information_gaps": [],
+    })), patch("stocksense.orchestration.react_flow.generate_skeptic_critique", new=SimpleNamespace(invoke=lambda _: {
+        "success": True,
+        "skeptic_report": "Limited pushback",
+        "skeptic_sentiment": "Agree with Reservations",
+        "skeptic_confidence": 0.4,
+        "primary_disagreement": "",
+        "critiques": [],
+        "bear_cases": [],
+        "hidden_risks": [],
+        "would_change_mind": [],
+    })):
+        events = asyncio.run(collect_events())
+
+    completed_events = [event for event in events if event.event_type == StreamEventType.COMPLETED]
+    assert completed_events, "Expected a completed streaming event"
+    assert completed_events[-1].data is not None
+    assert completed_events[-1].data["fundamental_data"] == {}

@@ -124,6 +124,7 @@ async def run_streaming_analysis(
         "ticker": ticker,
         "headlines": [],
         "price_data": [],
+        "fundamental_data": {},
         "sentiment_report": "",
         "summary": "",
         "reasoning_steps": [],
@@ -329,7 +330,7 @@ Analysis completed using streaming mode.
             "bear_cases": state["bear_cases"],
             "hidden_risks": state["hidden_risks"],
             "would_change_mind": state["would_change_mind"],
-            "fundamental_data": state["fundamental_data"],
+            "fundamental_data": state.get("fundamental_data", {}),
             "tools_used": tools_used,
             "iterations": state["iterations"],
             "timestamp": datetime.now().isoformat()
