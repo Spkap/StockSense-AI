@@ -6,12 +6,26 @@ All analysis results are stored in Supabase's `analysis_cache` table.
 """
 
 import logging
+import math
 from datetime import datetime
 from typing import Dict, Optional, List, Any
 
 from stocksense.db.supabase_client import get_supabase_client, SupabaseAuthError
 
 logger = logging.getLogger("stocksense.database")
+
+
+def _sanitize_json_compatible(value: Any) -> Any:
+    """Recursively replace NaN/Infinity with None for JSON storage."""
+    if isinstance(value, dict):
+        return {key: _sanitize_json_compatible(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_json_compatible(item) for item in value]
+    if isinstance(value, tuple):
+        return [_sanitize_json_compatible(item) for item in value]
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    return value
 
 
 def init_db() -> None:
@@ -99,6 +113,8 @@ def save_analysis(
             "fundamental_data": fundamental_data or {},
         }
         
+        data = _sanitize_json_compatible(data)
+
         response = (
             client.table("analysis_cache")
             .upsert(data, on_conflict="ticker")

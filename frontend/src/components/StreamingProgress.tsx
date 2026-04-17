@@ -16,6 +16,7 @@ interface Tool {
 const TOOLS: Tool[] = [
   { name: 'fetch_news_headlines', label: 'Fetching News', icon: '📰' },
   { name: 'fetch_price_data', label: 'Getting Prices', icon: '📈' },
+  { name: 'fetch_fundamentals', label: 'Fetching Fundamentals', icon: '🏢' },
   { name: 'analyze_sentiment', label: 'Analyzing Sentiment', icon: '🧠' },
   { name: 'generate_skeptic_critique', label: 'Skeptic Review', icon: '🔍' },
 ];

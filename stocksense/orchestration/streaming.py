@@ -71,6 +71,7 @@ class StreamEvent:
 TOOL_SEQUENCE = [
     "fetch_news_headlines",
     "fetch_price_data", 
+    "fetch_fundamentals",
     "analyze_sentiment",
     "generate_skeptic_critique"
 ]
@@ -156,6 +157,7 @@ async def run_streaming_analysis(
         from .react_flow import (
             fetch_news_headlines,
             fetch_price_data,
+            fetch_fundamentals,
             analyze_sentiment,
             generate_skeptic_critique
         )
@@ -203,19 +205,52 @@ async def run_streaming_analysis(
             event_type=StreamEventType.TOOL_COMPLETED,
             tool_name="fetch_price_data",
             message=f"Retrieved {len(state['price_data'])} data points",
-            progress=0.45,
+            progress=0.35,
             data={"data_points": len(state["price_data"]), "price_data": state["price_data"]}
         ))
-        
+
         await asyncio.sleep(0.1)
-        
-        # Step 3: Analyze sentiment
+
+        # Step 3: Fetch fundamentals
+        yield emit(StreamEvent(
+            event_type=StreamEventType.TOOL_STARTED,
+            tool_name="fetch_fundamentals",
+            message="Fetching fundamentals...",
+            progress=0.45
+        ))
+
+        fundamentals_result = fetch_fundamentals.invoke({"ticker": ticker})
+        tools_used.append("fetch_fundamentals")
+
+        if fundamentals_result.get("success"):
+            state["fundamental_data"] = fundamentals_result.get("data", {}) or {}
+
+        info = state["fundamental_data"].get("info", {})
+        yield emit(StreamEvent(
+            event_type=StreamEventType.TOOL_COMPLETED,
+            tool_name="fetch_fundamentals",
+            message=(
+                "Fundamentals available"
+                if state["fundamental_data"]
+                else "No fundamentals available"
+            ),
+            progress=0.5,
+            data={
+                "fundamental_data": state["fundamental_data"],
+                "market_cap": info.get("market_cap"),
+                "revenue_growth": info.get("revenue_growth"),
+            }
+        ))
+
+        await asyncio.sleep(0.1)
+
+        # Step 4: Analyze sentiment
         if state["headlines"]:
             yield emit(StreamEvent(
                 event_type=StreamEventType.TOOL_STARTED,
                 tool_name="analyze_sentiment",
                 message="Analyzing sentiment...",
-                progress=0.50
+                progress=0.6
             ))
             
             sentiment_result = analyze_sentiment.invoke({"headlines": state["headlines"]})
@@ -236,7 +271,7 @@ async def run_streaming_analysis(
                 event_type=StreamEventType.TOOL_COMPLETED,
                 tool_name="analyze_sentiment",
                 message=f"Sentiment: {state['overall_sentiment']} ({state['overall_confidence']:.0%} confidence)",
-                progress=0.70,
+                progress=0.75,
                 data={
                     "overall_sentiment": state["overall_sentiment"],
                     "overall_confidence": state["overall_confidence"],
@@ -247,12 +282,12 @@ async def run_streaming_analysis(
             
             await asyncio.sleep(0.1)
             
-            # Step 4: Generate skeptic critique
+            # Step 5: Generate skeptic critique
             yield emit(StreamEvent(
                 event_type=StreamEventType.TOOL_STARTED,
                 tool_name="generate_skeptic_critique",
                 message="Generating skeptic analysis...",
-                progress=0.75
+                progress=0.82
             ))
             
             skeptic_result = generate_skeptic_critique.invoke({
@@ -296,6 +331,7 @@ Market Sentiment: {state['overall_sentiment']} (Confidence: {state['overall_conf
 Key Findings:
 - News Coverage: {len(state['headlines'])} articles analyzed
 - Price Data: {len(state['price_data'])} data points
+- Fundamentals: {'Available' if state.get('fundamental_data') else 'Not available'}
 - Skeptic View: {state['skeptic_sentiment']}
 
 Analysis completed using streaming mode.

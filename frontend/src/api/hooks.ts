@@ -37,11 +37,12 @@ export function useCachedTickers() {
 /**
  * Hook to get cached analysis results for a ticker
  */
-export function useAnalysisResults(ticker: string | null) {
+export function useAnalysisResults(ticker: string | null, enabled: boolean = true) {
   return useQuery({
     queryKey: queryKeys.results(ticker || ''),
     queryFn: () => api.getResults(ticker!),
-    enabled: !!ticker,
+    enabled: !!ticker && enabled,
+    retry: false,
   });
 }
 

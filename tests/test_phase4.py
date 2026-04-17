@@ -262,6 +262,9 @@ def test_run_streaming_analysis_emits_completed_event_without_fundamentals_keyer
     })), patch("stocksense.orchestration.react_flow.fetch_price_data", new=SimpleNamespace(invoke=lambda _: {
         "success": True,
         "price_data": [],
+    })), patch("stocksense.orchestration.react_flow.fetch_fundamentals", new=SimpleNamespace(invoke=lambda _: {
+        "success": True,
+        "data": {},
     })), patch("stocksense.orchestration.react_flow.analyze_sentiment", new=SimpleNamespace(invoke=lambda _: {
         "success": True,
         "sentiment_report": "Bullish",

@@ -7,4 +7,21 @@ function readEnv(name: string): string | undefined {
   return typeof value === 'string' ? value.trim() : undefined;
 }
 
-export const API_BASE_URL: string = readEnv('VITE_API_URL') || 'http://127.0.0.1:8000';
+function resolveApiBaseUrl(): string {
+  const configured = readEnv('VITE_API_URL');
+  const fallback = 'http://127.0.0.1:8000';
+
+  // Local frontend development should talk to the local backend by default,
+  // even if a checked-in .env points at a deployed API URL.
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    const isLocalFrontend = host === '127.0.0.1' || host === 'localhost';
+    if (isLocalFrontend) {
+      return fallback;
+    }
+  }
+
+  return configured || fallback;
+}
+
+export const API_BASE_URL: string = resolveApiBaseUrl();

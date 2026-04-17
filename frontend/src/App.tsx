@@ -86,7 +86,10 @@ function AppContent() {
   const { data: killAlertsData } = useKillAlerts(alertTicker);
 
   // Fetch cached results when ticker changes
-  const { data: resultsData, refetch: refetchResults } = useAnalysisResults(selectedTicker);
+  const { data: resultsData, refetch: refetchResults } = useAnalysisResults(
+    selectedTicker,
+    !streaming.isStreaming
+  );
   
   // Use streaming final data or cached results
   const analysisData: AnalysisData | null = normalizeAnalysisData(

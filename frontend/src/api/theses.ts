@@ -14,8 +14,7 @@ import type {
   ThesisComparison
 } from '../types/thesis';
 import { supabase } from '../utils/supabase';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import { API_BASE_URL } from '../config/env';
 
 /**
  * Get authorization header with current session token
@@ -155,4 +154,3 @@ export function useThesisComparison(thesisId: string | null) {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
-

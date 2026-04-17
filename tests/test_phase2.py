@@ -123,6 +123,31 @@ class TestCacheTTL:
         mock_table.upsert.assert_called_once()
         mock_table.insert.assert_not_called()
 
+    def test_save_analysis_sanitizes_nan_for_json_storage(self, monkeypatch):
+        """save_analysis must convert NaN/Infinity payload values to None."""
+        from stocksense.db import database
+
+        mock_client = MagicMock()
+        mock_table = MagicMock()
+        mock_client.table.return_value = mock_table
+        mock_table.upsert.return_value.execute.return_value.data = [{"id": "x1"}]
+
+        monkeypatch.setattr(database, "get_supabase_client", lambda: mock_client)
+
+        database.save_analysis(
+            ticker="AAPL",
+            summary="test",
+            sentiment_report="bullish",
+            price_data=[{"Close": float("nan"), "Volume": 100}],
+            fundamental_data={"info": {"market_cap": float("inf"), "beta": 1.2}},
+            overall_confidence=float("nan"),
+        )
+
+        upsert_payload = mock_table.upsert.call_args.args[0]
+        assert upsert_payload["overall_confidence"] is None
+        assert upsert_payload["price_data"][0]["Close"] is None
+        assert upsert_payload["fundamental_data"]["info"]["market_cap"] is None
+
 
 # =============================================================================
 # Task 3: Technical Analysis Signals (P3-N)

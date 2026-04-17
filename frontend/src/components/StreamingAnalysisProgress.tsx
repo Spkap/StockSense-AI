@@ -5,7 +5,7 @@
  * Shows beautiful, animated progress as each agent tool completes.
  */
 
-import { CheckCircle, Loader2, X, Zap, TrendingUp, Newspaper, Brain, Search } from 'lucide-react';
+import { CheckCircle, Loader2, X, Zap, TrendingUp, Newspaper, Brain, Search, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -44,6 +44,13 @@ const TOOLS_CONFIG = [
     icon: TrendingUp,
     activeColor: 'text-emerald-500',
     bgColor: 'bg-emerald-500/10'
+  },
+  {
+    name: 'fetch_fundamentals',
+    label: 'Fetching Fundamentals',
+    icon: Building2,
+    activeColor: 'text-cyan-500',
+    bgColor: 'bg-cyan-500/10'
   },
   { 
     name: 'analyze_sentiment', 

@@ -5,8 +5,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import type { DebateAnalysisResult } from '../types/debate';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import { API_BASE_URL } from '../config/env';
 
 export type DebateEventType = 
   | 'debate_started'
