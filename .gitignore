@@ -26,6 +26,7 @@ data/
 
 # Supabase local development
 .supabase/
+supabase/.temp/
 
 # =============================================================================
 # -- Python --
@@ -137,6 +138,7 @@ pids/
 
 # Project notes (local only)
 .Project_description.md
+.specstory/
 
 # =============================================================================
 # -- OS-Specific Files --
