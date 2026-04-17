@@ -480,7 +480,27 @@ async def get_analysis_results(ticker: str) -> Dict[str, Any]:
                 "iterations": analysis.get("iterations", 0),
                 "timestamp": analysis["timestamp"],
                 "source": "cache",
-                "agent_type": "ReAct"
+                "agent_type": "ReAct",
+                # Stage 1: Structured sentiment fields
+                "overall_sentiment": analysis.get("overall_sentiment", ""),
+                "overall_confidence": analysis.get("overall_confidence", 0.0),
+                "confidence_reasoning": analysis.get("confidence_reasoning", ""),
+                "headline_analyses": analysis.get("headline_analyses", []),
+                "key_themes": analysis.get("key_themes", []),
+                "potential_impact": analysis.get("potential_impact", ""),
+                "risks_identified": analysis.get("risks_identified", []),
+                "information_gaps": analysis.get("information_gaps", []),
+                # Stage 2: Skeptic analysis fields
+                "skeptic_report": analysis.get("skeptic_report", ""),
+                "skeptic_sentiment": analysis.get("skeptic_sentiment", ""),
+                "skeptic_confidence": analysis.get("skeptic_confidence", 0.0),
+                "primary_disagreement": analysis.get("primary_disagreement", ""),
+                "critiques": analysis.get("critiques", []),
+                "bear_cases": analysis.get("bear_cases", []),
+                "hidden_risks": analysis.get("hidden_risks", []),
+                "would_change_mind": analysis.get("would_change_mind", []),
+                # Fundamentals
+                "fundamental_data": analysis.get("fundamental_data", {}),
             }
         }
 
@@ -552,12 +572,16 @@ async def get_cached_tickers() -> Dict[str, Any]:
 
 
 @app.get("/analyze/{ticker}/stream")
-async def analyze_stock_stream(ticker: str, request: Request):
+async def analyze_stock_stream(
+    ticker: str,
+    request: Request,
+    authorization: Optional[str] = Header(None),
+):
     """
     Stream analysis using Server-Sent Events (SSE).
-    
+
     Stage 4: Streaming Analysis with Progressive Rendering
-    
+
     Yields events as each tool completes:
     - started: Analysis initiated
     - tool_started: Starting a specific tool
@@ -616,16 +640,50 @@ async def analyze_stock_stream(ticker: str, request: Request):
                             reasoning_steps=[],
                             tools_used=event.data.get("tools_used", []),
                             iterations=1,
-                            # Structured sentiment
+                            # Stage 1: Structured sentiment
                             overall_sentiment=event.data.get("overall_sentiment", ""),
                             overall_confidence=event.data.get("overall_confidence", 0.0),
+                            confidence_reasoning=event.data.get("confidence_reasoning", ""),
+                            headline_analyses=event.data.get("headline_analyses", []),
+                            key_themes=event.data.get("key_themes", []),
+                            potential_impact=event.data.get("potential_impact", ""),
+                            risks_identified=event.data.get("risks_identified", []),
+                            information_gaps=event.data.get("information_gaps", []),
+                            # Stage 2: Skeptic analysis
+                            skeptic_report=event.data.get("skeptic_report", ""),
+                            skeptic_sentiment=event.data.get("skeptic_sentiment", ""),
+                            skeptic_confidence=event.data.get("skeptic_confidence", 0.0),
+                            primary_disagreement=event.data.get("primary_disagreement", ""),
+                            critiques=event.data.get("critiques", []),
+                            bear_cases=event.data.get("bear_cases", []),
+                            hidden_risks=event.data.get("hidden_risks", []),
+                            would_change_mind=event.data.get("would_change_mind", []),
                             # Fundamentals
                             fundamental_data=event.data.get("fundamental_data", {}),
                         )
                         logger.info(f"Streaming analysis saved to cache for {ticker}")
                     except Exception as e:
                         logger.warning(f"Failed to save streaming analysis: {e}")
-                        
+
+                    # Stage 4: Kill Criteria Monitoring for authenticated streaming users
+                    if authorization:
+                        try:
+                            from stocksense.db.supabase_client import verify_user_token
+                            from stocksense.core.monitor import check_kill_criteria_for_ticker
+                            parts = authorization.split(" ")
+                            if len(parts) == 2 and parts[0].lower() == "bearer":
+                                access_token = parts[1]
+                                user = verify_user_token(access_token)
+                                if user:
+                                    check_kill_criteria_for_ticker(
+                                        ticker=ticker,
+                                        analysis_result=event.data,
+                                        user_id=user["id"],
+                                        access_token=access_token
+                                    )
+                        except Exception as e:
+                            logger.warning(f"Kill criteria check failed in stream (non-fatal): {e}")
+
         except Exception as e:
             logger.error(f"Streaming error: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"

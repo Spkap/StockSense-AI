@@ -72,10 +72,10 @@ export default function KillAlertBanner({
                         Match confidence:
                       </span>
                       <span className={`text-sm font-bold ${
-                        alert.match_confidence >= 0.8 ? 'text-destructive' :
-                        alert.match_confidence >= 0.6 ? 'text-amber-500' : 'text-muted-foreground'
+                        (alert.data?.match_confidence ?? 0) >= 0.8 ? 'text-destructive' :
+                        (alert.data?.match_confidence ?? 0) >= 0.6 ? 'text-amber-500' : 'text-muted-foreground'
                       }`}>
-                        {Math.round(alert.match_confidence * 100)}%
+                        {Math.round((alert.data?.match_confidence ?? 0) * 100)}%
                       </span>
                     </div>
                   </div>
@@ -102,7 +102,7 @@ export default function KillAlertBanner({
                     Your Kill Criteria
                   </div>
                   <p className="text-sm font-medium text-foreground leading-relaxed">
-                    "{alert.triggered_criteria}"
+                    "{alert.data?.triggered_criteria}"
                   </p>
                 </div>
 
@@ -114,7 +114,7 @@ export default function KillAlertBanner({
                       Signal from latest analysis
                     </div>
                     <p className="text-sm text-foreground">
-                      "{alert.triggering_signal}"
+                      "{alert.data?.triggering_signal}"
                     </p>
                   </div>
                 </div>

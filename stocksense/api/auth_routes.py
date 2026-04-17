@@ -330,17 +330,28 @@ class AlertStatusUpdate(BaseModel):
     user_action: Optional[str] = None
 
 
-class KillAlertResponse(BaseModel):
-    id: str
-    thesis_id: str
-    ticker: str
+class KillAlertData(BaseModel):
     triggered_criteria: str
     triggering_signal: str
     match_confidence: float
     analysis_sentiment: Optional[str] = None
     analysis_confidence: Optional[float] = None
-    status: str
+    analysis_summary: Optional[str] = None
+    status: str = "pending"
+    resolved_at: Optional[str] = None
+    user_action: Optional[str] = None
+
+
+class KillAlertResponse(BaseModel):
+    id: str
+    user_id: str
+    thesis_id: str
+    ticker: str
+    alert_type: str
+    message: str
+    is_read: bool
     created_at: str
+    data: KillAlertData
 
 
 @router.get("/kill-alerts")
@@ -351,15 +362,27 @@ async def list_kill_alerts(
 ):
     """Get kill alerts for the current user."""
     from stocksense.core.monitor import get_pending_alerts
-    
-    # For now, get_pending_alerts only gets pending; we could extend this
-    alerts = get_pending_alerts(user["id"], user["access_token"], ticker)
-    
-    # Filter by status if not pending
-    if status != "pending":
-        # Need to fetch all and filter (or extend the query function)
-        pass
-    
+    from stocksense.db.supabase_client import get_supabase_client
+
+    if status == "pending":
+        alerts = get_pending_alerts(user["id"], user["access_token"], ticker)
+    else:
+        # Fetch all alerts (read + unread) and filter by status in data JSONB
+        try:
+            client = get_supabase_client()
+            client.postgrest.auth(user["access_token"])
+            query = client.table("alert_history").select("*").eq("user_id", user["id"])
+            if ticker:
+                query = query.eq("ticker", ticker.upper())
+            response = query.order("created_at", desc=True).execute()
+            all_alerts = response.data or []
+            if status == "all":
+                alerts = all_alerts
+            else:
+                alerts = [a for a in all_alerts if (a.get("data") or {}).get("status") == status]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch alerts: {e}")
+
     return {"alerts": alerts, "count": len(alerts)}
 
 

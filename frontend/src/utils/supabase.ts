@@ -6,8 +6,12 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 // Environment variables (set in .env or Vite config)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = typeof import.meta.env.VITE_SUPABASE_URL === 'string'
+  ? import.meta.env.VITE_SUPABASE_URL.trim()
+  : '';
+const supabaseAnonKey = typeof import.meta.env.VITE_SUPABASE_ANON_KEY === 'string'
+  ? import.meta.env.VITE_SUPABASE_ANON_KEY.trim()
+  : '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(

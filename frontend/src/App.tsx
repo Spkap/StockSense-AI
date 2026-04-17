@@ -15,8 +15,9 @@ import ThesesPage from './pages/ThesesPage';
 import { ThemeProvider } from './context/ThemeContext';
 import { SidebarProvider, useSidebar } from './context/SidebarContext';
 import { ToastProvider, useToast } from './components/ui/toast';
+import { AuthProvider } from './context/AuthContext';
 import { useAppKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { useHealthCheck, useAnalysisResults } from './api/hooks';
+import { useHealthCheck, useAnalysisResults, useKillAlerts } from './api/hooks';
 import { useStreamingAnalysis } from './hooks/useStreamingAnalysis';
 import type { AnalysisData, KillAlert } from './types/api';
 import { AlertCircle } from 'lucide-react';
@@ -45,7 +46,9 @@ function AppContent() {
   // Streaming Analysis (Stage 4)
   const streaming = useStreamingAnalysis();
   const [killAlerts, setKillAlerts] = useState<KillAlert[]>([]);
-  
+  const [alertTicker, setAlertTicker] = useState<string | null>(null);
+  const { data: killAlertsData } = useKillAlerts(alertTicker);
+
   // Fetch cached results when ticker changes
   const { data: resultsData, refetch: refetchResults } = useAnalysisResults(selectedTicker);
   
@@ -56,6 +59,7 @@ function AppContent() {
   const handleAnalyze = (ticker: string, _force: boolean = false) => {
     setSelectedTicker(ticker);
     setKillAlerts([]);
+    setAlertTicker(null);
     streaming.startAnalysis(ticker);
   };
 
@@ -86,6 +90,20 @@ function AppContent() {
       refetchResults();
     }
   }, [streaming.finalData, selectedTicker, refetchResults]);
+
+  // Fetch kill alerts after streaming completes (authenticated users)
+  useEffect(() => {
+    if (streaming.finalData && selectedTicker) {
+      setAlertTicker(selectedTicker);
+    }
+  }, [streaming.finalData, selectedTicker]);
+
+  // Populate killAlerts state when the query resolves
+  useEffect(() => {
+    if (killAlertsData && killAlertsData.length > 0) {
+      setKillAlerts(killAlertsData);
+    }
+  }, [killAlertsData]);
 
   const isLoading = streaming.isStreaming;
   const error = streaming.error;
@@ -301,11 +319,13 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <SidebarProvider>
-          <ToastProvider>
-            <AppContent />
-          </ToastProvider>
-        </SidebarProvider>
+        <AuthProvider>
+          <SidebarProvider>
+            <ToastProvider>
+              <AppContent />
+            </ToastProvider>
+          </SidebarProvider>
+        </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

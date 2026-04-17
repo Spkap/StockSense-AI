@@ -320,12 +320,20 @@ def update_alert_status(
         client = get_supabase_client()
         client.postgrest.auth(access_token)
         
-        update_data = {"status": status, "is_read": True}
+        # alert_history stores status/resolved_at/user_action inside the data JSONB column
+        # (the table only has id, user_id, thesis_id, ticker, alert_type, message, data, is_read, created_at)
+        update_data: dict = {"is_read": True}
+
+        # Fetch current data blob so we can merge, not overwrite
+        current = client.table("alert_history").select("data").eq("id", alert_id).single().execute()
+        merged_data: dict = dict(current.data.get("data") or {}) if current.data else {}
+        merged_data["status"] = status
         if user_action:
-            update_data["user_action"] = user_action
+            merged_data["user_action"] = user_action
         if status != "pending":
-            update_data["resolved_at"] = datetime.now(timezone.utc).isoformat()
-        
+            merged_data["resolved_at"] = datetime.now(timezone.utc).isoformat()
+        update_data["data"] = merged_data
+
         client.table("alert_history").update(update_data).eq("id", alert_id).eq("user_id", user_id).execute()
         return True
         

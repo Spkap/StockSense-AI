@@ -4,6 +4,7 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { supabase } from '../utils/supabase';
 import { cn } from '../utils/cn';
+import { API_BASE_URL } from '../config/env';
 
 interface Alert {
   id: string;
@@ -53,19 +54,36 @@ export default function AlertsCenter() {
   }, [filter]);
 
   const markAsRead = async (id: string) => {
-    await supabase.from('alert_history').update({ is_read: true }).eq('id', id);
+    // Use backend PATCH so data.status is also updated to "acknowledged"
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await fetch(`${API_BASE_URL}/api/kill-alerts/${id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ status: 'acknowledged' }),
+        });
+      }
+    } catch {
+      // Fallback: direct Supabase write for is_read only
+      await supabase.from('alert_history').update({ is_read: true }).eq('id', id);
+    }
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, is_read: true } : a));
     if (filter === 'unread') {
-        setAlerts(prev => prev.filter(a => a.id !== id));
+      setAlerts(prev => prev.filter(a => a.id !== id));
     }
   };
 
   const markAllRead = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        await supabase.from('alert_history').update({ is_read: true }).eq('user_id', user.id);
-        fetchAlerts();
-    }
+    if (!user) return;
+    // Mark all as read — status merge inside JSONB is done per-alert by the backend,
+    // but for bulk we just set is_read which is the primary unread indicator.
+    await supabase.from('alert_history').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false);
+    fetchAlerts();
   };
 
   return (

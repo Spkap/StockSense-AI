@@ -98,18 +98,29 @@ export interface AnalysisData {
 
 /**
  * Kill Criteria Alert (Stage 4)
+ * Stored in alert_history table: top-level fields + details in data JSONB.
  */
 export interface KillAlert {
   id: string;
+  user_id: string;
   thesis_id: string;
   ticker: string;
-  triggered_criteria: string;
-  triggering_signal: string;
-  match_confidence: number;
-  analysis_sentiment?: string;
-  analysis_confidence?: number;
-  status: 'pending' | 'dismissed' | 'acknowledged' | 'acted';
+  alert_type: string;
+  message: string;
+  is_read: boolean;
   created_at: string;
+  // Details nested inside the data JSONB column
+  data: {
+    triggered_criteria: string;
+    triggering_signal: string;
+    match_confidence: number;
+    analysis_sentiment?: string;
+    analysis_confidence?: number;
+    analysis_summary?: string;
+    status: 'pending' | 'dismissed' | 'acknowledged' | 'acted';
+    resolved_at?: string;
+    user_action?: string;
+  };
 }
 
 /**

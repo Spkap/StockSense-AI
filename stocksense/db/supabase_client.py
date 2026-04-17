@@ -40,6 +40,7 @@ def get_supabase_client() -> Client:
     return create_client(url, key)
 
 
+@lru_cache(maxsize=1)
 def get_supabase_admin_client() -> Client:
     """
     Get a Supabase client with service role (admin) privileges.
