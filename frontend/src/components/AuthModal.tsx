@@ -3,7 +3,7 @@
  * Stage 3: User Belief System
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LogIn, Mail, Lock, Loader2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './ui/button';
@@ -22,6 +22,21 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [error, setError] = useState<string | null>(null);
   
   const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -59,16 +74,18 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
       <Card className="w-full max-w-md mx-4 shadow-2xl">
         <CardHeader className="relative pb-2">
           <button 
+            type="button"
             onClick={onClose}
+            aria-label="Close sign in dialog"
             className="absolute right-4 top-4 p-1 rounded-full hover:bg-muted transition-colors"
           >
             <X className="h-5 w-5 text-muted-foreground" />
           </button>
-          <h2 className="text-2xl font-bold text-center">
+          <h2 id="auth-modal-title" className="text-2xl font-bold text-center">
             {mode === 'login' ? 'Welcome Back' : 'Create Account'}
           </h2>
           <p className="text-sm text-muted-foreground text-center mt-1">
