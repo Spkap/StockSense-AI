@@ -4,7 +4,9 @@ import { Button } from '../components/ui/button';
 
 import { useAuth } from '../context/AuthContext';
 import { useTheses, useThesisHistory, useThesisComparison } from '../api/theses';
+import { useThesisCheckStream } from '../hooks/useThesisCheckStream';
 import ThesisEditor from '../components/ThesisEditor';
+import ThesisCheckPanel from '../components/ThesisCheckPanel';
 import type { Thesis } from '../types/thesis';
 import type { AnalysisData } from '../types/api';
 import { cn } from '../utils/cn';
@@ -28,8 +30,14 @@ function ThesisCard({ thesis, onEdit, enabled }: { thesis: Thesis; onEdit: () =>
   const [expanded, setExpanded] = useState(false);
   const { data: historyData } = useThesisHistory(expanded ? thesis.id : null, enabled);
   const { data: comparison } = useThesisComparison(expanded ? thesis.id : null, enabled);
+  const thesisCheck = useThesisCheckStream();
 
   const statusStyle = STATUS_STYLES[thesis.status] || STATUS_STYLES.active;
+
+  useEffect(() => {
+    if (!expanded || !enabled) return;
+    thesisCheck.loadLatest(thesis.id);
+  }, [enabled, expanded, thesis.id, thesisCheck.loadLatest]);
 
   return (
     <motion.div 
@@ -147,6 +155,20 @@ function ThesisCard({ thesis, onEdit, enabled }: { thesis: Thesis; onEdit: () =>
                 </div>
               )}
 
+              <ThesisCheckPanel
+                ticker={thesis.ticker}
+                isStreaming={thesisCheck.isStreaming}
+                progress={thesisCheck.progress}
+                phase={thesisCheck.phase}
+                events={thesisCheck.events}
+                finalData={thesisCheck.finalData}
+                runBundle={thesisCheck.runBundle}
+                error={thesisCheck.error}
+                onStart={() => thesisCheck.start(thesis.id)}
+                onStop={thesisCheck.stop}
+                onCorrect={thesisCheck.recordCorrection}
+              />
+
               <ThesisComparisonBanner comparison={comparison ?? null} />
 
               <div className="grid gap-3 text-xs text-muted-foreground md:grid-cols-3">
@@ -207,7 +229,7 @@ export default function ThesesPage({ onBack, initialTicker, initialAnalysisData,
           Sign in to access your private investment theses and track your performance.
         </p>
         <Button onClick={onBack} variant="secondary">
-          Return to Dashboard
+          Return to Thesis Desk
         </Button>
       </div>
     );

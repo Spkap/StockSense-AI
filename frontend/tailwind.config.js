@@ -5,7 +5,14 @@ export default {
   theme: {
   	extend: {
       fontFamily: {
-        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        mono: ["IBM Plex Mono", "SFMono-Regular", "Consolas", "Liberation Mono", "monospace"],
+      },
+      boxShadow: {
+        'lux': '0 4px 20px -2px rgba(0, 0, 0, 0.1), 0 0 3px rgba(0,0,0,0.05)',
+        'lux-hover': '0 10px 30px -5px rgba(0, 0, 0, 0.15), 0 0 5px rgba(0,0,0,0.05)',
+        'lux-dark': '0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 3px rgba(255,255,255,0.02)',
+        'lux-dark-hover': '0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 5px rgba(255,255,255,0.05)',
       },
   		borderRadius: {
   			lg: 'var(--radius)',

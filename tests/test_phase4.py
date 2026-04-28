@@ -244,6 +244,67 @@ def test_analyze_sentiment_structured_empty_headlines_skips_llm():
     assert result.overall_sentiment == "Insufficient Data"
 
 
+def test_streaming_debate_collects_data_near_slowest_source():
+    import asyncio
+    import time
+    from unittest.mock import patch
+
+    from stocksense.orchestration.streaming import run_streaming_debate_analysis
+
+    def slow_fundamentals(ticker):
+        time.sleep(0.2)
+        return {"info": {"market_cap": 100}}
+
+    def slow_news(ticker, days=7):
+        time.sleep(0.2)
+        return ["Apple reports earnings"]
+
+    def slow_price(ticker, period="1mo"):
+        time.sleep(0.2)
+        return None
+
+    class FakeBull:
+        async def analyze(self, *args, **kwargs):
+            return type("BullCase", (), {"confidence": 0.7, "to_dict": lambda self: {"thesis": "Bull", "catalysts": []}})()
+
+        async def generate_rebuttal(self, *args, **kwargs):
+            return []
+
+    class FakeBear:
+        async def analyze(self, *args, **kwargs):
+            return type("BearCase", (), {"confidence": 0.4, "to_dict": lambda self: {"thesis": "Bear", "risks": []}})()
+
+        async def generate_rebuttal(self, *args, **kwargs):
+            return []
+
+    class FakeSynthesizer:
+        async def synthesize(self, *args, **kwargs):
+            return type(
+                "Verdict",
+                (),
+                {"recommendation": "Hold", "conviction": 0.5, "to_dict": lambda self: {"recommendation": "Hold", "conviction": 0.5}},
+            )()
+
+    async def collect():
+        events = []
+        async for event in run_streaming_debate_analysis("AAPL"):
+            events.append(event)
+        return events
+
+    start = time.monotonic()
+    with patch("stocksense.core.data_collectors.get_fundamental_data", side_effect=slow_fundamentals):
+        with patch("stocksense.core.data_collectors.get_news", side_effect=slow_news):
+            with patch("stocksense.core.data_collectors.get_price_history", side_effect=slow_price):
+                with patch("stocksense.core.analyzer.analyze_sentiment_structured"):
+                    with patch("stocksense.agents.BullAnalyst", return_value=FakeBull()):
+                        with patch("stocksense.agents.BearAnalyst", return_value=FakeBear()):
+                            with patch("stocksense.agents.Synthesizer", return_value=FakeSynthesizer()):
+                                asyncio.run(collect())
+    duration = time.monotonic() - start
+
+    assert duration < 0.45
+
+
 def test_run_streaming_analysis_emits_completed_event_without_fundamentals_keyerror():
     """Streaming analysis should default missing fundamentals to an empty object."""
     import asyncio

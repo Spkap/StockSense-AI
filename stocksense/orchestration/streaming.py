@@ -454,13 +454,30 @@ async def run_streaming_debate_analysis(
             progress=0.05
         ))
         
-        # Collect data in parallel
-        fundamentals = await asyncio.to_thread(get_fundamental_data, ticker)
-        headlines = await asyncio.to_thread(get_news, ticker, 7)
-        price_data = await asyncio.to_thread(get_price_history, ticker, "1mo")
-        
-        if fundamentals is None:
-            fundamentals = {}
+        # Collect data in parallel. Each source degrades independently so a
+        # slow/failing source does not block the whole debate.
+        fundamentals_result, headlines_result, price_result = await asyncio.gather(
+            asyncio.to_thread(get_fundamental_data, ticker),
+            asyncio.to_thread(get_news, ticker, 7),
+            asyncio.to_thread(get_price_history, ticker, "1mo"),
+            return_exceptions=True,
+        )
+
+        fundamentals = (
+            {}
+            if isinstance(fundamentals_result, Exception) or fundamentals_result is None
+            else fundamentals_result
+        )
+        headlines = (
+            []
+            if isinstance(headlines_result, Exception) or headlines_result is None
+            else headlines_result
+        )
+        price_data = (
+            []
+            if isinstance(price_result, Exception) or price_result is None
+            else price_result
+        )
         
         yield emit(StreamEvent(
             event_type=StreamEventType.TOOL_COMPLETED,

@@ -166,3 +166,6 @@ $RECYCLE.BIN/
 .nfs*
 github-actions-key.json
 /.playwright-mcp
+.gstack/
+/docs/superpowers
+docs/CONVICTION_DESK_ORIGINAL_INTENT.md

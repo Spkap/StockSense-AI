@@ -155,7 +155,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
             <Button
               type="submit"
-              className="w-full h-11"
+              className="w-full h-12 text-[15px]"
               disabled={loading}
             >
               {loading ? (

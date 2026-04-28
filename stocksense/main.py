@@ -151,6 +151,14 @@ try:
 except ImportError as e:
     logger.warning(f"Auth routes not available: {e}")
 
+# Register thesis check routes (Conviction Desk)
+try:
+    from stocksense.api.thesis_check_routes import router as thesis_check_router
+    app.include_router(thesis_check_router)
+    logger.info("Thesis check routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Thesis check routes not available: {e}")
+
 
 def get_client_ip(request: Request) -> str:
     """Extract client IP from request."""

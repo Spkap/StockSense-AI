@@ -259,7 +259,7 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis, 
                   <select
                     value={timeHorizon}
                     onChange={(event) => setTimeHorizon(event.target.value as typeof timeHorizon)}
-                    className="flex h-12 w-full rounded-xl bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                    className="flex h-12 w-full rounded-lg bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                   >
                     {TIME_HORIZONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -273,7 +273,7 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis, 
                   <select
                     value={thesisType}
                     onChange={(event) => setThesisType(event.target.value as typeof thesisType)}
-                    className="flex h-12 w-full rounded-xl bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                    className="flex h-12 w-full rounded-lg bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                   >
                     {THESIS_TYPES.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -291,7 +291,7 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis, 
                 <select
                   value={positionId}
                   onChange={(event) => setPositionId(event.target.value)}
-                  className="flex h-12 w-full rounded-xl bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                  className="flex h-12 w-full rounded-lg bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                 >
                   <option value="">No linked position</option>
                   {matchingPositions.map((position) => (
@@ -311,7 +311,7 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis, 
                     <select
                       value={status}
                       onChange={(event) => setStatus(event.target.value as typeof status)}
-                      className="flex h-12 w-full rounded-xl bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                      className="flex h-12 w-full rounded-lg bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                     >
                       {THESIS_STATUSES.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -326,7 +326,7 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis, 
                       value={changeReason}
                       onChange={(event) => setChangeReason(event.target.value)}
                       placeholder="What changed in your thesis?"
-                      className="flex h-12 w-full rounded-xl bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                      className="flex h-12 w-full rounded-lg bg-secondary/80 px-4 py-2 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                     />
                   </div>
                 </div>
@@ -339,7 +339,7 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis, 
                       onChange={(event) => setInvalidationReason(event.target.value)}
                       rows={3}
                       placeholder="What specifically invalidated the thesis or triggered the exit?"
-                      className="w-full rounded-xl bg-secondary/80 px-4 py-3 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                      className="w-full rounded-lg bg-secondary/80 px-4 py-3 text-sm shadow-sm transition-all hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                     />
                   </div>
                 )}

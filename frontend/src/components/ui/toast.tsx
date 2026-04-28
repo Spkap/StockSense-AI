@@ -63,7 +63,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
       exit={{ opacity: 0, y: 20, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       className={cn(
-        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border p-4 shadow-lg backdrop-blur-md',
+        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl border p-4 shadow-lux dark:shadow-lux-dark backdrop-blur-md',
         config.className
       )}
     >
