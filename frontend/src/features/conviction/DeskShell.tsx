@@ -1,4 +1,4 @@
-import { Activity, Bell, BookOpen, LogOut, PanelLeft, Search, ShieldCheck } from 'lucide-react';
+import { Bell, BookOpen, LogOut, PanelLeft, Search, ShieldCheck } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Button } from '../../components/ui/button';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -17,7 +17,7 @@ interface DeskShellProps {
 
 const navItems: Array<{ id: ConvictionView; label: string; description: string; icon: typeof BookOpen }> = [
   { id: 'workbench', label: 'Thesis Desk', description: 'Memory and conviction checks', icon: BookOpen },
-  { id: 'research', label: 'Research Intake', description: 'Turn ticker research into a thesis', icon: Search },
+  { id: 'research', label: 'Research Room', description: 'Test narratives with receipts', icon: Search },
   { id: 'alerts', label: 'Alerts', description: 'Kill criteria and action queue', icon: Bell },
 ];
 
@@ -125,13 +125,13 @@ export default function DeskShell({
                 </Button>
                 <div>
                   <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
-                  {view === 'workbench' ? 'Thesis Desk' : view === 'research' ? 'Research Intake' : 'Alerts'}
+                  {view === 'workbench' ? 'Thesis Desk' : view === 'research' ? 'Research Room' : 'Alerts'}
                 </h1>
                   <p className="text-sm text-muted-foreground">
                     {view === 'workbench'
                       ? 'Review thesis memory, run conviction checks, and inspect evidence.'
                       : view === 'research'
-                        ? 'Use fresh ticker research to create or update a thesis.'
+                        ? 'Test a market narrative against SEC-first evidence, then draft thesis memory.'
                         : 'Review kill criteria and act on thesis drift.'}
                   </p>
                 </div>

@@ -133,7 +133,9 @@ StockSense-Agent/
 │   ├── test_tools.py        # Tool logic tests
 │   └── test_scheduler.py    # Background job tests
 ├── .env.example             # All env vars documented with descriptions
-└── requirements.txt         # Direct Python dependencies
+├── pyproject.toml           # Python dependency source of truth
+├── uv.lock                  # Reproducible Python lockfile
+└── requirements.txt         # uv-generated compatibility export
 ```
 
 ---
@@ -220,7 +222,8 @@ Investment theses are first-class citizens, not just analysis outputs:
 
 ### Prerequisites
 
-- Python 3.12+
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) for Python dependency management
 - Node.js 20+ and [pnpm](https://pnpm.io/) (recommended) or npm
 - [Google Gemini API Key](https://aistudio.google.com/app/apikey)
 - [NewsAPI Key](https://newsapi.org/register)
@@ -234,9 +237,7 @@ git clone https://github.com/Spkap/StockSense-Agent.git
 cd StockSense-Agent
 
 # Backend setup
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+uv sync
 
 # Frontend setup
 cd frontend
@@ -258,7 +259,7 @@ cp .env.example .env
 
 ```bash
 # Terminal 1 – Backend API
-python -m stocksense.main  # http://127.0.0.1:8000
+uv run python -m stocksense.main  # http://127.0.0.1:8000
 
 # Terminal 2 – Frontend
 cd frontend

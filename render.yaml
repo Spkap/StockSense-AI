@@ -27,8 +27,8 @@ services:
       name: analysis-cache
       mountPath: /var/data
       sizeGB: 1
-    buildCommand: pip install --no-cache-dir -r requirements-backend.txt
-    startCommand: uvicorn stocksense.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: curl -LsSf https://astral.sh/uv/install.sh | sh && ~/.local/bin/uv sync --frozen --no-dev --no-install-project
+    startCommand: .venv/bin/uvicorn stocksense.main:app --host 0.0.0.0 --port $PORT
 
 # NOTE: React frontend should be deployed to Vercel, Netlify, or similar static hosting.
 # Build with: cd frontend && npm run build

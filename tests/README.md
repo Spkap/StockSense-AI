@@ -27,40 +27,40 @@ Tests for the FastAPI application endpoints:
 ### Prerequisites
 
 ```bash
-# Install pytest if not already installed
-pip install pytest requests
+# Install locked Python dependencies
+uv sync
 ```
 
 ### Quick Start
 
 ```bash
 # Run all tests
-python run_tests.py all
+uv run python run_tests.py all
 
 # Run only unit tests (no server required)
-python run_tests.py unit
+uv run python run_tests.py unit
 
 # Run only API tests (requires server running)
-python run_tests.py api
+uv run python run_tests.py api
 
 # Run quick smoke test
-python run_tests.py smoke
+uv run python run_tests.py smoke
 ```
 
 ### Manual pytest Commands
 
 ```bash
 # Run all tests
-pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run only unit tests
-pytest tests/test_tools.py -v
+uv run pytest tests/test_tools.py -v
 
 # Run only API tests
-pytest tests/test_api.py -v
+uv run pytest tests/test_api.py -v
 
 # Run with coverage (if coverage installed)
-pytest tests/ --cov=stocksense --cov-report=html
+uv run pytest tests/ --cov=stocksense --cov-report=html
 ```
 
 ## Test Requirements
@@ -74,7 +74,7 @@ pytest tests/ --cov=stocksense --cov-report=html
 ### For API Tests
 
 - Requires the FastAPI server to be running
-- Start server with: `python -m stocksense.main`
+- Start server with: `uv run python -m stocksense.main`
 - Tests live HTTP endpoints
 
 ## Test Configuration

@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import type { ConvictionView } from './types';
 import AlertsQueue from './AlertsQueue';
 import DeskShell from './DeskShell';
-import ResearchIntake from './ResearchIntake';
+import ResearchRoom from './ResearchRoom';
 import ThesisWorkbench from './ThesisWorkbench';
 
 export default function ConvictionDeskApp() {
@@ -40,7 +40,7 @@ export default function ConvictionDeskApp() {
         ) : null}
 
         {view === 'research' ? (
-          <ResearchIntake
+          <ResearchRoom
             initialTicker={researchTicker}
             onThesisCreated={(thesis) => {
               setSelectedThesisId(thesis.id);

@@ -5,13 +5,19 @@ from tenacity import (
     retry,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
+    retry_if_exception,
 )
 try:
     from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable as GServiceUnavailable
-    _GOOGLE_EXCEPTIONS = (ResourceExhausted, GServiceUnavailable)
 except ImportError:
-    _GOOGLE_EXCEPTIONS = (Exception,)  # type: ignore[assignment]
+    ResourceExhausted = None  # type: ignore[assignment]
+    GServiceUnavailable = None  # type: ignore[assignment]
+
+try:
+    from google.genai.errors import APIError as GenAIAPIError, ServerError as GenAIServerError
+except ImportError:
+    GenAIAPIError = None  # type: ignore[assignment]
+    GenAIServerError = None  # type: ignore[assignment]
 
 # Optional import: minimal deployment may not include backend LLM deps
 try:
@@ -27,6 +33,38 @@ load_dotenv()
 
 class ConfigurationError(Exception):
     pass
+
+
+_RETRYABLE_LLM_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
+def _status_code_from_exception(exc: BaseException) -> int | None:
+    for attr in ("status_code", "code"):
+        value = getattr(exc, attr, None)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str) and value.isdigit():
+            return int(value)
+
+    response = getattr(exc, "response", None)
+    value = getattr(response, "status_code", None)
+    if isinstance(value, int):
+        return value
+    return None
+
+
+def is_retryable_llm_exception(exc: BaseException) -> bool:
+    """Return True only for transient Gemini/provider failures."""
+    if ResourceExhausted is not None and isinstance(exc, ResourceExhausted):
+        return True
+    if GServiceUnavailable is not None and isinstance(exc, GServiceUnavailable):
+        return True
+    if GenAIServerError is not None and isinstance(exc, GenAIServerError):
+        return True
+    if GenAIAPIError is not None and isinstance(exc, GenAIAPIError):
+        status_code = _status_code_from_exception(exc)
+        return status_code in _RETRYABLE_LLM_STATUS_CODES
+    return False
 
 
 def get_google_api_key() -> str:
@@ -57,7 +95,7 @@ def get_llm(model: str = "gemini-2.5-flash-lite",
     """
     if not _GENAI_AVAILABLE or GoogleGenerativeAI is None:  # type: ignore
         raise ConfigurationError(
-            "langchain-google-genai dependency not installed. Install backend requirements or add 'langchain-google-genai' to requirements.txt for LLM features."
+            "langchain-google-genai dependency not installed. Run 'uv sync' or add 'langchain-google-genai' to pyproject.toml for LLM features."
         )
 
     api_key = get_google_api_key()
@@ -79,7 +117,7 @@ def get_chat_llm(model: str = "gemini-2.5-flash-lite",
     """
     if not _GENAI_AVAILABLE or ChatGoogleGenerativeAI is None:  # type: ignore
         raise ConfigurationError(
-            "langchain-google-genai dependency not installed. Install backend requirements or add 'langchain-google-genai' to requirements.txt for chat LLM features."
+            "langchain-google-genai dependency not installed. Run 'uv sync' or add 'langchain-google-genai' to pyproject.toml for chat LLM features."
         )
 
     api_key = get_google_api_key()
@@ -105,7 +143,7 @@ def get_chat_llm(model: str = "gemini-2.5-flash-lite",
         @retry(
             stop=stop_after_attempt(3),
             wait=wait_exponential(multiplier=1, min=2, max=10),
-            retry=retry_if_exception_type(_GOOGLE_EXCEPTIONS),
+            retry=retry_if_exception(is_retryable_llm_exception),
             reraise=True,
         )
         def invoke(self, input, **kwargs):

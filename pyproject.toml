@@ -1,0 +1,37 @@
+[project]
+name = "stocksense-agent"
+version = "3.0.0"
+description = "Agent-powered investment research and conviction tracking system."
+requires-python = ">=3.11"
+dependencies = [
+  "apscheduler==3.11.0",
+  "fastapi==0.116.1",
+  "google-api-core[grpc]==2.25.1",
+  "httpx==0.28.1",
+  "langchain==0.3.27",
+  "langchain-core==0.3.75",
+  "langchain-google-genai==2.1.10",
+  "langgraph==0.6.6",
+  "newsapi-python==0.2.7",
+  "numpy==2.2.6",
+  "pandas==2.3.2",
+  "pydantic==2.11.7",
+  "python-dotenv==1.1.1",
+  "requests==2.32.5",
+  "supabase>=2.0.0",
+  "tenacity==9.1.2",
+  "uvicorn[standard]==0.35.0",
+  "yfinance==0.2.65",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==8.4.1",
+  "pytest-asyncio>=0.23.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

@@ -6,6 +6,10 @@ import ThesisEditor from '../../components/ThesisEditor';
 import { useThesisComparison, useThesisHistory } from '../../api/theses';
 import { cn } from '../../utils/cn';
 import type { Thesis } from '../../types/thesis';
+import type { FalsifiabilityCompileResult } from '../../types/worldModel';
+import BeliefLedgerPanel from './BeliefLedgerPanel';
+import ClaimGraphPanel from './ClaimGraphPanel';
+import ScenarioBoard from './ScenarioBoard';
 import ThesisRunPanel from './ThesisRunPanel';
 
 interface ThesisDetailProps {
@@ -21,6 +25,7 @@ const convictionStyles: Record<Thesis['conviction_level'], string> = {
 
 export default function ThesisDetail({ thesis, onCreateFromResearch }: ThesisDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [worldModel, setWorldModel] = useState<FalsifiabilityCompileResult | null>(null);
   const { data: historyData, isLoading: historyLoading } = useThesisHistory(thesis?.id ?? null, Boolean(thesis));
   const { data: comparisonData } = useThesisComparison(thesis?.id ?? null, Boolean(thesis));
 
@@ -143,6 +148,32 @@ export default function ThesisDetail({ thesis, onCreateFromResearch }: ThesisDet
       </section>
 
       <ThesisRunPanel thesisId={thesis.id} ticker={thesis.ticker} />
+
+      <ClaimGraphPanel thesisId={thesis.id} onCompiled={setWorldModel} />
+      <ScenarioBoard thesisId={thesis.id} />
+      <BeliefLedgerPanel
+        worldModel={worldModel}
+        onForecastResolved={(forecastId, outcome, brierScore) => {
+          setWorldModel((current) => {
+            if (!current) {
+              return current;
+            }
+            return {
+              ...current,
+              forecast_questions: current.forecast_questions.map((forecast) =>
+                forecast.id === forecastId
+                  ? {
+                      ...forecast,
+                      status: 'resolved',
+                      resolved_outcome: outcome,
+                      brier_score: brierScore,
+                    }
+                  : forecast
+              ),
+            };
+          });
+        }}
+      />
 
       <ThesisEditor isOpen={isEditing} onClose={() => setIsEditing(false)} ticker={thesis.ticker} existingThesis={thesis} />
     </div>

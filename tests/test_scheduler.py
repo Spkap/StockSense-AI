@@ -30,7 +30,9 @@ async def test_check_all_active_theses():
     # Use patch to mock external calls
     with patch("stocksense.scheduler.get_supabase_client", return_value=mock_supabase), \
          patch("stocksense.scheduler.run_react_analysis", return_value=mock_analysis_result) as mock_run_analysis, \
-         patch("stocksense.scheduler.check_kill_criteria_for_ticker") as mock_check_kill: # Mocking this to simplify test, though scheduler logic duplicates some of it
+         patch("stocksense.scheduler.extract_signals_from_analysis", return_value=[]), \
+         patch("stocksense.scheduler.match_signals_to_criteria", return_value=[]), \
+         patch("stocksense.scheduler.check_kill_criteria_for_ticker"): # Mocking this to simplify test, though scheduler logic duplicates some of it
 
         # Run the function
         await check_all_active_theses()

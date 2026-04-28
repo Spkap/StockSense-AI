@@ -142,6 +142,44 @@ GOLDEN_SET = [
         },
     },
     {
+        "ticker": "AMD",
+        "research_room_question": "Is AMD's AI server thesis real, or is the market over-narrating it?",
+        "mock_headlines": [
+            "AMD says AI accelerator demand remains strong",
+            "Cloud providers expand AMD Instinct deployments",
+            "AMD gaming revenue remains under pressure",
+            "Analysts debate AMD AI server margin durability",
+        ],
+        "mock_fundamentals": {
+            "info": {
+                "revenue_growth": 0.18,
+                "market_cap": 260_000_000_000,
+                "forward_pe": 33.0,
+                "trailingPE": 48.0,
+                "debtToEquity": 5.0,
+                "profitMargins": 0.12,
+                "shortRatio": 1.1,
+                "recommendation_mean": 1.7,
+            }
+        },
+        "mock_price_data": [
+            {"date": f"2026-01-{i+1:02d}", "close": 140.0 + i * 0.6}
+            for i in range(60)
+        ],
+        "research_room_expectations": {
+            "must_return_narrative_verdict": True,
+            "must_include_sec_or_company_facts": True,
+            "must_list_missing_proof": True,
+            "must_produce_thesis_draft": True,
+        },
+        "expectations": {
+            "bull_confidence_min": 0.4,
+            "bear_confidence_min": 0.25,
+            "bull_thesis_non_empty": True,
+            "bear_thesis_non_empty": True,
+        },
+    },
+    {
         "ticker": "GS",
         "mock_headlines": [
             "Goldman Sachs Q2 trading revenue beats estimates",

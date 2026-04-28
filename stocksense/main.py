@@ -159,6 +159,22 @@ try:
 except ImportError as e:
     logger.warning(f"Thesis check routes not available: {e}")
 
+# Register research room routes (Conviction Desk)
+try:
+    from stocksense.api.research_room_routes import router as research_room_router
+    app.include_router(research_room_router)
+    logger.info("Research Room routes registered successfully")
+except ImportError as e:
+    logger.warning(f"Research Room routes not available: {e}")
+
+# Register world model routes (Conviction Desk)
+try:
+    from stocksense.api.world_model_routes import router as world_model_router
+    app.include_router(world_model_router)
+    logger.info("World Model routes registered successfully")
+except ImportError as e:
+    logger.warning(f"World Model routes not available: {e}")
+
 
 def get_client_ip(request: Request) -> str:
     """Extract client IP from request."""
