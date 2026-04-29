@@ -102,10 +102,12 @@ ALTER TABLE thesis_check_steps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE thesis_evidence_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE thesis_corrections ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own thesis check runs" ON thesis_check_runs;
 CREATE POLICY "Users can read own thesis check runs"
 ON thesis_check_runs FOR SELECT
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can read own thesis check steps" ON thesis_check_steps;
 CREATE POLICY "Users can read own thesis check steps"
 ON thesis_check_steps FOR SELECT
 USING (
@@ -116,6 +118,7 @@ USING (
     )
 );
 
+DROP POLICY IF EXISTS "Users can read own thesis evidence" ON thesis_evidence_items;
 CREATE POLICY "Users can read own thesis evidence"
 ON thesis_evidence_items FOR SELECT
 USING (
@@ -126,6 +129,7 @@ USING (
     )
 );
 
+DROP POLICY IF EXISTS "Users can read own thesis corrections" ON thesis_corrections;
 CREATE POLICY "Users can read own thesis corrections"
 ON thesis_corrections FOR SELECT
 USING (auth.uid() = user_id);

@@ -82,7 +82,7 @@ def test_cancel_thesis_run_persists_cancelled_state(monkeypatch):
     monkeypatch.setattr("stocksense.api.auth_routes.verify_user_token", lambda token: {"id": "user_1", "email": "a@test.com"})
     monkeypatch.setattr(
         "stocksense.api.thesis_check_routes.cancel_thesis_check_run",
-        lambda run_id, user_id: calls.append((run_id, user_id)),
+        lambda run_id, user_id: calls.append((run_id, user_id)) or True,
     )
 
     client = TestClient(app)

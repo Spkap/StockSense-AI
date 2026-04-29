@@ -1,8 +1,7 @@
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS agent_runs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     run_type TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'running',
@@ -23,7 +22,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
 );
 
 CREATE TABLE IF NOT EXISTS agent_run_steps (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     run_id UUID NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
     step_name TEXT NOT NULL,
     phase TEXT NOT NULL,
@@ -43,7 +42,7 @@ CREATE TABLE IF NOT EXISTS agent_run_steps (
 );
 
 CREATE TABLE IF NOT EXISTS source_documents (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     ticker TEXT NOT NULL,
     cik TEXT,
     source_type TEXT NOT NULL,
@@ -63,7 +62,7 @@ CREATE TABLE IF NOT EXISTS source_documents (
 );
 
 CREATE TABLE IF NOT EXISTS evidence_chunks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_document_id UUID REFERENCES source_documents(id) ON DELETE CASCADE,
     ticker TEXT NOT NULL,
     local_id TEXT NOT NULL,

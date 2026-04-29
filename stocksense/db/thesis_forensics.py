@@ -157,14 +157,15 @@ def fail_thesis_check_run(run_id: str, error_message: str) -> None:
     ).eq("id", run_id).execute()
 
 
-def cancel_thesis_check_run(run_id: str, user_id: str) -> None:
+def cancel_thesis_check_run(run_id: str, user_id: str) -> bool:
     client = get_supabase_admin_client()
-    client.table("thesis_check_runs").update(
+    response = client.table("thesis_check_runs").update(
         {
             "status": "cancelled",
             "completed_at": datetime.now(timezone.utc).isoformat(),
         }
     ).eq("id", run_id).eq("user_id", user_id).execute()
+    return bool(response.data)
 
 
 def is_thesis_check_run_cancelled(run_id: str) -> bool:

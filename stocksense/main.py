@@ -215,12 +215,18 @@ async def health_check() -> Dict[str, Any]:
     
     # Check database
     try:
-        from stocksense.db.database import get_all_cached_tickers_with_timestamps
+        from stocksense.db.database import get_all_cached_tickers_with_timestamps, probe_required_tables
         tickers = get_all_cached_tickers_with_timestamps()
+        table_statuses = probe_required_tables()
+        missing_tables = [table for table, status in table_statuses.items() if status["status"] != "ok"]
         health_status["checks"]["database"] = {
-            "status": "ok",
-            "cached_analyses": len(tickers)
+            "status": "degraded" if missing_tables else "ok",
+            "cached_analyses": len(tickers),
+            "missing_required_tables": missing_tables,
+            "required_tables": table_statuses,
         }
+        if missing_tables:
+            health_status["status"] = "degraded"
     except Exception as e:
         health_status["checks"]["database"] = {"status": "error", "message": str(e)}
         health_status["status"] = "degraded"

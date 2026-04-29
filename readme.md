@@ -253,6 +253,14 @@ cp .env.example .env
 # 2. supabase/migrations/001_stage4_features.sql
 # 3. supabase/migrations/002_phase2_watchman.sql
 # 4. supabase/migrations/003_analysis_cache.sql
+# 5. supabase/migrations/004_add_ticker_unique.sql
+# 6. supabase/migrations/005_analysis_traces.sql
+# 7. supabase/migrations/006_alert_history_rls_policies.sql
+# 8. supabase/migrations/007_thesis_forensics_runs.sql
+# 9. supabase/migrations/008_agent_runs_and_evidence_memory.sql
+#    Requires the Supabase pgvector/vector extension.
+# 10. supabase/migrations/009_conviction_world_model.sql
+# 11. supabase/migrations/010_lock_analysis_cache_writes.sql
 ```
 
 ### Running the Application

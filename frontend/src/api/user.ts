@@ -10,12 +10,13 @@ import type {
   UserProfile,
 } from '../types/api';
 import { createAuthenticatedClient } from './authenticated';
+import { useAuth } from '../context/AuthContext';
 
 export const userKeys = {
-  profile: ['profile'] as const,
-  positions: ['positions'] as const,
-  alerts: (status: string, ticker?: string | null) => ['kill-alerts', status, ticker?.toUpperCase() ?? 'all'] as const,
-  alert: (alertId: string | null) => ['kill-alert', alertId] as const,
+  profile: (userId: string) => ['private', userId, 'profile'] as const,
+  positions: (userId: string) => ['private', userId, 'positions'] as const,
+  alerts: (userId: string, status: string, ticker?: string | null) => ['private', userId, 'kill-alerts', status, ticker?.toUpperCase() ?? 'all'] as const,
+  alert: (userId: string, alertId: string | null) => ['private', userId, 'kill-alert', alertId] as const,
 };
 
 async function fetchProfile(): Promise<UserProfile> {
@@ -83,41 +84,55 @@ async function deleteKillAlert(alertId: string): Promise<{ message: string }> {
 }
 
 export function useBackendProfile(enabled: boolean = true) {
+  const { user } = useAuth();
+  const userId = user?.id;
+
   return useQuery({
-    queryKey: userKeys.profile,
+    queryKey: userId ? userKeys.profile(userId) : ['private', 'anonymous', 'profile'],
     queryFn: fetchProfile,
-    enabled,
+    enabled: enabled && !!userId,
     retry: false,
   });
 }
 
 export function usePositions(enabled: boolean = true) {
+  const { user } = useAuth();
+  const userId = user?.id;
+
   return useQuery({
-    queryKey: userKeys.positions,
+    queryKey: userId ? userKeys.positions(userId) : ['private', 'anonymous', 'positions'],
     queryFn: fetchPositions,
-    enabled,
+    enabled: enabled && !!userId,
     retry: false,
   });
 }
 
 export function useCreatePosition() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id;
 
   return useMutation({
     mutationFn: createPosition,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: userKeys.positions });
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: userKeys.positions(userId) });
+      }
     },
   });
 }
 
 export function useDeletePosition() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id;
 
   return useMutation({
     mutationFn: deletePosition,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: userKeys.positions });
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: userKeys.positions(userId) });
+      }
     },
   });
 }
@@ -131,43 +146,59 @@ export function useKillAlertsList({
   ticker?: string | null;
   enabled?: boolean;
 }) {
+  const { user } = useAuth();
+  const userId = user?.id;
+
   return useQuery({
-    queryKey: userKeys.alerts(status, ticker),
+    queryKey: userId
+      ? userKeys.alerts(userId, status, ticker)
+      : ['private', 'anonymous', 'kill-alerts', status, ticker?.toUpperCase() ?? 'all'],
     queryFn: () => fetchKillAlerts({ status, ticker }),
-    enabled,
+    enabled: enabled && !!userId,
     retry: false,
   });
 }
 
 export function useKillAlertDetail(alertId: string | null, enabled: boolean = true) {
+  const { user } = useAuth();
+  const userId = user?.id;
+
   return useQuery({
-    queryKey: userKeys.alert(alertId),
+    queryKey: userId
+      ? userKeys.alert(userId, alertId)
+      : ['private', 'anonymous', 'kill-alert', alertId],
     queryFn: () => fetchKillAlert(alertId!),
-    enabled: enabled && !!alertId,
+    enabled: enabled && !!alertId && !!userId,
     retry: false,
   });
 }
 
 export function useUpdateKillAlert() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id;
 
   return useMutation({
     mutationFn: updateKillAlert,
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['kill-alerts'] });
-      queryClient.invalidateQueries({ queryKey: userKeys.alert(variables.alertId) });
+      if (!userId) return;
+      queryClient.invalidateQueries({ queryKey: ['private', userId, 'kill-alerts'] });
+      queryClient.invalidateQueries({ queryKey: userKeys.alert(userId, variables.alertId) });
     },
   });
 }
 
 export function useDeleteKillAlert() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id;
 
   return useMutation({
     mutationFn: deleteKillAlert,
     onSuccess: (_, alertId) => {
-      queryClient.invalidateQueries({ queryKey: ['kill-alerts'] });
-      queryClient.removeQueries({ queryKey: userKeys.alert(alertId) });
+      if (!userId) return;
+      queryClient.invalidateQueries({ queryKey: ['private', userId, 'kill-alerts'] });
+      queryClient.removeQueries({ queryKey: userKeys.alert(userId, alertId) });
     },
   });
 }

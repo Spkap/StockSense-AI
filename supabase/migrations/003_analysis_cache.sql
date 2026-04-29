@@ -56,6 +56,7 @@ CREATE INDEX IF NOT EXISTS idx_analysis_cache_ticker ON analysis_cache(ticker);
 CREATE INDEX IF NOT EXISTS idx_analysis_cache_ticker_created ON analysis_cache(ticker, created_at DESC);
 
 -- Updated_at trigger
+DROP TRIGGER IF EXISTS update_analysis_cache_updated_at ON analysis_cache;
 CREATE TRIGGER update_analysis_cache_updated_at
     BEFORE UPDATE ON analysis_cache
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -69,14 +70,17 @@ CREATE TRIGGER update_analysis_cache_updated_at
 ALTER TABLE analysis_cache ENABLE ROW LEVEL SECURITY;
 
 -- Allow anyone to read cached analyses
+DROP POLICY IF EXISTS "Anyone can read analysis cache" ON analysis_cache;
 CREATE POLICY "Anyone can read analysis cache" ON analysis_cache
     FOR SELECT USING (true);
 
 -- Allow backend to insert (using service key or anon key)
+DROP POLICY IF EXISTS "Anyone can insert analysis cache" ON analysis_cache;
 CREATE POLICY "Anyone can insert analysis cache" ON analysis_cache
     FOR INSERT WITH CHECK (true);
 
 -- Allow backend to delete (using service key)
+DROP POLICY IF EXISTS "Anyone can delete analysis cache" ON analysis_cache;
 CREATE POLICY "Anyone can delete analysis cache" ON analysis_cache
     FOR DELETE USING (true);
 

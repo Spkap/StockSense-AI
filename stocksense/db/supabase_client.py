@@ -22,12 +22,14 @@ class SupabaseAuthError(Exception):
     pass
 
 
-@lru_cache(maxsize=1)
 def get_supabase_client() -> Client:
     """
-    Get a cached Supabase client instance.
+    Get a fresh Supabase client instance.
     
-    Uses the anon/publishable key for client-safe operations.
+    Uses the anon/publishable key for client-safe operations. User-scoped
+    request paths call ``client.postgrest.auth(access_token)``, which mutates
+    the PostgREST headers on the client object. Returning a fresh client here
+    prevents one request's bearer token from leaking into another request.
     """
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_ANON_KEY")

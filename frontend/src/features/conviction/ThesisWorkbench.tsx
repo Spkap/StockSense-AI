@@ -82,7 +82,11 @@ export default function ThesisWorkbench({ selectedThesisId, onSelectThesis, onCr
           </div>
         </section>
       ) : (
-        <ThesisDetail thesis={selectedThesis} onCreateFromResearch={onCreateFromResearch} />
+        <ThesisDetail
+          key={selectedThesis?.id ?? 'empty-thesis'}
+          thesis={selectedThesis}
+          onCreateFromResearch={onCreateFromResearch}
+        />
       )}
     </div>
   );

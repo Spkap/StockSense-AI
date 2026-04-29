@@ -94,7 +94,9 @@ async def get_thesis_run(run_id: str, user=Depends(get_current_user)):
 
 @router.post("/thesis-runs/{run_id}/cancel")
 async def cancel_thesis_run(run_id: str, user=Depends(get_current_user)):
-    cancel_thesis_check_run(run_id, user["id"])
+    cancelled = cancel_thesis_check_run(run_id, user["id"])
+    if not cancelled:
+        raise HTTPException(status_code=404, detail="Thesis run not found")
     return {"run_id": run_id, "status": "cancelled"}
 
 

@@ -64,6 +64,10 @@ export default function ResearchRoom({ initialTicker = '', onThesisCreated }: Re
     event.preventDefault();
     setFormError(null);
     setDraft(null);
+    if (!user) {
+      setFormError('Sign in required to use Research Room');
+      return;
+    }
     if (!normalizedTicker) {
       setFormError('Enter a ticker first.');
       return;
@@ -106,8 +110,12 @@ export default function ResearchRoom({ initialTicker = '', onThesisCreated }: Re
       setFormError('Thesis summary is too short.');
       return;
     }
-    const thesis = await createThesis.mutateAsync(draftToRequest(draft));
-    onThesisCreated(thesis);
+    try {
+      const thesis = await createThesis.mutateAsync(draftToRequest(draft));
+      onThesisCreated(thesis);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to save thesis.');
+    }
   }
 
   return (
@@ -132,7 +140,7 @@ export default function ResearchRoom({ initialTicker = '', onThesisCreated }: Re
             />
           </label>
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={stream.isStreaming}>
+            <Button type="submit" disabled={stream.isStreaming || !user}>
               {stream.isStreaming ? <Loader2 className="animate-spin" /> : <Search />}
               Run
             </Button>
@@ -264,7 +272,7 @@ export default function ResearchRoom({ initialTicker = '', onThesisCreated }: Re
           </label>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" disabled={!draft || createThesis.isPending} onClick={() => void handleSaveThesis()}>
+            <Button type="button" disabled={!draft || createThesis.isPending || !user} onClick={() => void handleSaveThesis()}>
               {createThesis.isPending ? <Loader2 className="animate-spin" /> : <Save />}
               Save thesis
             </Button>

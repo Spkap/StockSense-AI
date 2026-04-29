@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.alert_history (
 ALTER TABLE public.alert_history ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can see their own alerts
+DROP POLICY IF EXISTS "Users can view their own alerts" ON public.alert_history;
 CREATE POLICY "Users can view their own alerts" 
     ON public.alert_history FOR SELECT 
     USING (auth.uid() = user_id);

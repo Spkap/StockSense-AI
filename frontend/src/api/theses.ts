@@ -13,20 +13,29 @@ import type {
   ThesisComparison
 } from '../types/thesis';
 import { createAuthenticatedClient } from './authenticated';
+import { useAuth } from '../context/AuthContext';
 
 // Query keys
 export const thesisKeys = {
-  all: ['theses'] as const,
-  byTicker: (ticker: string) => ['theses', ticker.toUpperCase()] as const,
-  history: (thesisId: string) => ['thesis-history', thesisId] as const,
+  all: (userId: string) => ['private', userId, 'theses'] as const,
+  byTicker: (userId: string, ticker: string) => ['private', userId, 'theses', ticker.toUpperCase()] as const,
+  history: (userId: string, thesisId: string) => ['private', userId, 'thesis-history', thesisId] as const,
+  comparison: (userId: string, thesisId: string) => ['private', userId, 'thesis-comparison', thesisId] as const,
 };
 
 /**
  * Hook to fetch all user theses
  */
 export function useTheses(ticker?: string, enabled: boolean = true) {
+  const { user } = useAuth();
+  const userId = user?.id;
+
   return useQuery({
-    queryKey: ticker ? thesisKeys.byTicker(ticker) : thesisKeys.all,
+    queryKey: userId
+      ? ticker
+        ? thesisKeys.byTicker(userId, ticker)
+        : thesisKeys.all(userId)
+      : ['private', 'anonymous', 'theses', ticker?.toUpperCase() ?? 'all'],
     queryFn: async () => {
       const client = await createThesisClient();
       const params = ticker ? { ticker: ticker.toUpperCase() } : {};
@@ -34,7 +43,7 @@ export function useTheses(ticker?: string, enabled: boolean = true) {
       return data;
     },
     staleTime: 1000 * 60 * 2, // 2 minutes
-    enabled,
+    enabled: enabled && !!userId,
   });
 }
 
@@ -44,8 +53,13 @@ const createThesisClient = createAuthenticatedClient;
  * Hook to check if user has thesis for a specific ticker
  */
 export function useThesisForTicker(ticker: string | null, enabled: boolean = true) {
+  const { user } = useAuth();
+  const userId = user?.id;
+
   return useQuery({
-    queryKey: thesisKeys.byTicker(ticker || ''),
+    queryKey: userId
+      ? thesisKeys.byTicker(userId, ticker || '')
+      : ['private', 'anonymous', 'theses', ticker?.toUpperCase() ?? ''],
     queryFn: async () => {
       if (!ticker) return { theses: [], count: 0 };
       const client = await createThesisClient();
@@ -54,7 +68,7 @@ export function useThesisForTicker(ticker: string | null, enabled: boolean = tru
       });
       return data;
     },
-    enabled: !!ticker && enabled,
+    enabled: !!ticker && enabled && !!userId,
     staleTime: 1000 * 60 * 2,
   });
 }
@@ -64,6 +78,8 @@ export function useThesisForTicker(ticker: string | null, enabled: boolean = tru
  */
 export function useCreateThesis() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id;
 
   return useMutation({
     mutationFn: async (thesis: CreateThesisRequest) => {
@@ -72,9 +88,10 @@ export function useCreateThesis() {
       return data;
     },
     onSuccess: (data) => {
+      if (!userId) return;
       // Invalidate queries to refetch
-      queryClient.invalidateQueries({ queryKey: thesisKeys.all });
-      queryClient.invalidateQueries({ queryKey: thesisKeys.byTicker(data.ticker) });
+      queryClient.invalidateQueries({ queryKey: thesisKeys.all(userId) });
+      queryClient.invalidateQueries({ queryKey: thesisKeys.byTicker(userId, data.ticker) });
     },
   });
 }
@@ -84,6 +101,8 @@ export function useCreateThesis() {
  */
 export function useUpdateThesis() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id;
 
   return useMutation({
     mutationFn: async ({ thesisId, updates }: { thesisId: string; updates: UpdateThesisRequest }) => {
@@ -92,8 +111,9 @@ export function useUpdateThesis() {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: thesisKeys.all });
-      queryClient.invalidateQueries({ queryKey: thesisKeys.byTicker(data.ticker) });
+      if (!userId) return;
+      queryClient.invalidateQueries({ queryKey: thesisKeys.all(userId) });
+      queryClient.invalidateQueries({ queryKey: thesisKeys.byTicker(userId, data.ticker) });
     },
   });
 }
@@ -102,15 +122,20 @@ export function useUpdateThesis() {
  * Hook to get thesis history
  */
 export function useThesisHistory(thesisId: string | null, enabled: boolean = true) {
+  const { user } = useAuth();
+  const userId = user?.id;
+
   return useQuery({
-    queryKey: thesisKeys.history(thesisId || ''),
+    queryKey: userId
+      ? thesisKeys.history(userId, thesisId || '')
+      : ['private', 'anonymous', 'thesis-history', thesisId ?? ''],
     queryFn: async () => {
       if (!thesisId) return { history: [], count: 0 };
       const client = await createThesisClient();
       const { data } = await client.get<ThesisHistoryResponse>(`/api/theses/${thesisId}/history`);
       return data;
     },
-    enabled: !!thesisId && enabled,
+    enabled: !!thesisId && enabled && !!userId,
   });
 }
 
@@ -118,15 +143,20 @@ export function useThesisHistory(thesisId: string | null, enabled: boolean = tru
  * Hook to compare thesis with current analysis (Stage 4)
  */
 export function useThesisComparison(thesisId: string | null, enabled: boolean = true) {
+  const { user } = useAuth();
+  const userId = user?.id;
+
   return useQuery({
-    queryKey: ['thesis-comparison', thesisId],
+    queryKey: userId
+      ? thesisKeys.comparison(userId, thesisId || '')
+      : ['private', 'anonymous', 'thesis-comparison', thesisId ?? ''],
     queryFn: async () => {
       if (!thesisId) return null;
       const client = await createThesisClient();
       const { data } = await client.get<ThesisComparison>(`/api/theses/${thesisId}/compare`);
       return data;
     },
-    enabled: !!thesisId && enabled,
+    enabled: !!thesisId && enabled && !!userId,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }

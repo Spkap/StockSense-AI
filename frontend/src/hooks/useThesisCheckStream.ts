@@ -52,7 +52,7 @@ export function useThesisCheckStream() {
       setState(prev => ({
         ...prev,
         runBundle: bundle,
-        finalData: prev.finalData ?? finalData,
+        finalData,
         progress: prev.events.length > 0 ? prev.progress : finalData ? 1 : prev.progress,
         phase: prev.events.length > 0 ? prev.phase : finalData ? 'completed' : prev.phase,
       }));

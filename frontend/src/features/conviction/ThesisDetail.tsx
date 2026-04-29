@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalendarClock, Edit3, Link2 } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -28,6 +28,11 @@ export default function ThesisDetail({ thesis, onCreateFromResearch }: ThesisDet
   const [worldModel, setWorldModel] = useState<FalsifiabilityCompileResult | null>(null);
   const { data: historyData, isLoading: historyLoading } = useThesisHistory(thesis?.id ?? null, Boolean(thesis));
   const { data: comparisonData } = useThesisComparison(thesis?.id ?? null, Boolean(thesis));
+
+  useEffect(() => {
+    setIsEditing(false);
+    setWorldModel(null);
+  }, [thesis?.id]);
 
   if (!thesis) {
     return (
@@ -147,10 +152,10 @@ export default function ThesisDetail({ thesis, onCreateFromResearch }: ThesisDet
         </div>
       </section>
 
-      <ThesisRunPanel thesisId={thesis.id} ticker={thesis.ticker} />
+      <ThesisRunPanel key={`run-${thesis.id}`} thesisId={thesis.id} ticker={thesis.ticker} />
 
-      <ClaimGraphPanel thesisId={thesis.id} onCompiled={setWorldModel} />
-      <ScenarioBoard thesisId={thesis.id} />
+      <ClaimGraphPanel key={`claims-${thesis.id}`} thesisId={thesis.id} onCompiled={setWorldModel} />
+      <ScenarioBoard key={`scenarios-${thesis.id}`} thesisId={thesis.id} />
       <BeliefLedgerPanel
         worldModel={worldModel}
         onForecastResolved={(forecastId, outcome, brierScore) => {

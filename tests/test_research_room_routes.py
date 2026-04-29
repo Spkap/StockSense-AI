@@ -74,7 +74,11 @@ def test_get_research_room_run_returns_bundle(monkeypatch):
 def test_cancel_research_room_run_persists_cancelled_state(monkeypatch):
     calls = []
     monkeypatch.setattr("stocksense.api.auth_routes.verify_user_token", lambda token: {"id": "user_1", "email": "a@test.com"})
-    monkeypatch.setattr("stocksense.api.research_room_routes.cancel_agent_run", lambda run_id, user_id: calls.append((run_id, user_id)))
+    def fake_cancel(run_id, user_id):
+        calls.append((run_id, user_id))
+        return True
+
+    monkeypatch.setattr("stocksense.api.research_room_routes.cancel_agent_run", fake_cancel)
 
     client = TestClient(app)
     response = client.post(

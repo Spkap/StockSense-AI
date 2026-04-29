@@ -222,11 +222,12 @@ def fail_agent_run(run_id: str, error_message: str) -> None:
     ).eq("id", run_id).execute()
 
 
-def cancel_agent_run(run_id: str, user_id: str) -> None:
+def cancel_agent_run(run_id: str, user_id: str) -> bool:
     client = get_supabase_admin_client()
-    client.table("agent_runs").update(
+    response = client.table("agent_runs").update(
         build_agent_run_update(status="cancelled", phase="cancelled", progress=1.0)
     ).eq("id", run_id).eq("user_id", user_id).execute()
+    return bool(response.data)
 
 
 def is_agent_run_cancelled(run_id: str) -> bool:

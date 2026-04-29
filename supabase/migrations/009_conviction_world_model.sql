@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS thesis_claims (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     thesis_id UUID NOT NULL REFERENCES theses(id) ON DELETE CASCADE,
     user_id UUID NOT NULL,
     claim_text TEXT NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS thesis_claims (
 );
 
 CREATE TABLE IF NOT EXISTS claim_observables (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     claim_id UUID NOT NULL REFERENCES thesis_claims(id) ON DELETE CASCADE,
     observable_name TEXT NOT NULL,
     source_type TEXT NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS claim_observables (
 );
 
 CREATE TABLE IF NOT EXISTS forecast_questions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     thesis_id UUID NOT NULL REFERENCES theses(id) ON DELETE CASCADE,
     claim_id UUID REFERENCES thesis_claims(id) ON DELETE SET NULL,
     user_id UUID NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS forecast_questions (
 );
 
 CREATE TABLE IF NOT EXISTS scenario_runs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     thesis_id UUID NOT NULL REFERENCES theses(id) ON DELETE CASCADE,
     user_id UUID NOT NULL,
     run_id UUID REFERENCES agent_runs(id) ON DELETE SET NULL,

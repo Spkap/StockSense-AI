@@ -116,7 +116,7 @@ class TestCacheTTL:
         mock_client.table.return_value = mock_table
         mock_table.upsert.return_value.execute.return_value.data = [{"id": "x1"}]
 
-        monkeypatch.setattr(database, "get_supabase_client", lambda: mock_client)
+        monkeypatch.setattr(database, "get_supabase_admin_client", lambda: mock_client)
 
         database.save_analysis(ticker="AAPL", summary="test", sentiment_report="bullish")
 
@@ -132,7 +132,7 @@ class TestCacheTTL:
         mock_client.table.return_value = mock_table
         mock_table.upsert.return_value.execute.return_value.data = [{"id": "x1"}]
 
-        monkeypatch.setattr(database, "get_supabase_client", lambda: mock_client)
+        monkeypatch.setattr(database, "get_supabase_admin_client", lambda: mock_client)
 
         database.save_analysis(
             ticker="AAPL",

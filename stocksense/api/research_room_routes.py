@@ -63,7 +63,9 @@ async def get_research_room_run(run_id: str, user=Depends(get_current_user)):
 
 @router.post("/research-room-runs/{run_id}/cancel")
 async def cancel_research_room_run(run_id: str, user=Depends(get_current_user)):
-    cancel_agent_run(run_id, user["id"])
+    cancelled = cancel_agent_run(run_id, user["id"])
+    if not cancelled:
+        raise HTTPException(status_code=404, detail="Research Room run not found")
     return {"run_id": run_id, "status": "cancelled"}
 
 

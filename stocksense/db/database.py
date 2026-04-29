@@ -10,9 +10,29 @@ import math
 from datetime import datetime
 from typing import Dict, Optional, List, Any
 
-from stocksense.db.supabase_client import get_supabase_client, SupabaseAuthError
+from stocksense.db.supabase_client import get_supabase_admin_client, get_supabase_client, SupabaseAuthError
 
 logger = logging.getLogger("stocksense.database")
+
+REQUIRED_TABLES = [
+    "analysis_cache",
+    "profiles",
+    "theses",
+    "thesis_history",
+    "alert_history",
+    "thesis_check_runs",
+    "thesis_check_steps",
+    "thesis_evidence_items",
+    "thesis_corrections",
+    "agent_runs",
+    "agent_run_steps",
+    "source_documents",
+    "evidence_chunks",
+    "thesis_claims",
+    "claim_observables",
+    "forecast_questions",
+    "scenario_runs",
+]
 
 
 def _sanitize_json_compatible(value: Any) -> Any:
@@ -28,6 +48,25 @@ def _sanitize_json_compatible(value: Any) -> Any:
     return value
 
 
+def probe_required_tables() -> Dict[str, Dict[str, str]]:
+    """Probe every table required by the current backend product surface."""
+    client = get_supabase_admin_client()
+    results: Dict[str, Dict[str, str]] = {}
+    for table in REQUIRED_TABLES:
+        try:
+            client.table(table).select("id").limit(1).execute()
+            results[table] = {"status": "ok"}
+        except Exception as e:
+            results[table] = {"status": "error", "message": str(e)}
+    return results
+
+
+def get_missing_required_tables() -> List[str]:
+    """Return required tables that are missing or not visible to the backend."""
+    table_statuses = probe_required_tables()
+    return [table for table, status in table_statuses.items() if status["status"] != "ok"]
+
+
 def init_db() -> None:
     """
     Initialize database connection.
@@ -36,7 +75,7 @@ def init_db() -> None:
     The actual table creation is done via SQL migrations.
     """
     try:
-        client = get_supabase_client()
+        client = get_supabase_admin_client()
         # Quick connectivity check
         client.table("analysis_cache").select("id").limit(1).execute()
         logger.info("Supabase analysis_cache connection verified")
@@ -80,7 +119,7 @@ def save_analysis(
 ) -> Optional[Dict[str, Any]]:
     """Save analysis results to Supabase analysis_cache table."""
     try:
-        client = get_supabase_client()
+        client = get_supabase_admin_client()
         
         data = {
             "ticker": ticker.upper(),
@@ -143,8 +182,8 @@ def get_latest_analysis(ticker: str) -> Optional[Dict[str, Any]]:
             client.table("analysis_cache")
             .select("*")
             .eq("ticker", ticker.upper())
-            .gte("created_at", cutoff)
-            .order("created_at", desc=True)
+            .gte("updated_at", cutoff)
+            .order("updated_at", desc=True)
             .limit(1)
             .execute()
         )
@@ -161,7 +200,7 @@ def get_latest_analysis(ticker: str) -> Optional[Dict[str, Any]]:
                 'reasoning_steps': row.get('reasoning_steps', []),
                 'tools_used': row.get('tools_used', []),
                 'iterations': row.get('iterations', 0),
-                'timestamp': row.get('created_at'),
+                'timestamp': row.get('updated_at') or row.get('created_at'),
                 # Structured sentiment
                 'overall_sentiment': row.get('overall_sentiment', ''),
                 'overall_confidence': row.get('overall_confidence', 0.0),
@@ -193,7 +232,7 @@ def get_latest_analysis(ticker: str) -> Optional[Dict[str, Any]]:
 def delete_cached_analysis(ticker: str) -> bool:
     """Delete all cached analyses for a given ticker. Returns True if any were deleted."""
     try:
-        client = get_supabase_client()
+        client = get_supabase_admin_client()
         
         response = (
             client.table("analysis_cache")
@@ -221,7 +260,7 @@ def get_all_cached_tickers() -> List[str]:
         response = (
             client.table("analysis_cache")
             .select("ticker")
-            .order("created_at", desc=True)
+            .order("updated_at", desc=True)
             .execute()
         )
         
@@ -253,8 +292,8 @@ def get_all_cached_tickers_with_timestamps() -> List[Dict[str, Any]]:
         # Fetch all analyses ordered by time
         response = (
             client.table("analysis_cache")
-            .select("ticker, created_at")
-            .order("created_at", desc=True)
+            .select("ticker, updated_at, created_at")
+            .order("updated_at", desc=True)
             .execute()
         )
         
@@ -264,7 +303,7 @@ def get_all_cached_tickers_with_timestamps() -> List[Dict[str, Any]]:
             for row in response.data:
                 ticker = row['ticker']
                 if ticker not in ticker_timestamps:
-                    ticker_timestamps[ticker] = row['created_at']
+                    ticker_timestamps[ticker] = row.get('updated_at') or row['created_at']
             
             # Convert to list format
             return [

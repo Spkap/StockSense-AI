@@ -21,7 +21,11 @@ function resolveApiBaseUrl(): string {
     }
   }
 
-  return configured || fallback;
+  if (configured) {
+    return configured;
+  }
+
+  throw new Error('VITE_API_URL is required outside local development. Set it to the deployed StockSense API URL.');
 }
 
 export const API_BASE_URL: string = resolveApiBaseUrl();
