@@ -30,11 +30,48 @@ jobs:
           gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
 
       - name: Submit Cloud Build job
+        id: cloud-build
         run: |
-          gcloud builds submit \
+          set -euo pipefail
+
+          BUILD_ID=$(gcloud builds submit \
+            --async \
+            --format="value(id)" \
             --config=cloudbuild.yaml \
             --project=${{ secrets.GCP_PROJECT_ID }} \
-            --substitutions=COMMIT_SHA=${{ github.sha }}
+            --substitutions=COMMIT_SHA=${{ github.sha }})
+
+          echo "BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
+          echo "Submitted Cloud Build: $BUILD_ID"
+          echo "Build logs: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ secrets.GCP_PROJECT_ID }}"
+
+      - name: Wait for Cloud Build
+        run: |
+          set -euo pipefail
+
+          for attempt in {1..80}; do
+            STATUS=$(gcloud builds describe "$BUILD_ID" \
+              --project=${{ secrets.GCP_PROJECT_ID }} \
+              --format="value(status)")
+
+            echo "Cloud Build $BUILD_ID status: $STATUS"
+
+            case "$STATUS" in
+              SUCCESS)
+                exit 0
+                ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                gcloud builds log "$BUILD_ID" --project=${{ secrets.GCP_PROJECT_ID }} || true
+                exit 1
+                ;;
+            esac
+
+            sleep 15
+          done
+
+          echo "::error::Cloud Build $BUILD_ID did not finish within 20 minutes."
+          gcloud builds log "$BUILD_ID" --project=${{ secrets.GCP_PROJECT_ID }} || true
+          exit 1
 
       - name: Get Cloud Run service URL
         run: |
