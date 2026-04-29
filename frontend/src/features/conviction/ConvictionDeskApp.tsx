@@ -32,6 +32,7 @@ export default function ConvictionDeskApp() {
           <ThesisWorkbench
             selectedThesisId={selectedThesisId}
             onSelectThesis={setSelectedThesisId}
+            onSignIn={() => setAuthOpen(true)}
             onCreateFromResearch={(ticker) => {
               setResearchTicker(ticker ?? '');
               setView('research');
@@ -42,6 +43,7 @@ export default function ConvictionDeskApp() {
         {view === 'research' ? (
           <ResearchRoom
             initialTicker={researchTicker}
+            onSignIn={() => setAuthOpen(true)}
             onThesisCreated={(thesis) => {
               setSelectedThesisId(thesis.id);
               setResearchTicker('');

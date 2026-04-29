@@ -48,7 +48,7 @@ export default function BeliefLedgerPanel({ worldModel, onForecastResolved }: Be
   }
 
   return (
-    <section className="rounded-2xl border border-border/60 bg-card/60 p-5 shadow-sm">
+    <section className="rounded-lg border border-border/60 bg-card/75 p-5 shadow-sm backdrop-blur-md">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">Belief ledger</h3>

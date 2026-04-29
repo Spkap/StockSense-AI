@@ -1,4 +1,4 @@
-import { Bell, BookOpen, LogOut, PanelLeft, Search, ShieldCheck } from 'lucide-react';
+import { Activity, Bell, BookOpen, Clock3, CloudOff, LogOut, PanelLeft, Search, ShieldCheck } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Button } from '../../components/ui/button';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -16,14 +16,61 @@ interface DeskShellProps {
 }
 
 const navItems: Array<{ id: ConvictionView; label: string; description: string; icon: typeof BookOpen }> = [
-  { id: 'workbench', label: 'Thesis Desk', description: 'Memory and conviction checks', icon: BookOpen },
-  { id: 'research', label: 'Research Room', description: 'Test narratives with receipts', icon: Search },
-  { id: 'alerts', label: 'Alerts', description: 'Kill criteria and action queue', icon: Bell },
+  { id: 'workbench', label: 'Thesis Desk', description: 'Saved beliefs and checks', icon: BookOpen },
+  { id: 'research', label: 'Research Room', description: 'Evidence-first investigation', icon: Search },
+  { id: 'alerts', label: 'Alerts', description: 'Kill criteria and drift', icon: Bell },
 ];
+
+const viewCopy: Record<ConvictionView, { title: string; description: string }> = {
+  workbench: {
+    title: 'Thesis Desk',
+    description: 'Saved beliefs, fresh evidence, and every reason to change your mind.',
+  },
+  research: {
+    title: 'Research Room',
+    description: 'Run an evidence-first investigation before a narrative becomes thesis memory.',
+  },
+  alerts: {
+    title: 'Alerts',
+    description: 'Kill criteria, thesis drift, and the decisions that need attention.',
+  },
+};
+
+function BackendStatusBadge({ status, className }: { status: DeskShellProps['backendStatus']; className?: string }) {
+  const meta =
+    status === 'online'
+      ? {
+          label: 'Data API online',
+          detail: 'Runs and receipts can stream',
+          icon: Activity,
+          className: 'border-success/25 bg-success/10 text-success',
+        }
+      : status === 'checking'
+        ? {
+            label: 'Checking API',
+            detail: 'Waiting for health response',
+            icon: Clock3,
+            className: 'border-border bg-secondary text-muted-foreground',
+          }
+        : {
+            label: 'Data API offline',
+            detail: 'Start the backend before running checks',
+            icon: CloudOff,
+            className: 'border-destructive/25 bg-destructive/10 text-destructive',
+          };
+  const Icon = meta.icon;
+
+  return (
+    <div className={cn('flex w-fit items-center gap-2 rounded-lg border px-3 py-2 text-xs', meta.className, className)} title={meta.detail}>
+      <Icon className="size-3.5" />
+      <span className="font-medium">{meta.label}</span>
+    </div>
+  );
+}
 
 function SystemStatusFloat({ status }: { status: DeskShellProps['backendStatus'] }) {
   return (
-    <div className="fixed bottom-3 right-6 z-50 md:bottom-3 md:right-8 group cursor-default flex items-center h-6">
+    <div className="fixed bottom-3 right-6 z-50 hidden h-6 cursor-default items-center md:bottom-3 md:right-8 md:flex group">
       <div className="relative flex size-1.5 items-center justify-center shrink-0">
         {status === 'online' && <span className="absolute size-full animate-ping rounded-full bg-success/50" style={{ animationDuration: '2s' }}></span>}
         {status === 'checking' && <span className="absolute size-full animate-ping rounded-full bg-muted-foreground/50" style={{ animationDuration: '2s' }}></span>}
@@ -59,27 +106,28 @@ export default function DeskShell({
   children,
 }: DeskShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const activeView = viewCopy[view];
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground">
+    <div className="desk-shell-bg min-h-[100dvh] bg-background text-foreground">
       <div className={cn(
         "min-h-[100dvh] transition-[grid-template-columns] duration-300 ease-in-out md:grid",
         isSidebarOpen ? "md:grid-cols-[280px_minmax(0,1fr)]" : "md:grid-cols-[72px_minmax(0,1fr)]"
       )}>
-        <aside className="flex flex-col border-b border-border/40 bg-card/40 px-4 py-3 backdrop-blur-xl md:border-b-0 md:border-r md:px-0 md:py-4 md:sticky md:top-0 md:h-[100dvh] overflow-y-auto">
+        <aside className="flex flex-col border-b border-border/50 bg-card/75 px-4 py-3 shadow-sm backdrop-blur-xl md:sticky md:top-0 md:h-[100dvh] md:border-b-0 md:border-r md:px-0 md:py-4 overflow-y-auto">
           <div className="flex items-center justify-between gap-3 px-4 md:block">
             <div className={cn("flex items-center gap-3", !isSidebarOpen && "md:justify-center md:gap-0")}>
               <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-lux dark:shadow-lux-dark">
                 <ShieldCheck className="size-5" />
               </div>
               <div className={cn("transition-all duration-300 md:block", !isSidebarOpen && "md:hidden md:opacity-0 md:w-0")}>
-                <div className="text-sm font-semibold tracking-tight whitespace-nowrap">StockSense</div>
-                <div className="text-xs text-muted-foreground whitespace-nowrap">Conviction Desk</div>
+                <div className="text-sm font-semibold tracking-tight whitespace-nowrap">Conviction Desk</div>
+                <div className="text-xs text-muted-foreground whitespace-nowrap">StockSense research OS</div>
               </div>
             </div>
           </div>
 
-          <nav className="mt-4 grid grid-cols-3 gap-2 px-2 md:mt-8 md:grid-cols-1 md:gap-1.5 md:px-3">
+          <nav className="mt-4 grid grid-cols-3 gap-2 px-0 md:mt-8 md:grid-cols-1 md:gap-1.5 md:px-3">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = view === item.id;
@@ -90,18 +138,19 @@ export default function DeskShell({
                   onClick={() => onViewChange(item.id)}
                   title={!isSidebarOpen ? item.label : undefined}
                   className={cn(
-                    'flex min-h-14 items-center gap-3 rounded-xl px-2 py-2 transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-10 md:py-2',
+                    'flex min-h-14 min-w-0 items-center rounded-lg px-1.5 py-2 transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-11 md:gap-3 md:py-2',
                     isSidebarOpen 
-                      ? 'justify-center md:justify-start md:px-3' 
+                      ? 'flex-col justify-center gap-1 md:flex-row md:justify-start md:px-3'
                       : 'justify-center md:px-0 md:w-12 md:mx-auto',
                     active
                       ? 'bg-primary text-primary-foreground shadow-lux dark:shadow-lux-dark ring-1 ring-primary/10'
-                      : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
+                      : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
                   )}
                 >
                   <Icon className="size-5 shrink-0" />
-                  <span className={cn("grid gap-0.5 text-left transition-all duration-300", !isSidebarOpen && "md:hidden md:opacity-0 md:w-0")}>
-                    <span className="text-xs font-medium leading-tight md:text-sm whitespace-nowrap">{item.label}</span>
+                  <span className={cn("grid min-w-0 gap-0.5 text-center transition-all duration-300 md:text-left", !isSidebarOpen && "md:hidden md:opacity-0 md:w-0")}>
+                    <span className="max-w-full truncate text-[11px] font-medium leading-tight md:text-sm md:whitespace-nowrap max-[360px]:sr-only">{item.label}</span>
+                    <span className="hidden text-[11px] leading-tight text-current/65 md:block">{item.description}</span>
                   </span>
                 </button>
               );
@@ -111,7 +160,7 @@ export default function DeskShell({
         </aside>
 
         <main className="min-w-0">
-          <header className="sticky top-0 z-20 border-b border-border/40 bg-background/80 px-4 py-4 backdrop-blur-xl md:px-8">
+          <header className="sticky top-0 z-20 border-b border-border/50 bg-background/80 px-4 py-4 backdrop-blur-xl md:px-8">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <Button 
@@ -125,19 +174,17 @@ export default function DeskShell({
                 </Button>
                 <div>
                   <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
-                  {view === 'workbench' ? 'Thesis Desk' : view === 'research' ? 'Research Room' : 'Alerts'}
-                </h1>
+                    {activeView.title}
+                  </h1>
                   <p className="text-sm text-muted-foreground">
-                    {view === 'workbench'
-                      ? 'Review thesis memory, run conviction checks, and inspect evidence.'
-                      : view === 'research'
-                        ? 'Test a market narrative against SEC-first evidence, then draft thesis memory.'
-                        : 'Review kill criteria and act on thesis drift.'}
+                    {activeView.description}
                   </p>
+                  <BackendStatusBadge status={backendStatus} className="mt-2 md:hidden" />
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
+                <BackendStatusBadge status={backendStatus} className="hidden md:flex" />
                 <ThemeToggle />
                 {userEmail ? (
                   <>

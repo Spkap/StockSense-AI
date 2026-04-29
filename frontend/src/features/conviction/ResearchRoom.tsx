@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Loader2, Save, Search, Square, Wand2 } from 'lucide-react';
+import { Loader2, LogIn, Save, Search, ShieldCheck, Square, Wand2 } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -14,10 +14,17 @@ import ResearchRoomLanes from './ResearchRoomLanes';
 
 interface ResearchRoomProps {
   initialTicker?: string;
+  onSignIn: () => void;
   onThesisCreated: (thesis: Thesis) => void;
 }
 
 const DEFAULT_QUESTION = "Is this company's current market narrative supported by the evidence?";
+const QUESTION_PRESETS = [
+  { label: 'Narrative check', question: DEFAULT_QUESTION },
+  { label: 'Bear case', question: 'What evidence would break the current bull case?' },
+  { label: 'Margins', question: 'Is margin expansion backed by recent filings and operating metrics?' },
+  { label: 'Demand quality', question: 'Is demand durable, or is revenue being pulled forward?' },
+];
 
 function draftToRequest(draft: ResearchThesisDraft): CreateThesisRequest {
   return {
@@ -36,7 +43,7 @@ function draftToRequest(draft: ResearchThesisDraft): CreateThesisRequest {
   };
 }
 
-export default function ResearchRoom({ initialTicker = '', onThesisCreated }: ResearchRoomProps) {
+export default function ResearchRoom({ initialTicker = '', onSignIn, onThesisCreated }: ResearchRoomProps) {
   const { user } = useAuth();
   const stream = useResearchRoomStream();
   const createThesis = useCreateThesis();
@@ -59,6 +66,7 @@ export default function ResearchRoom({ initialTicker = '', onThesisCreated }: Re
 
   const normalizedTicker = ticker.trim().toUpperCase();
   const latestEvents = useMemo(() => stream.events.slice(-5), [stream.events]);
+  const canSave = Boolean(draft && user && !createThesis.isPending);
 
   async function handleRun(event: FormEvent) {
     event.preventDefault();
@@ -120,13 +128,33 @@ export default function ResearchRoom({ initialTicker = '', onThesisCreated }: Re
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-lg border border-border/60 bg-card/60 p-5">
+      {!user ? (
+        <section className="rounded-lg border border-primary/20 bg-primary/10 p-4 text-primary shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 size-5 shrink-0" />
+              <div>
+                <h2 className="text-sm font-semibold">Sign in to run the room.</h2>
+                <p className="mt-1 text-sm text-primary/75">
+                  Research runs, evidence receipts, and thesis drafts are saved against your account.
+                </p>
+              </div>
+            </div>
+            <Button type="button" onClick={onSignIn}>
+              <LogIn />
+              Sign in
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="rounded-lg border border-border/60 bg-card/75 p-5 shadow-sm backdrop-blur-md">
         <form onSubmit={handleRun} className="grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)_auto] lg:items-end">
           <label className="grid gap-2 text-sm font-medium">
             Ticker
             <Input
               value={ticker}
-              onChange={(event) => setTicker(event.target.value.toUpperCase())}
+              onChange={(event) => setTicker(event.target.value.toUpperCase().replace(/[^A-Z0-9.-]/g, ''))}
               placeholder="AMD"
               className="font-mono uppercase"
             />
@@ -139,19 +167,37 @@ export default function ResearchRoom({ initialTicker = '', onThesisCreated }: Re
               placeholder="Is AMD's AI server thesis real, or is the market over-narrating it?"
             />
           </label>
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={stream.isStreaming || !user}>
-              {stream.isStreaming ? <Loader2 className="animate-spin" /> : <Search />}
-              Run
+          <div className="grid gap-2 sm:flex sm:flex-wrap">
+            <Button
+              type={user ? 'submit' : 'button'}
+              disabled={stream.isStreaming}
+              className="w-full sm:w-auto"
+              onClick={!user ? onSignIn : undefined}
+            >
+              {!user ? <LogIn /> : stream.isStreaming ? <Loader2 className="animate-spin" /> : <Search />}
+              {!user ? 'Sign in to run' : stream.isStreaming ? 'Running' : 'Run room'}
             </Button>
             {stream.isStreaming ? (
-              <Button type="button" variant="outline" onClick={() => void stream.stop()}>
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => void stream.stop()}>
                 <Square />
                 Stop
               </Button>
             ) : null}
           </div>
         </form>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {QUESTION_PRESETS.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => setQuestion(preset.question)}
+              className="rounded-full border border-border/70 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_260px] md:items-start">
           <div className="grid gap-2">
@@ -170,11 +216,11 @@ export default function ResearchRoom({ initialTicker = '', onThesisCreated }: Re
 
           <div className="grid gap-2 rounded-lg border border-border/70 bg-background px-3 py-2">
             {latestEvents.length ? latestEvents.map(event => (
-              <div key={`${event.type}-${event.progress}`} className="flex items-center justify-between gap-2 text-xs">
-                <span className="truncate">{event.message}</span>
-                <span className="font-mono text-muted-foreground">{event.type}</span>
+              <div key={`${event.type}-${event.progress}`} className="grid gap-1 text-xs sm:flex sm:items-center sm:justify-between sm:gap-2">
+                <span className="min-w-0 text-muted-foreground sm:truncate">{event.message}</span>
+                <span className="font-mono text-muted-foreground sm:shrink-0">{event.type}</span>
               </div>
-            )) : <p className="text-xs text-muted-foreground">No run events yet.</p>}
+            )) : <p className="text-xs text-muted-foreground">{user ? 'No run events yet.' : 'Sign in to start an evidence run.'}</p>}
           </div>
         </div>
 
@@ -187,7 +233,7 @@ export default function ResearchRoom({ initialTicker = '', onThesisCreated }: Re
 
       <ResearchRoomLanes events={stream.events} finalData={stream.finalData} onEvidenceSelect={setSelectedEvidence} />
 
-      <section className="rounded-lg border border-border/60 bg-card/60 p-5">
+      <section className="rounded-lg border border-border/60 bg-card/75 p-5 shadow-sm backdrop-blur-md">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">Draft thesis</h2>
@@ -271,12 +317,18 @@ export default function ResearchRoom({ initialTicker = '', onThesisCreated }: Re
             />
           </label>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" disabled={!draft || createThesis.isPending || !user} onClick={() => void handleSaveThesis()}>
-              {createThesis.isPending ? <Loader2 className="animate-spin" /> : <Save />}
-              Save thesis
+          <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center">
+            <Button
+              type="button"
+              disabled={!draft || createThesis.isPending}
+              className="w-full sm:w-auto"
+              onClick={!user ? onSignIn : () => void handleSaveThesis()}
+            >
+              {!user ? <LogIn /> : createThesis.isPending ? <Loader2 className="animate-spin" /> : <Save />}
+              {!user ? 'Sign in to save' : createThesis.isPending ? 'Saving' : 'Save thesis'}
             </Button>
-            {!user ? <Badge variant="outline">Sign in required</Badge> : null}
+            {!user ? <Badge variant="outline">Account required</Badge> : null}
+            {user && draft && !canSave ? <Badge variant="outline">Saving...</Badge> : null}
             {draft?.evidence_refs.length ? (
               <span className="text-xs text-muted-foreground">Refs: {draft.evidence_refs.join(', ')}</span>
             ) : null}

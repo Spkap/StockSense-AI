@@ -36,7 +36,7 @@ export default function SourceHealthStrip({ statuses }: SourceHealthStripProps) 
   const bySource = new Map(statuses.map((status) => [status.source_type, status]));
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="rounded-lg border border-border/60 bg-card/75 p-4 shadow-sm backdrop-blur-md">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-semibold">Source health</h3>
         {statuses.some((status) => ['failed', 'timeout', 'empty', 'skipped'].includes(status.status)) ? (

@@ -1,8 +1,3 @@
-/**
- * Auth Modal - Login/Signup UI
- * Stage 3: User Belief System
- */
-
 import { useEffect, useState } from 'react';
 import { LogIn, Mail, Lock, Loader2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -86,12 +81,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <X className="h-5 w-5 text-muted-foreground" />
           </button>
           <h2 id="auth-modal-title" className="text-2xl font-bold text-center">
-            {mode === 'login' ? 'Welcome Back' : 'Create Account'}
+            {mode === 'login' ? 'Welcome back' : 'Create your desk'}
           </h2>
           <p className="text-sm text-muted-foreground text-center mt-1">
             {mode === 'login' 
-              ? 'Sign in to access your investment theses' 
-              : 'Start tracking your investment beliefs'}
+              ? 'Open thesis memory, receipts, and conviction checks.'
+              : 'Start saving thesis memory with evidence attached.'}
           </p>
         </CardHeader>
         
@@ -180,7 +175,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               ) : (
                 <>
                   <LogIn className="h-4 w-4 mr-2" />
-                  {mode === 'login' ? 'Sign In' : 'Create Account'}
+                  {mode === 'login' ? 'Sign in' : 'Create account'}
                 </>
               )}
             </Button>

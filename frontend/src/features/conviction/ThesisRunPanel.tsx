@@ -34,7 +34,7 @@ function runStatusLabel(status?: string | null): string {
 
 function claimList(title: string, items: string[], empty: string) {
   return (
-    <div className="grid gap-2 rounded-md border border-border/80 bg-secondary/35 p-3">
+    <div className="grid gap-2 rounded-lg border border-border/80 bg-secondary/35 p-3">
       <h4 className="text-xs font-semibold uppercase text-muted-foreground">{title}</h4>
       {items.length > 0 ? (
         <ul className="grid gap-1 text-sm">
@@ -86,11 +86,11 @@ export default function ThesisRunPanel({ thesisId, ticker }: ThesisRunPanelProps
 
   return (
     <section className="grid gap-4">
-      <div className="rounded-lg border border-border bg-card">
+      <div className="rounded-lg border border-border/60 bg-card/75 shadow-sm backdrop-blur-md">
         <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-sm font-semibold">Thesis check</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="break-all text-sm text-muted-foreground">
               {runId ? <span className="font-mono">{runId}</span> : `No saved run for ${ticker}.`}
             </p>
           </div>
@@ -155,20 +155,20 @@ export default function ThesisRunPanel({ thesisId, ticker }: ThesisRunPanelProps
             </div>
           ) : null}
 
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => start(thesisId)} disabled={isStreaming}>
+          <div className="grid gap-2 sm:flex sm:flex-wrap">
+            <Button type="button" className="w-full sm:w-auto" onClick={() => start(thesisId)} disabled={isStreaming}>
               {isStreaming ? <Loader2 className="animate-spin" /> : <Play />}
-              Run Thesis Check
+              Check thesis now
             </Button>
             {isStreaming ? (
-              <Button type="button" variant="outline" onClick={() => stop()}>
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => stop()}>
                 <CircleStop />
                 Cancel
               </Button>
             ) : (
-              <Button type="button" variant="outline" onClick={() => loadLatest(thesisId)}>
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => loadLatest(thesisId)}>
                 <RefreshCw />
-                Recover latest
+                Reload latest run
               </Button>
             )}
           </div>
@@ -177,7 +177,7 @@ export default function ThesisRunPanel({ thesisId, ticker }: ThesisRunPanelProps
 
       {finalResult ? (
         <div className="grid gap-4">
-          <section className="rounded-lg border border-border bg-card p-4">
+          <section className="rounded-lg border border-border/60 bg-card/75 p-4 shadow-sm backdrop-blur-md">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="grid gap-2">
                 <Badge
@@ -201,7 +201,7 @@ export default function ThesisRunPanel({ thesisId, ticker }: ThesisRunPanelProps
             {claimList('Unsupported', finalResult.conviction.unsupported_claims, 'No unsupported claims found.')}
           </section>
 
-          <section className="rounded-lg border border-border bg-card p-4">
+          <section className="rounded-lg border border-border/60 bg-card/75 p-4 shadow-sm backdrop-blur-md">
             <h3 className="text-sm font-semibold">Contradictions</h3>
             {finalResult.evaluation.contradictions.length > 0 ? (
               <ul className="mt-3 grid gap-2 text-sm">
@@ -225,7 +225,7 @@ export default function ThesisRunPanel({ thesisId, ticker }: ThesisRunPanelProps
 
           <SourceHealthStrip statuses={finalResult.source_statuses} />
 
-          <section className="rounded-lg border border-border bg-card p-4">
+          <section className="rounded-lg border border-border/60 bg-card/75 p-4 shadow-sm backdrop-blur-md">
             <h3 className="text-sm font-semibold">Next actions</h3>
             {finalResult.conviction.next_actions.length > 0 ? (
               <ul className="mt-3 grid gap-2 text-sm">
@@ -243,8 +243,8 @@ export default function ThesisRunPanel({ thesisId, ticker }: ThesisRunPanelProps
           <RunInspector bundle={runBundle} />
         </div>
       ) : !isStreaming && hasLoadedLatest ? (
-        <div className="rounded-lg border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">
-          No thesis check has been run for this thesis yet.
+        <div className="rounded-lg border border-dashed border-border bg-card/75 p-5 text-sm text-muted-foreground shadow-sm backdrop-blur-md">
+          No check has tested this thesis yet.
         </div>
       ) : null}
     </section>

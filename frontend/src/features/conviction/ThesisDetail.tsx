@@ -36,7 +36,7 @@ export default function ThesisDetail({ thesis, onCreateFromResearch }: ThesisDet
 
   if (!thesis) {
     return (
-      <section className="rounded-lg border border-dashed border-border bg-card p-6">
+      <section className="rounded-lg border border-dashed border-border bg-card/75 p-6 shadow-sm backdrop-blur-md">
         <div className="grid max-w-xl gap-3">
           <h2 className="text-lg font-semibold">No thesis selected</h2>
           <p className="text-sm text-muted-foreground">
@@ -52,7 +52,7 @@ export default function ThesisDetail({ thesis, onCreateFromResearch }: ThesisDet
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md shadow-lux dark:shadow-lux-dark">
+      <section className="rounded-lg border border-border/60 bg-card/75 backdrop-blur-md shadow-lux dark:shadow-lux-dark">
         <div className="flex flex-col gap-3 border-b border-border px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="grid gap-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -69,7 +69,7 @@ export default function ThesisDetail({ thesis, onCreateFromResearch }: ThesisDet
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setIsEditing(true)}>
               <Edit3 />
-              Edit Thesis
+              Edit thesis
             </Button>
           </div>
         </div>
@@ -80,7 +80,7 @@ export default function ThesisDetail({ thesis, onCreateFromResearch }: ThesisDet
             {thesis.kill_criteria.length > 0 ? (
               <ul className="grid gap-2">
                 {thesis.kill_criteria.map((criterion, index) => (
-                  <li key={`${criterion}-${index}`} className="rounded-xl border border-border/40 bg-secondary/30 px-4 py-3 text-sm">
+                  <li key={`${criterion}-${index}`} className="rounded-lg border border-border/50 bg-secondary/35 px-4 py-3 text-sm">
                     {criterion}
                   </li>
                 ))}
@@ -109,14 +109,14 @@ export default function ThesisDetail({ thesis, onCreateFromResearch }: ThesisDet
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md shadow-sm p-5">
+        <div className="rounded-lg border border-border/60 bg-card/75 backdrop-blur-md shadow-sm p-5">
           <h3 className="text-sm font-semibold">History</h3>
           {historyLoading ? (
             <p className="mt-2 text-sm text-muted-foreground">Loading thesis history</p>
           ) : (historyData?.history ?? []).length > 0 ? (
             <ol className="mt-3 grid gap-2">
               {(historyData?.history ?? []).slice(0, 5).map((entry) => (
-                <li key={entry.id} className="rounded-xl border border-border/40 bg-secondary/30 px-4 py-3">
+                <li key={entry.id} className="rounded-lg border border-border/50 bg-secondary/35 px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-sm font-medium capitalize">{entry.change_type.replace('_', ' ')}</span>
                     <span className="font-mono text-xs text-muted-foreground">{new Date(entry.created_at).toLocaleString()}</span>
@@ -126,17 +126,17 @@ export default function ThesisDetail({ thesis, onCreateFromResearch }: ThesisDet
               ))}
             </ol>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">No history returned.</p>
+            <p className="mt-2 text-sm text-muted-foreground">No edits recorded yet.</p>
           )}
         </div>
 
-        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md shadow-sm p-5">
+        <div className="rounded-lg border border-border/60 bg-card/75 backdrop-blur-md shadow-sm p-5">
           <h3 className="text-sm font-semibold">Comparison</h3>
           {comparisonData?.has_comparison ? (
             <div className="mt-3 grid gap-3">
               <p className="text-sm text-muted-foreground">{comparisonData.change_summary ?? 'Comparison available.'}</p>
               {(comparisonData.changes ?? []).slice(0, 4).map((change) => (
-                <div key={`${change.field}-${change.direction}`} className="rounded-xl border border-border/40 bg-secondary/30 px-4 py-3 text-sm">
+                <div key={`${change.field}-${change.direction}`} className="rounded-lg border border-border/50 bg-secondary/35 px-4 py-3 text-sm">
                   <div className="font-medium">{change.field}</div>
                   <div className="text-muted-foreground">
                     {String(change.from)} to {String(change.to)}

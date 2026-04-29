@@ -214,7 +214,7 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis, 
               <label className="text-sm font-medium text-foreground">
                 Conviction Level
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid gap-2 sm:grid-cols-3">
                 {CONVICTION_LEVELS.map((level) => (
                   <button
                     key={level.value}
@@ -358,7 +358,7 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis, 
             )}
 
             {/* Actions */}
-            <div className="flex gap-2 pt-2">
+            <div className="grid gap-2 pt-2 sm:flex">
               <Button
                 type="button"
                 variant="outline"

@@ -33,7 +33,7 @@ export default function ThesisList({
   onCreateFromResearch,
 }: ThesisListProps) {
   return (
-    <section className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-md shadow-sm">
+    <section className="rounded-lg border border-border/60 bg-card/75 backdrop-blur-md shadow-sm">
       <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div>
           <h2 className="text-sm font-semibold">Thesis memory</h2>
@@ -45,7 +45,7 @@ export default function ThesisList({
         </Button>
       </div>
 
-      <div className="max-h-[calc(100dvh-230px)] overflow-y-auto">
+      <div className="xl:max-h-[calc(100dvh-230px)] xl:overflow-y-auto">
         {isLoading ? (
           <div className="grid gap-2 p-3">
             {[0, 1, 2].map((item) => (
@@ -62,8 +62,8 @@ export default function ThesisList({
                   type="button"
                   onClick={() => onSelectThesis(thesis.id)}
                   className={cn(
-                    'grid gap-2 rounded-xl px-4 py-3.5 text-left transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    selected ? 'bg-primary text-primary-foreground shadow-lux dark:shadow-lux-dark scale-[1.01]' : 'hover:bg-secondary/60 hover:shadow-sm hover:scale-[1.01] border border-transparent hover:border-border/50'
+                    'grid gap-2 rounded-lg px-4 py-3.5 text-left transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    selected ? 'bg-primary text-primary-foreground shadow-lux dark:shadow-lux-dark scale-[1.01]' : 'hover:bg-secondary/70 hover:shadow-sm hover:scale-[1.01] border border-transparent hover:border-border/50'
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -100,7 +100,7 @@ export default function ThesisList({
           </div>
         ) : (
           <div className="grid gap-3 p-4 text-sm text-muted-foreground">
-            <p>No thesis memory yet.</p>
+            <p>No saved thesis yet. Start from research so the first memory entry has receipts attached.</p>
             <Button type="button" onClick={onCreateFromResearch}>
               Create thesis from research
             </Button>

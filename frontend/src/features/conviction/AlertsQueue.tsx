@@ -79,12 +79,12 @@ export default function AlertsQueue({ onOpenThesis }: AlertsQueueProps) {
 
   return (
     <div className="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
-      <section className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md shadow-sm">
+      <section className="rounded-lg border border-border/60 bg-card/75 backdrop-blur-md shadow-sm">
         <div className="border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">Alert queue</h2>
           <p className="text-xs text-muted-foreground">Pending alerts are listed first.</p>
         </div>
-        <div className="max-h-[calc(100dvh-230px)] overflow-y-auto p-2">
+        <div className="p-2 xl:max-h-[calc(100dvh-230px)] xl:overflow-y-auto">
           {isLoading ? (
             <div className="grid gap-2 p-2">
               {[0, 1, 2].map((item) => (
@@ -101,8 +101,8 @@ export default function AlertsQueue({ onOpenThesis }: AlertsQueueProps) {
                     type="button"
                     onClick={() => setSelectedAlertId(alert.id)}
                     className={cn(
-                      'grid gap-2 rounded-xl px-4 py-3.5 text-left transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      selected ? 'bg-primary text-primary-foreground shadow-lux dark:shadow-lux-dark scale-[1.01]' : 'hover:bg-secondary/60 hover:shadow-sm hover:scale-[1.01] border border-transparent hover:border-border/50'
+                      'grid gap-2 rounded-lg px-4 py-3.5 text-left transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      selected ? 'bg-primary text-primary-foreground shadow-lux dark:shadow-lux-dark scale-[1.01]' : 'hover:bg-secondary/70 hover:shadow-sm hover:scale-[1.01] border border-transparent hover:border-border/50'
                     )}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -138,7 +138,7 @@ export default function AlertsQueue({ onOpenThesis }: AlertsQueueProps) {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md shadow-lux dark:shadow-lux-dark">
+      <section className="rounded-lg border border-border/60 bg-card/75 backdrop-blur-md shadow-lux dark:shadow-lux-dark">
         {selectedAlert ? (
           <div className="grid gap-4 p-4">
             <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -154,11 +154,12 @@ export default function AlertsQueue({ onOpenThesis }: AlertsQueueProps) {
                 </div>
                 <h2 className="text-xl font-semibold">{selectedAlert.message}</h2>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid gap-2 sm:flex sm:flex-wrap">
                 <Button
                   type="button"
                   variant="outline"
                   disabled={updateAlert.isPending}
+                  className="w-full sm:w-auto"
                   onClick={() =>
                     updateAlert.mutate({
                       alertId: selectedAlert.id,
@@ -173,6 +174,7 @@ export default function AlertsQueue({ onOpenThesis }: AlertsQueueProps) {
                   type="button"
                   variant="outline"
                   disabled={updateAlert.isPending}
+                  className="w-full sm:w-auto"
                   onClick={() =>
                     updateAlert.mutate({
                       alertId: selectedAlert.id,
@@ -183,7 +185,7 @@ export default function AlertsQueue({ onOpenThesis }: AlertsQueueProps) {
                   <XCircle />
                   Dismiss
                 </Button>
-                <Button type="button" onClick={() => onOpenThesis(selectedAlert.thesis_id)}>
+                <Button type="button" className="w-full sm:w-auto" onClick={() => onOpenThesis(selectedAlert.thesis_id)}>
                   <ExternalLink />
                   Open linked thesis
                 </Button>
@@ -197,14 +199,14 @@ export default function AlertsQueue({ onOpenThesis }: AlertsQueueProps) {
                 ['Match confidence', `${Math.round(selectedAlert.data.match_confidence * 100)}%`],
                 ['Status', selectedAlert.data.status],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-border/40 bg-secondary/30 px-4 py-3">
+                <div key={label} className="rounded-lg border border-border/50 bg-secondary/35 px-4 py-3">
                   <div className="text-xs font-medium uppercase text-muted-foreground">{label}</div>
                   <div className="mt-1 text-sm">{value}</div>
                 </div>
               ))}
             </div>
 
-            <div className="rounded-xl border border-border/40 bg-secondary/30 px-4 py-3">
+            <div className="rounded-lg border border-border/50 bg-secondary/35 px-4 py-3">
               <div className="text-xs font-medium uppercase text-muted-foreground">Analysis summary</div>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {selectedAlert.data.analysis_summary ?? 'No analysis summary stored for this alert.'}

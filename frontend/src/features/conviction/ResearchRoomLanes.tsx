@@ -10,12 +10,17 @@ interface ResearchRoomLanesProps {
   onEvidenceSelect: (evidence: ResearchEvidenceItem) => void;
 }
 
-function Lane({ title, icon: Icon, children }: { title: string; icon: typeof FileText; children: ReactNode }) {
+function Lane({ title, icon: Icon, status, children }: { title: string; icon: typeof FileText; status: string; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-border/60 bg-card/60 p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <Icon className="size-4 text-primary" />
-        <h3 className="text-sm font-semibold">{title}</h3>
+    <section className="rounded-lg border border-border/60 bg-card/75 p-4 shadow-sm backdrop-blur-md">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Icon className="size-4 text-primary" />
+          <h3 className="text-sm font-semibold">{title}</h3>
+        </div>
+        <Badge variant="outline" className="text-[11px]">
+          {status}
+        </Badge>
       </div>
       {children}
     </section>
@@ -33,7 +38,7 @@ export default function ResearchRoomLanes({ events, finalData, onEvidenceSelect 
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
-      <Lane title="Plan" icon={ListChecks}>
+      <Lane title="Plan" icon={ListChecks} status={events.length ? 'Ready' : 'Queued'}>
         <div className="grid gap-2">
           {events.filter(event => event.type === 'plan_completed' || event.type === 'started').map((event) => (
             <div key={`${event.type}-${event.progress}`} className="rounded-md border border-border/70 bg-background px-3 py-2">
@@ -47,13 +52,13 @@ export default function ResearchRoomLanes({ events, finalData, onEvidenceSelect 
         </div>
       </Lane>
 
-      <Lane title="Sources" icon={SearchCheck}>
+      <Lane title="Sources" icon={SearchCheck} status={sourceStatuses.length ? 'Collected' : events.length ? 'Running' : 'Queued'}>
         {sourceStatuses.length ? (
           <div className="grid gap-2">
             {sourceStatuses.map(status => (
-              <div key={status.source_type} className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background px-3 py-2">
-                <span className="text-sm font-medium">{status.source_type}</span>
-                <div className="flex items-center gap-2">
+              <div key={status.source_type} className="grid gap-2 rounded-md border border-border/70 bg-background px-3 py-2 sm:flex sm:items-center sm:justify-between sm:gap-3">
+                <span className="min-w-0 text-sm font-medium">{status.source_type}</span>
+                <div className="flex items-center gap-2 sm:shrink-0">
                   <Badge variant={status.status === 'ok' ? 'default' : status.status === 'failed' || status.status === 'timeout' ? 'destructive' : 'outline'}>
                     {status.status}
                   </Badge>
@@ -72,7 +77,7 @@ export default function ResearchRoomLanes({ events, finalData, onEvidenceSelect 
         )}
       </Lane>
 
-      <Lane title="Filing Receipts" icon={ReceiptText}>
+      <Lane title="Filing Receipts" icon={ReceiptText} status={finalData ? `${finalData.evidence.length} receipts` : 'Queued'}>
         {finalData?.evidence.length ? (
           <div className="grid gap-2">
             {finalData.evidence.slice(0, 10).map(item => (
@@ -96,7 +101,7 @@ export default function ResearchRoomLanes({ events, finalData, onEvidenceSelect 
         )}
       </Lane>
 
-      <Lane title="Key Metrics" icon={Gauge}>
+      <Lane title="Key Metrics" icon={Gauge} status={finalData ? `${finalData.key_metrics.length} metrics` : 'Queued'}>
         {finalData?.key_metrics.length ? (
           <div className="grid gap-2">
             {finalData.key_metrics.map(metric => (
@@ -118,11 +123,11 @@ export default function ResearchRoomLanes({ events, finalData, onEvidenceSelect 
         )}
       </Lane>
 
-      <Lane title="Narrative Truth Test" icon={FlaskConical}>
+      <Lane title="Narrative Truth Test" icon={FlaskConical} status={finalData ? 'Ready' : 'Queued'}>
         {finalData ? <NarrativeTruthTest test={finalData.narrative_test} /> : <p className="text-sm text-muted-foreground">Waiting for analyst agents.</p>}
       </Lane>
 
-      <Lane title="Contradictions" icon={FileText}>
+      <Lane title="Contradictions" icon={FileText} status={finalData ? (finalData.contradiction_cards.length ? `${finalData.contradiction_cards.length} found` : 'Clear') : 'Queued'}>
         {finalData?.contradiction_cards.length ? (
           <div className="grid gap-2">
             {finalData.contradiction_cards.map(card => (
@@ -142,7 +147,7 @@ export default function ResearchRoomLanes({ events, finalData, onEvidenceSelect 
         )}
       </Lane>
 
-      <Lane title="Memo" icon={FileText}>
+      <Lane title="Memo" icon={FileText} status={finalData ? 'Ready' : 'Queued'}>
         {finalData ? (
           <div className="grid gap-3">
             <p className="text-sm leading-6 text-muted-foreground">{finalData.memo.executive_summary}</p>
@@ -158,7 +163,7 @@ export default function ResearchRoomLanes({ events, finalData, onEvidenceSelect 
         )}
       </Lane>
 
-      <Lane title="Thesis Draft" icon={FileText}>
+      <Lane title="Thesis Draft" icon={FileText} status={finalData ? 'Ready' : 'Queued'}>
         {finalData ? (
           <div className="grid gap-3">
             <p className="text-sm leading-6">{finalData.thesis_draft.thesis_summary}</p>

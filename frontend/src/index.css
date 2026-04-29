@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 210 20% 98%;
+    --foreground: 222 24% 10%;
     
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 222 24% 10%;
     
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --popover-foreground: 222 24% 10%;
     
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 185 74% 23%;
+    --primary-foreground: 180 33% 98%;
     
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
+    --secondary: 195 26% 94%;
+    --secondary-foreground: 222 24% 12%;
     
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
+    --muted: 204 22% 94%;
+    --muted-foreground: 215 12% 42%;
     
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --accent: 40 78% 92%;
+    --accent-foreground: 222 24% 12%;
     
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -32,39 +32,39 @@
     --warning: 38 92% 45%;
     --warning-foreground: 0 0% 9%;
 
-    --border: 0 0% 92%;
-    --input: 0 0% 92%;
-    --ring: 0 0% 3.9%;
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 185 74% 23%;
     
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
+    --chart-1: 185 74% 28%;
+    --chart-2: 42 86% 48%;
+    --chart-3: 152 62% 34%;
     --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-5: 350 70% 58%;
   }
 
   .dark {
-    --background: 240 10% 3.9%; 
+    --background: 220 18% 7%;
     --foreground: 0 0% 98%;
     
-    --card: 240 10% 6.5%;
+    --card: 220 18% 9.5%;
     --card-foreground: 0 0% 98%;
     
-    --popover: 240 10% 6.5%;
+    --popover: 220 18% 9.5%;
     --popover-foreground: 0 0% 98%;
     
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
+    --primary: 174 70% 48%;
+    --primary-foreground: 220 18% 7%;
     
-    --secondary: 240 8% 12%;
+    --secondary: 213 18% 14%;
     --secondary-foreground: 0 0% 98%;
     
-    --muted: 240 8% 12%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 213 18% 14%;
+    --muted-foreground: 210 10% 66%;
     
-    --accent: 240 8% 12%;
+    --accent: 38 55% 16%;
     --accent-foreground: 0 0% 98%;
     
     --destructive: 0 62.8% 30.6%;
@@ -74,15 +74,15 @@
     --warning: 38 92% 55%;
     --warning-foreground: 0 0% 4%;
     
-    --border: 240 8% 14%;
-    --input: 240 8% 14%;
-    --ring: 240 4.9% 83.9%;
+    --border: 213 15% 18%;
+    --input: 213 15% 18%;
+    --ring: 174 70% 48%;
     
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --chart-1: 174 70% 48%;
+    --chart-2: 40 88% 58%;
+    --chart-3: 150 62% 46%;
+    --chart-4: 215 80% 66%;
+    --chart-5: 350 72% 64%;
   }
 }
 
@@ -92,7 +92,7 @@
   }
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/10;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-family: "Aptos", "Avenir Next", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -117,5 +117,19 @@
 
   .text-balance {
     text-wrap: balance;
+  }
+
+  .desk-shell-bg {
+    background-image:
+      repeating-linear-gradient(90deg, hsl(var(--foreground) / 0.035) 0 1px, transparent 1px 72px),
+      repeating-linear-gradient(180deg, hsl(var(--foreground) / 0.03) 0 1px, transparent 1px 72px),
+      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(197 32% 97%) 55%, hsl(184 24% 95%) 100%);
+  }
+
+  .dark .desk-shell-bg {
+    background-image:
+      repeating-linear-gradient(90deg, hsl(var(--foreground) / 0.035) 0 1px, transparent 1px 72px),
+      repeating-linear-gradient(180deg, hsl(var(--foreground) / 0.028) 0 1px, transparent 1px 72px),
+      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(210 18% 8%) 58%, hsl(176 30% 8%) 100%);
   }
 }

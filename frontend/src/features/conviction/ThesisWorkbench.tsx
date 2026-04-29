@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { LogIn, Search } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { useAuth } from '../../context/AuthContext';
 import { useTheses } from '../../api/theses';
@@ -9,10 +10,11 @@ import ThesisList from './ThesisList';
 interface ThesisWorkbenchProps {
   selectedThesisId: string | null;
   onSelectThesis: (thesisId: string | null) => void;
+  onSignIn: () => void;
   onCreateFromResearch: (ticker?: string) => void;
 }
 
-export default function ThesisWorkbench({ selectedThesisId, onSelectThesis, onCreateFromResearch }: ThesisWorkbenchProps) {
+export default function ThesisWorkbench({ selectedThesisId, onSelectThesis, onSignIn, onCreateFromResearch }: ThesisWorkbenchProps) {
   const { user } = useAuth();
   const { data, isLoading, isError } = useTheses(undefined, Boolean(user));
   const theses = useMemo(() => sortThesesByUpdatedAt(data?.theses ?? []), [data?.theses]);
@@ -26,21 +28,34 @@ export default function ThesisWorkbench({ selectedThesisId, onSelectThesis, onCr
 
   if (!user) {
     return (
-      <section className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md shadow-sm p-4 md:p-5">
+      <section className="rounded-lg border border-border/60 bg-card/75 backdrop-blur-md shadow-sm p-4 md:p-5">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)] lg:items-center">
           <div className="grid gap-3">
-          <h2 className="text-lg font-semibold">Sign in to load your thesis memory.</h2>
-          <p className="text-sm text-muted-foreground">
-            Thesis memory, evidence corrections, and kill alerts are stored against your account.
-          </p>
+            <div className="w-fit rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+              Protected workspace
+            </div>
+            <h2 className="text-lg font-semibold">Open your conviction desk.</h2>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+              Thesis memory, evidence corrections, and kill alerts stay tied to your account so every check has a history.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={onSignIn}>
+                <LogIn />
+                Sign in
+              </Button>
+              <Button type="button" variant="outline" onClick={() => onCreateFromResearch()}>
+                <Search />
+                Open Research Room
+              </Button>
+            </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
             {[
-              ['Memory', 'Saved thesis, criteria, status'],
-              ['Checks', 'Latest verdict and source health'],
-              ['Corrections', 'Evidence feedback history'],
+              ['Memory', 'Thesis, criteria, status'],
+              ['Checks', 'Verdict and source health'],
+              ['Corrections', 'Evidence feedback receipts'],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-border/40 bg-secondary/30 px-4 py-3">
+              <div key={label} className="rounded-lg border border-border/50 bg-secondary/35 px-4 py-3">
                 <div className="text-xs font-medium uppercase text-muted-foreground">{label}</div>
                 <div className="mt-1 text-sm">{value}</div>
               </div>
@@ -70,7 +85,7 @@ export default function ThesisWorkbench({ selectedThesisId, onSelectThesis, onCr
         onCreateFromResearch={() => onCreateFromResearch()}
       />
       {theses.length === 0 && !isLoading ? (
-        <section className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md shadow-sm p-6">
+        <section className="rounded-lg border border-border/60 bg-card/75 backdrop-blur-md shadow-sm p-6">
           <div className="grid max-w-2xl gap-4">
             <h2 className="text-lg font-semibold">No thesis memory yet</h2>
             <p className="text-sm text-muted-foreground">

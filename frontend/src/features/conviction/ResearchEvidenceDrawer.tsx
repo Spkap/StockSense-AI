@@ -14,14 +14,14 @@ export default function ResearchEvidenceDrawer({ evidence, onClose }: ResearchEv
   return (
     <div className="fixed inset-0 z-50 bg-background/60 backdrop-blur-sm" role="presentation" onClick={onClose}>
       <aside
-        className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto border-l border-border bg-background p-5 shadow-xl"
+        className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto border-l border-border bg-background p-4 shadow-xl sm:p-5"
         role="dialog"
         aria-modal="true"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="grid gap-2">
-            <Badge variant="outline" className="w-fit font-mono">{evidence.local_id}</Badge>
+            <Badge variant="outline" className="w-fit max-w-full break-all font-mono">{evidence.local_id}</Badge>
             <h2 className="text-lg font-semibold">{evidence.title}</h2>
           </div>
           <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close evidence">
@@ -44,7 +44,7 @@ export default function ResearchEvidenceDrawer({ evidence, onClose }: ResearchEv
           {evidence.accession_number ? (
             <div>
               <dt className="text-xs font-semibold uppercase text-muted-foreground">Accession</dt>
-              <dd className="mt-1 font-mono text-xs">{evidence.accession_number}</dd>
+              <dd className="mt-1 break-all font-mono text-xs">{evidence.accession_number}</dd>
             </div>
           ) : null}
           {evidence.metric_name ? (

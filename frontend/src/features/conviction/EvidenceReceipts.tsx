@@ -36,7 +36,7 @@ export default function EvidenceReceipts({ claims, evidence, runId, onCorrect }:
 
   if (claims.length === 0) {
     return (
-      <section className="rounded-lg border border-border bg-card p-4">
+      <section className="rounded-lg border border-border/60 bg-card/75 p-4 shadow-sm backdrop-blur-md">
         <h3 className="text-sm font-semibold">Evidence receipts</h3>
         <p className="mt-2 text-sm text-muted-foreground">No claim-level evidence was returned for this run.</p>
       </section>
@@ -44,7 +44,7 @@ export default function EvidenceReceipts({ claims, evidence, runId, onCorrect }:
   }
 
   return (
-    <section className="rounded-lg border border-border bg-card">
+    <section className="rounded-lg border border-border/60 bg-card/75 shadow-sm backdrop-blur-md">
       <div className="border-b border-border px-4 py-3">
         <h3 className="text-sm font-semibold">Evidence receipts</h3>
       </div>
@@ -72,11 +72,12 @@ export default function EvidenceReceipts({ claims, evidence, runId, onCorrect }:
                   <p className="text-sm font-medium leading-6">{claim.claim}</p>
                 </div>
                 {runId && onCorrect ? (
-                  <div className="flex shrink-0 flex-wrap gap-2">
+                  <div className="grid gap-2 sm:flex sm:shrink-0 sm:flex-wrap">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={() =>
                         onCorrect(runId, {
                           correction_type: 'evidence_irrelevant',
@@ -92,6 +93,7 @@ export default function EvidenceReceipts({ claims, evidence, runId, onCorrect }:
                       type="button"
                       variant="outline"
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={() =>
                         onCorrect(runId, {
                           correction_type: 'needs_better_evidence',
@@ -117,7 +119,7 @@ export default function EvidenceReceipts({ claims, evidence, runId, onCorrect }:
                       className="grid gap-1 rounded-md border border-border/80 bg-secondary/35 px-3 py-2"
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-xs text-muted-foreground">{evidenceLabel(item)}</span>
+                        <span className="break-all font-mono text-xs text-muted-foreground">{evidenceLabel(item)}</span>
                         <Badge variant="outline" className="capitalize">
                           {item.source_type.replace('_', ' ')}
                         </Badge>
