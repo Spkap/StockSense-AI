@@ -5,3 +5,12 @@
 - `uv.lock` is the reproducible lockfile.
 - Use `uv sync`, `uv run ...`, and `uv export ...` instead of `pip install`, `python -m venv`, or `pip-compile`.
 - `requirements.txt` and `requirements-backend.txt` are compatibility exports only; regenerate them from `uv.lock` if an external platform still needs requirements files.
+
+
+<claude-mem-context>
+# Memory Context
+
+# [StockSense-Agent] recent context, 2026-04-30 12:35am GMT+5:30
+
+No previous sessions found.
+</claude-mem-context>
