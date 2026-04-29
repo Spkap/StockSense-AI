@@ -17,6 +17,7 @@ logger = logging.getLogger("stocksense.database")
 REQUIRED_TABLES = [
     "analysis_cache",
     "profiles",
+    "positions",
     "theses",
     "thesis_history",
     "alert_history",
