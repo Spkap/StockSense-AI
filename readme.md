@@ -9,7 +9,7 @@ StockSense is an autonomous stock analysis system implementing the **ReAct (Reas
 [![React](https://img.shields.io/badge/React-19+-61DAFB.svg)](https://react.dev/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.0+-purple.svg)](https://langchain-ai.github.io/langgraph/)
 [![LangChain](https://img.shields.io/badge/LangChain--Core-1.2.x-blue.svg)](https://python.langchain.com/)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
@@ -401,14 +401,7 @@ Please ensure your code:
 
 ## License
 
-This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
-
-This means you can:
-- ✅ Use commercially
-- ✅ Modify and distribute
-- ✅ Use patents
-- ⚠️ Must include license and copyright notice
-- ⚠️ Must state changes made
+[MIT](LICENSE)
 
 ---
 
