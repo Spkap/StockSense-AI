@@ -25,6 +25,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -43,26 +47,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
+    if (!supabase) throw new Error("Configure Supabase to enable login.");
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
       },
     });
+    if (error) throw error;
   };
 
   const signInWithEmail = async (email: string, password: string) => {
+    if (!supabase) return { error: new Error("Configure Supabase to enable login.") };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error as Error | null };
   };
 
   const signUpWithEmail = async (email: string, password: string) => {
+    if (!supabase) return { error: new Error("Configure Supabase to enable login.") };
     const { error } = await supabase.auth.signUp({ email, password });
     return { error: error as Error | null };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await supabase?.auth.signOut();
     setUser(null);
     setSession(null);
   };

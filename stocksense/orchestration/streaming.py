@@ -11,12 +11,18 @@ This module provides:
 import asyncio
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any, AsyncGenerator, Callable, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, asdict
 from enum import Enum
 
+from stocksense.core.data_collectors import attach_news_sources, json_safe_data
+
 logger = logging.getLogger("stocksense.streaming")
+# Optional Yahoo statement calls may continue in their worker after an async
+# timeout. Keep them isolated and bounded so they cannot exhaust core workers.
+_fundamentals_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="fundamentals")
 
 
 class StreamEventType(str, Enum):
@@ -50,7 +56,7 @@ class StreamEvent:
     
     def __post_init__(self):
         if not self.timestamp:
-            self.timestamp = datetime.now().isoformat()
+            self.timestamp = datetime.now(timezone.utc).isoformat()
     
     def to_sse(self) -> str:
         """Convert to SSE format."""
@@ -64,7 +70,7 @@ class StreamEvent:
         if self.data:
             event_data["data"] = self.data
         
-        return f"data: {json.dumps(event_data)}\n\n"
+        return f"data: {json.dumps(json_safe_data(event_data), allow_nan=False)}\n\n"
 
 
 # Tool sequence for progress calculation
@@ -155,6 +161,7 @@ async def run_streaming_analysis(
         from .react_flow import (
             fetch_news_headlines,
             fetch_price_data,
+            fetch_fundamentals,
             analyze_sentiment,
             generate_skeptic_critique
         )
@@ -167,9 +174,50 @@ async def run_streaming_analysis(
             progress=0.05
         ))
         
-        news_result = fetch_news_headlines.invoke({"ticker": ticker, "days": 7})
+        # Independent data providers run together; blocking libraries stay off the event loop.
+        async def collect(tool, arguments, timeout, executor=None):
+            try:
+                call = (asyncio.get_running_loop().run_in_executor(executor, tool.invoke, arguments)
+                        if executor else asyncio.to_thread(tool.invoke, arguments))
+                result = await asyncio.wait_for(call, timeout=timeout)
+                return result if isinstance(result, dict) else {"success": False, "error": "The data provider returned an invalid response."}
+            except asyncio.TimeoutError:
+                return {"success": False, "error": "The data provider took too long. Please retry."}
+            except Exception as exc:
+                logger.warning('Data tool failed (%s)', type(exc).__name__)
+                return {"success": False, "error": "The data provider is unavailable. Please retry."}
+
+        news_task = asyncio.create_task(collect(fetch_news_headlines, {"ticker": ticker, "days": 7}, 35))
+        price_task = asyncio.create_task(collect(fetch_price_data, {"ticker": ticker, "period": "1mo"}, 30))
+        fundamental_task = asyncio.create_task(collect(fetch_fundamentals, {"ticker": ticker}, 25, _fundamentals_executor))
+        try:
+            pending = {news_task, price_task}
+            while pending:
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    result = task.result()
+                    if not result.get('success'):
+                        if task is news_task and result.get('error_code') == 'news_no_results':
+                            continue  # Price data can distinguish missing news from a missing ticker.
+                        raise RuntimeError(str(result.get('error') or 'Data is temporarily unavailable. Please try again.'))
+            news_result, price_result = news_task.result(), price_task.result()
+            fundamental_result = await fundamental_task
+        finally:
+            for task in (news_task, price_task, fundamental_task):
+                if not task.done():
+                    task.cancel()
+        state["fundamental_data"] = json_safe_data(fundamental_result.get("data", {})) if fundamental_result.get("success") else {}
+        warnings = []
+        if not fundamental_result.get("success"):
+            warnings.append("Fundamentals are unavailable; the analysis uses news and price history.")
+        elif state['fundamental_data'].get('unavailable_sections'):
+            warnings.append("Some financial sections are unavailable: " + ", ".join(state['fundamental_data']['unavailable_sections']) + ".")
+        state["reasoning_steps"].append(f"Collected {len(news_result.get('headlines', []))} recent news headlines.")
         tools_used.append("fetch_news_headlines")
         
+        if not news_result.get("success"):
+            raise RuntimeError(str(news_result.get("error") or "News is temporarily unavailable. Please try again."))
+
         if news_result.get("success"):
             state["headlines"] = news_result.get("headlines", [])
         
@@ -192,18 +240,24 @@ async def run_streaming_analysis(
             progress=0.30
         ))
         
-        price_result = fetch_price_data.invoke({"ticker": ticker, "period": "1mo"})
         tools_used.append("fetch_price_data")
         
+        if not price_result.get("success"):
+            raise RuntimeError(str(price_result.get("error") or "Price data is temporarily unavailable. Please try again."))
+
         if price_result.get("success"):
             state["price_data"] = price_result.get("price_data", [])
+            state["reasoning_steps"].append(f"Retrieved {len(state['price_data'])} historical price points.")
+            if state["fundamental_data"]:
+                state["reasoning_steps"].append("Retrieved company fundamentals and financial statements.")
         
         yield emit(StreamEvent(
             event_type=StreamEventType.TOOL_COMPLETED,
             tool_name="fetch_price_data",
             message=f"Retrieved {len(state['price_data'])} data points",
             progress=0.45,
-            data={"data_points": len(state["price_data"]), "price_data": state["price_data"]}
+            data={"data_points": len(state["price_data"]), "price_data": state["price_data"],
+                  "fundamental_data": state["fundamental_data"], "warnings": warnings}
         ))
         
         await asyncio.sleep(0.1)
@@ -217,15 +271,19 @@ async def run_streaming_analysis(
                 progress=0.50
             ))
             
-            sentiment_result = analyze_sentiment.invoke({"headlines": state["headlines"]})
+            sentiment_result = await asyncio.to_thread(analyze_sentiment.invoke, {"headlines": state["headlines"], "ticker": ticker})
             tools_used.append("analyze_sentiment")
             
+            if not sentiment_result.get("success"):
+                raise RuntimeError("Sentiment analysis is temporarily unavailable. Please try again.")
+
             if sentiment_result.get("success"):
+                state["reasoning_steps"].append("Analyzed sentiment, recurring themes, and information gaps in the retrieved headlines.")
                 state["sentiment_report"] = sentiment_result.get("sentiment_report", "")
                 state["overall_sentiment"] = sentiment_result.get("overall_sentiment", "")
                 state["overall_confidence"] = sentiment_result.get("overall_confidence", 0.0)
                 state["confidence_reasoning"] = sentiment_result.get("confidence_reasoning", "")
-                state["headline_analyses"] = sentiment_result.get("headline_analyses", [])
+                state["headline_analyses"] = attach_news_sources(sentiment_result.get("headline_analyses", []), news_result.get("articles", []))
                 state["key_themes"] = sentiment_result.get("key_themes", [])
                 state["potential_impact"] = sentiment_result.get("potential_impact", "")
                 state["risks_identified"] = sentiment_result.get("risks_identified", [])
@@ -254,15 +312,23 @@ async def run_streaming_analysis(
                 progress=0.75
             ))
             
-            skeptic_result = generate_skeptic_critique.invoke({
+            skeptic_result = await asyncio.to_thread(generate_skeptic_critique.invoke, {
                 "ticker": ticker,
                 "headlines": state["headlines"],
                 "primary_sentiment": state["overall_sentiment"],
-                "primary_confidence": state["overall_confidence"]
+                "primary_confidence": state["overall_confidence"],
+                "primary_analysis": sentiment_result,
             })
             tools_used.append("generate_skeptic_critique")
             
+            if not skeptic_result.get("success"):
+                warnings.append("Skeptic review is unavailable. The primary analysis has not been independently challenged.")
+                state["skeptic_report"] = "Skeptic review is unavailable. Please retry the analysis for an independent critique."
+                state["primary_disagreement"] = "Skeptic review unavailable"
+                state["reasoning_steps"].append("Skeptic review was unavailable; primary results are shown without independent critique.")
+
             if skeptic_result.get("success"):
+                state["reasoning_steps"].append("Completed an independent skeptic review of the sentiment assessment.")
                 state["skeptic_report"] = skeptic_result.get("skeptic_report", "")
                 state["skeptic_sentiment"] = skeptic_result.get("skeptic_sentiment", "")
                 state["skeptic_confidence"] = skeptic_result.get("skeptic_confidence", 0.0)
@@ -275,7 +341,7 @@ async def run_streaming_analysis(
             yield emit(StreamEvent(
                 event_type=StreamEventType.TOOL_COMPLETED,
                 tool_name="generate_skeptic_critique",
-                message=f"Skeptic verdict: {state['skeptic_sentiment']}",
+                message=f"Skeptic verdict: {state['skeptic_sentiment']}" if skeptic_result.get("success") else "Skeptic review unavailable; primary analysis retained",
                 progress=0.90,
                 data={
                     "skeptic_sentiment": state["skeptic_sentiment"],
@@ -293,7 +359,7 @@ Market Sentiment: {state['overall_sentiment']} (Confidence: {state['overall_conf
 {state['confidence_reasoning']}
 
 Key Findings:
-- News Coverage: {len(state['headlines'])} articles analyzed
+- News Coverage: {len(state['headlines'])} headline{'s' if len(state['headlines']) != 1 else ''} analyzed
 - Price Data: {len(state['price_data'])} data points
 - Skeptic View: {state['skeptic_sentiment']}
 
@@ -308,12 +374,22 @@ Analysis completed using streaming mode.
         final_data = {
             "ticker": ticker,
             "summary": summary,
+            "reasoning_steps": state["reasoning_steps"],
+            "fundamental_data": state["fundamental_data"],
+            "warnings": warnings,
+            "agent_type": "staged",
+            "source": "streaming_analysis",
+            "iterations": 1,
+            "headlines_count": len(state["headlines"]),
+            "cache_age_hours": 0,
             "sentiment_report": state["sentiment_report"],
             "headlines": state["headlines"],
             "price_data": state["price_data"],
             "overall_sentiment": state["overall_sentiment"],
             "overall_confidence": state["overall_confidence"],
             "confidence_reasoning": state["confidence_reasoning"],
+            "headline_analyses": state["headline_analyses"],
+            "potential_impact": state["potential_impact"],
             "key_themes": state["key_themes"],
             "risks_identified": state["risks_identified"],
             "information_gaps": state["information_gaps"],
@@ -326,7 +402,7 @@ Analysis completed using streaming mode.
             "hidden_risks": state["hidden_risks"],
             "would_change_mind": state["would_change_mind"],
             "tools_used": tools_used,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
         yield emit(StreamEvent(
@@ -337,10 +413,10 @@ Analysis completed using streaming mode.
         ))
         
     except Exception as e:
-        logger.error(f"Streaming analysis error: {e}")
+        logger.error("Streaming analysis error (%s): %s", type(e).__name__, e)
         yield emit(StreamEvent(
             event_type=StreamEventType.ERROR,
-            message=str(e),
+            message=str(e) if isinstance(e, RuntimeError) else "Analysis could not be completed. Please retry.",
             progress=calculate_progress(tools_used)
         ))
 
@@ -398,9 +474,15 @@ async def run_streaming_debate_analysis(
         ))
         
         # Collect data in parallel
-        fundamentals = await asyncio.to_thread(get_fundamental_data, ticker)
-        headlines = await asyncio.to_thread(get_news, ticker, 7)
-        price_data = await asyncio.to_thread(get_price_history, ticker, "1mo")
+        fundamentals, headlines, price_data = await asyncio.gather(
+            asyncio.to_thread(get_fundamental_data, ticker),
+            asyncio.to_thread(get_news, ticker, 7),
+            asyncio.to_thread(get_price_history, ticker, "1mo"),
+        )
+        if price_data is None or price_data.empty:
+            raise RuntimeError("Price data is unavailable. Please retry when market data is available.")
+        if not headlines:
+            raise RuntimeError("No recent news is available. Please retry or choose another ticker.")
         
         if fundamentals is None:
             fundamentals = {}
@@ -513,13 +595,9 @@ async def run_streaming_debate_analysis(
         ))
         
         # Bear rebuts Bull
-        bear_rebuttals = await bear_agent.generate_rebuttal(
-            bull_dict, bear_dict, fundamentals
-        )
-        
-        # Bull rebuts Bear
-        bull_rebuttals = await bull_agent.generate_rebuttal(
-            bear_dict, bull_dict, fundamentals
+        bear_rebuttals, bull_rebuttals = await asyncio.gather(
+            bear_agent.generate_rebuttal(bull_dict, bear_dict, fundamentals),
+            bull_agent.generate_rebuttal(bear_dict, bull_dict, fundamentals),
         )
         
         bear_rebuttals_dict = [

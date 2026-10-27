@@ -40,6 +40,17 @@ def get_supabase_client() -> Client:
     return create_client(url, key)
 
 
+def get_user_supabase_client(access_token: str) -> Client:
+    """Create an isolated RLS client; never mutate the shared anonymous client."""
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_ANON_KEY")
+    if not url or not key:
+        raise SupabaseAuthError("Missing Supabase configuration")
+    client = create_client(url, key)
+    client.postgrest.auth(access_token)
+    return client
+
+
 def get_supabase_admin_client() -> Client:
     """
     Get a Supabase client with service role (admin) privileges.
@@ -96,9 +107,7 @@ def get_user_profile(user_id: str, access_token: str) -> Optional[Dict[str, Any]
         Profile data or None
     """
     try:
-        client = get_supabase_client()
-        # Set auth header for RLS
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
         response = client.table("profiles").select("*").eq("id", user_id).single().execute()
         return response.data
@@ -114,8 +123,7 @@ def get_user_profile(user_id: str, access_token: str) -> Optional[Dict[str, Any]
 def get_user_positions(user_id: str, access_token: str) -> list:
     """Get all positions for a user."""
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
         response = client.table("positions").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
         return response.data or []
@@ -127,8 +135,7 @@ def get_user_positions(user_id: str, access_token: str) -> list:
 def create_position(user_id: str, access_token: str, position_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Create a new position for a user."""
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
         data = {
             "user_id": user_id,
@@ -150,8 +157,7 @@ def create_position(user_id: str, access_token: str, position_data: Dict[str, An
 def delete_position(user_id: str, access_token: str, position_id: str) -> bool:
     """Delete a position."""
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
         client.table("positions").delete().eq("id", position_id).eq("user_id", user_id).execute()
         return True
@@ -167,8 +173,7 @@ def delete_position(user_id: str, access_token: str, position_id: str) -> bool:
 def get_user_theses(user_id: str, access_token: str, ticker: Optional[str] = None) -> list:
     """Get theses for a user, optionally filtered by ticker."""
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
         query = client.table("theses").select("*").eq("user_id", user_id)
         if ticker:
@@ -184,8 +189,7 @@ def get_user_theses(user_id: str, access_token: str, ticker: Optional[str] = Non
 def create_thesis(user_id: str, access_token: str, thesis_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Create a new thesis with kill criteria and optional analysis linkage."""
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
         data = {
             "user_id": user_id,
@@ -222,11 +226,10 @@ def create_thesis(user_id: str, access_token: str, thesis_data: Dict[str, Any]) 
 def update_thesis(user_id: str, access_token: str, thesis_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Update a thesis and log history."""
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
         # Get current thesis for history
-        current = client.table("theses").select("*").eq("id", thesis_id).single().execute()
+        current = client.table("theses").select("*").eq("id", thesis_id).eq("user_id", user_id).single().execute()
         
         # Determine change type
         change_type = "updated"
@@ -237,8 +240,11 @@ def update_thesis(user_id: str, access_token: str, thesis_id: str, updates: Dict
         if updates.get("status") == "exited":
             change_type = "exited"
         
-        # Update thesis
-        response = client.table("theses").update(updates).eq("id", thesis_id).eq("user_id", user_id).execute()
+        # change_reason is history metadata, not a column on theses.
+        persisted_updates = {key: value for key, value in updates.items() if key != "change_reason"}
+        if not persisted_updates:
+            return current.data
+        response = client.table("theses").update(persisted_updates).eq("id", thesis_id).eq("user_id", user_id).execute()
         thesis = response.data[0] if response.data else None
         
         # Create history entry
@@ -264,8 +270,7 @@ def _create_thesis_history(
 ) -> None:
     """Create a thesis history entry."""
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
         data = {
             "thesis_id": thesis_id,
@@ -285,8 +290,7 @@ def _create_thesis_history(
 def get_thesis_history(user_id: str, access_token: str, thesis_id: str) -> list:
     """Get history for a specific thesis."""
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
         response = client.table("thesis_history").select("*").eq("thesis_id", thesis_id).eq("user_id", user_id).order("created_at", desc=True).execute()
         return response.data or []

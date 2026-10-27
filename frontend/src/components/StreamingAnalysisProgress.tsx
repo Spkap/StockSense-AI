@@ -5,6 +5,7 @@
  * Shows beautiful, animated progress as each agent tool completes.
  */
 
+import { useEffect, useState } from 'react';
 import { X, TrendingUp, Newspaper, Brain, Search, Terminal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
@@ -19,6 +20,7 @@ interface StreamingAnalysisProgressProps {
   events: StreamEvent[];
   partialData: Partial<{
     headlines: string[];
+    headlines_count: number;
     price_data: unknown[];
     overall_sentiment: string;
     overall_confidence: number;
@@ -62,6 +64,13 @@ export default function StreamingAnalysisProgress({
   error,
   onCancel,
 }: StreamingAnalysisProgressProps) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const started = Date.now();
+    const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   // Get completed tools from events
   const completedTools = new Set(
     events
@@ -83,7 +92,7 @@ export default function StreamingAnalysisProgress({
   };
 
   // Get partial insights to show during streaming
-  const headlinesCount = partialData.headlines?.length || 0;
+  const headlinesCount = partialData.headlines_count ?? partialData.headlines?.length ?? 0;
   const priceDataPoints = Array.isArray(partialData.price_data) ? partialData.price_data.length : 0;
   const sentiment = partialData.overall_sentiment;
 
@@ -92,7 +101,7 @@ export default function StreamingAnalysisProgress({
       
       <div className="relative z-10 flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-base bg-surface-2 px-4 py-3">
+        <div className="flex flex-wrap gap-3 items-center justify-between border-b border-border-base bg-surface-2 px-4 py-3">
           <div className="flex items-center gap-3 text-txt-primary">
             <Terminal className="h-4 w-4 text-accent animate-pulse" />
             <h2 className="text-sm font-bold tracking-widest uppercase">
@@ -125,6 +134,7 @@ export default function StreamingAnalysisProgress({
           </div>
         </div>
 
+        <p role="status" className="px-4 py-3 text-sm text-txt-secondary">{elapsed}s elapsed · {currentTool ? 'Research is in progress.' : 'Connecting and validating ticker…'} AI review can take a minute or more. You can cancel below.</p>
         {/* Tool Steps */}
         <div className="flex flex-col gap-1 p-3 bg-canvas">
           {TOOLS_CONFIG.map((tool, index) => {
@@ -155,9 +165,9 @@ export default function StreamingAnalysisProgress({
 
                 {/* Tool Info */}
                 <div className="flex-1 min-w-0 flex items-center justify-between">
-                  <div className="flex flex-col">
+                  <div className="flex min-w-0 flex-col">
                     <span className={cn(
-                      "text-micro tracking-widest uppercase font-bold",
+                      "text-micro tracking-wide sm:tracking-widest uppercase font-bold break-words",
                       status === 'active' ? 'text-txt-primary' : 
                       status === 'completed' ? 'text-txt-secondary' : 'text-txt-muted'
                     )}>
@@ -180,7 +190,7 @@ export default function StreamingAnalysisProgress({
                   
                   {/* Status Label */}
                   <span className={cn(
-                    "text-micro uppercase tracking-widest text-right font-bold w-12",
+                    "text-micro uppercase tracking-widest text-right font-bold w-12 shrink-0",
                     status === 'completed' ? 'text-bull' : 
                     status === 'active' ? 'text-accent animate-pulse' : 'text-txt-muted/30'
                   )}>

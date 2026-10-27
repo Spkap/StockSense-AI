@@ -2,12 +2,13 @@
 StockSense ReAct Agent API
 AI-powered autonomous stock analysis using ReAct pattern
 """
+import asyncio
 import json
 import logging
 import os
 import time
 from collections import defaultdict
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -16,7 +17,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from stocksense.core.config import validate_configuration, ConfigurationError, get_google_api_key, get_newsapi_key
+from stocksense.core.config import validate_configuration, ConfigurationError, get_fireworks_api_key, get_newsapi_key
 from stocksense.db.database import init_db, get_latest_analysis, get_all_cached_tickers_with_timestamps, delete_cached_analysis
 from stocksense.orchestration.react_flow import run_react_analysis
 from stocksense.core.validation import validate_ticker
@@ -31,6 +32,7 @@ logger = logging.getLogger("stocksense.api")
 
 # API Version - single source of truth
 API_VERSION = "3.0.0"  # Stage 3: User Belief System + Supabase migration
+STREAM_HEARTBEAT_SECONDS = 15
 
 
 # Simple in-memory rate limiter
@@ -88,7 +90,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("Initializing database...")
     try:
-        init_db()
+        await asyncio.to_thread(init_db)
         logger.info("Database initialized successfully")
     except Exception as e:
         logger.error(f"Error initializing database: {str(e)}")
@@ -161,12 +163,12 @@ async def health_check() -> Dict[str, Any]:
         "checks": {}
     }
     
-    # Check Google API key
+    # Check Fireworks API key
     try:
-        get_google_api_key()
-        health_status["checks"]["google_api_key"] = {"status": "ok"}
+        get_fireworks_api_key()
+        health_status["checks"]["fireworks_api_key"] = {"status": "ok"}
     except ConfigurationError as e:
-        health_status["checks"]["google_api_key"] = {"status": "error", "message": str(e)}
+        health_status["checks"]["fireworks_api_key"] = {"status": "error", "message": str(e)}
         health_status["status"] = "degraded"
     
     # Check NewsAPI key
@@ -180,7 +182,7 @@ async def health_check() -> Dict[str, Any]:
     # Check database
     try:
         from stocksense.db.database import get_all_cached_tickers_with_timestamps
-        tickers = get_all_cached_tickers_with_timestamps()
+        tickers = await asyncio.to_thread(get_all_cached_tickers_with_timestamps)
         health_status["checks"]["database"] = {
             "status": "ok",
             "cached_analyses": len(tickers)
@@ -220,6 +222,7 @@ async def analyze_stock(
     
     Includes ticker validation and rate limiting.
     """
+    user = await optional_research_user(authorization)
     # Rate limiting
     client_ip = get_client_ip(request)
     if not rate_limiter.is_allowed(client_ip):
@@ -231,9 +234,9 @@ async def analyze_stock(
         )
     
     try:
-        # Validate ticker format and existence
+        # Validate syntax locally; the price tool checks actual availability.
         ticker = ticker.upper().strip()
-        is_valid, error_msg = validate_ticker(ticker)
+        is_valid, error_msg = validate_ticker(ticker, check_exists=False)
         if not is_valid:
             logger.info(f"Invalid ticker rejected: {ticker} - {error_msg}")
             raise HTTPException(status_code=400, detail=error_msg)
@@ -243,7 +246,7 @@ async def analyze_stock(
         # Check for cached analysis first (unless force=True)
         if not force:
             logger.debug(f"Checking cache for existing analysis of {ticker}...")
-            cached_analysis = get_latest_analysis(ticker)
+            cached_analysis = await asyncio.to_thread(get_latest_analysis, ticker, user['access_token']) if user else await asyncio.to_thread(get_latest_analysis, ticker)
 
             if cached_analysis:
                 logger.info(f"Found cached analysis for {ticker}")
@@ -262,6 +265,7 @@ async def analyze_stock(
                     "message": "Analysis retrieved from cache",
                     "ticker": ticker,
                     "data": {
+                        **cached_analysis,
                         "id": cached_analysis["id"],
                         "ticker": cached_analysis["ticker"],
                         "summary": cached_analysis["analysis_summary"],
@@ -269,7 +273,7 @@ async def analyze_stock(
                         "timestamp": cached_analysis["timestamp"],
                         "cache_age_hours": cache_age_hours,
                         "source": "cache",
-                        "agent_type": "ReAct",
+                        "agent_type": "unknown",
                         "price_data": cached_analysis.get("price_data", []),
                         "headlines": cached_analysis.get("headlines", []),
                         "headlines_count": len(cached_analysis.get("headlines", [])),
@@ -286,7 +290,7 @@ async def analyze_stock(
 
         # Run the ReAct agent
         try:
-            final_state = run_react_analysis(ticker)
+            final_state = await asyncio.to_thread(run_react_analysis, ticker)
 
             # Check if the ReAct agent completed successfully
             if final_state.get("error"):
@@ -308,9 +312,11 @@ async def analyze_stock(
                 )
 
             # Save the analysis results to database with full data
+            cache_saved = False
             try:
                 from stocksense.db.database import save_analysis
-                save_analysis(
+                saved = await asyncio.to_thread(save_analysis,
+                    **({'user_id': user['id'], 'access_token': user['access_token']} if user else {}),
                     ticker=ticker,
                     summary=summary,
                     sentiment_report=sentiment_report,
@@ -340,6 +346,9 @@ async def analyze_stock(
                     # Fundamentals
                     fundamental_data=final_state.get("fundamental_data", {}),
                 )
+                if not saved:
+                    raise RuntimeError("The database did not return a saved analysis")
+                cache_saved = True
                 logger.info(f"Analysis results saved to database for {ticker}")
             except Exception as e:
                 logger.warning(f"Failed to save analysis to database: {str(e)}")
@@ -359,11 +368,11 @@ async def analyze_stock(
                     parts = authorization.split(" ")
                     if len(parts) == 2 and parts[0].lower() == "bearer":
                         access_token = parts[1]
-                        user = verify_user_token(access_token)
+                        user = await asyncio.to_thread(verify_user_token, access_token)
                         
                         if user:
                             logger.info(f"Running kill criteria check for user {user['id']} on {ticker}")
-                            kill_alerts_created = check_kill_criteria_for_ticker(
+                            kill_alerts_created = await asyncio.to_thread(check_kill_criteria_for_ticker,
                                 ticker=ticker,
                                 analysis_result=final_state,
                                 user_id=user["id"],
@@ -375,7 +384,7 @@ async def analyze_stock(
                     logger.warning(f"Kill criteria check failed (non-fatal): {e}")
 
             return {
-                "message": "ReAct Agent analysis complete and saved",
+                "message": "ReAct Agent analysis complete and saved" if cache_saved else "ReAct Agent analysis complete; saving failed",
                 "ticker": ticker,
                 "kill_alerts": kill_alerts_created,  # Stage 4: Include triggered alerts
                 "data": {
@@ -390,6 +399,8 @@ async def analyze_stock(
                     "iterations": final_state.get("iterations", 0),
                     "timestamp": final_state.get("timestamp"),
                     "cache_age_hours": 0,  # Fresh analysis
+                    "cache_saved": cache_saved,
+                    **({} if cache_saved else {"cache_warning": "Analysis completed, but could not be saved. Please retry saving later."}),
                     "source": "react_analysis",
                     "agent_type": "ReAct",
                     # Stage 1: Structured sentiment fields
@@ -428,8 +439,35 @@ async def analyze_stock(
         raise HTTPException(status_code=500, detail=error_msg)
 
 
+async def optional_research_user(authorization: Optional[str]):
+    if not isinstance(authorization, str) or not authorization:
+        return None
+    from stocksense.api.auth_routes import get_current_user
+    return await asyncio.to_thread(get_current_user, authorization)
+
+
+@app.get("/prices/{ticker}")
+async def get_price_history_for_chart(ticker: str, request: Request):
+    """Fetch a fresh year of adjusted daily prices without changing saved research."""
+    ticker = ticker.upper().strip()
+    valid, error = validate_ticker(ticker, check_exists=False)
+    if not valid:
+        raise HTTPException(status_code=400, detail=error)
+    if not rate_limiter.is_allowed(get_client_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
+    from stocksense.orchestration.react_flow import fetch_price_data
+    try:
+        result = await asyncio.wait_for(asyncio.to_thread(fetch_price_data.invoke, {"ticker": ticker, "period": "1y"}), timeout=30)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Price history took too long to load. Please try again.")
+    if not result.get("success"):
+        status = 404 if result.get("error_code") == "market_no_data" else 503
+        raise HTTPException(status_code=status, detail=result.get("error") or "Price history is unavailable. Please try again.")
+    return {"ticker": ticker, "period": "1y", "price_data": result["price_data"], "adjusted": True}
+
+
 @app.get("/results/{ticker}")
-async def get_analysis_results(ticker: str) -> Dict[str, Any]:
+async def get_analysis_results(ticker: str, authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
     """Get cached analysis results for a ticker."""
     try:
         # Validate ticker format
@@ -441,7 +479,8 @@ async def get_analysis_results(ticker: str) -> Dict[str, Any]:
         logger.debug(f"Results request for ticker: {ticker}")
 
         # Get the latest analysis from database
-        analysis = get_latest_analysis(ticker)
+        user = await optional_research_user(authorization)
+        analysis = await asyncio.to_thread(get_latest_analysis, ticker, user['access_token']) if user else await asyncio.to_thread(get_latest_analysis, ticker)
 
         if not analysis:
             logger.debug(f"No analysis found for {ticker}")
@@ -456,6 +495,7 @@ async def get_analysis_results(ticker: str) -> Dict[str, Any]:
             "message": "Analysis results retrieved successfully",
             "ticker": ticker,
             "data": {
+                **analysis,
                 "id": analysis["id"],
                 "ticker": analysis["ticker"],
                 "summary": analysis["analysis_summary"],
@@ -468,54 +508,38 @@ async def get_analysis_results(ticker: str) -> Dict[str, Any]:
                 "iterations": analysis.get("iterations", 0),
                 "timestamp": analysis["timestamp"],
                 "source": "cache",
-                "agent_type": "ReAct"
+                "agent_type": "unknown"
             }
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        error_msg = f"Error retrieving results for {ticker}: {str(e)}"
-        logger.error(error_msg, exc_info=True)
-        raise HTTPException(status_code=500, detail=error_msg)
+        logger.error("Error retrieving results for %s: %s", ticker, e, exc_info=True)
+        raise HTTPException(status_code=503, detail="Saved research is temporarily unavailable. Please retry.")
 
 
 @app.delete("/results/{ticker}")
-async def delete_analysis_results(ticker: str) -> Dict[str, str]:
-    """Delete cached analysis results for a ticker."""
+async def delete_analysis_results(ticker: str, request: Request, authorization: Optional[str] = Header(None)) -> Dict[str, str]:
+    ticker = ticker.upper().strip()
+    valid, error = validate_ticker(ticker, check_exists=False)
+    if not valid:
+        raise HTTPException(status_code=400, detail=error)
+    if not rate_limiter.is_allowed(get_client_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
+    user = await optional_research_user(authorization)
     try:
-        # Validate ticker format
-        ticker = ticker.upper().strip()
-        is_valid, error_msg = validate_ticker(ticker, check_exists=False)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error_msg)
-
-        logger.info(f"Delete request for ticker: {ticker}")
-
-        deleted = delete_cached_analysis(ticker)
-
-        if not deleted:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No analysis found for ticker: {ticker}"
-            )
-
-        logger.info(f"Analysis deleted for {ticker}")
-        return {
-            "message": f"Analysis for {ticker} deleted successfully",
-            "ticker": ticker
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        error_msg = f"Error deleting analysis for {ticker}: {str(e)}"
-        logger.error(error_msg, exc_info=True)
-        raise HTTPException(status_code=500, detail=error_msg)
+        deleted = await asyncio.to_thread(delete_cached_analysis, ticker, user['access_token'] if user else None)
+    except Exception:
+        logger.exception('Research deletion failed for %s', ticker)
+        raise HTTPException(status_code=503, detail="Could not remove research. Please try again.")
+    if not deleted:
+        raise HTTPException(status_code=404, detail="This research is no longer saved.")
+    return {"message": "Research removed", "ticker": ticker}
 
 
 @app.get("/cached-tickers")
-async def get_cached_tickers() -> Dict[str, Any]:
+async def get_cached_tickers(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
     """
     Get list of cached tickers with timestamps.
     Returns ticker symbols and when they were analyzed.
@@ -523,7 +547,8 @@ async def get_cached_tickers() -> Dict[str, Any]:
     try:
         logger.debug("Retrieving list of cached tickers...")
 
-        cached_tickers = get_all_cached_tickers_with_timestamps()
+        user = await optional_research_user(authorization)
+        cached_tickers = await asyncio.to_thread(get_all_cached_tickers_with_timestamps, user['access_token']) if user else await asyncio.to_thread(get_all_cached_tickers_with_timestamps)
 
         logger.debug(f"Found {len(cached_tickers)} cached tickers")
 
@@ -533,6 +558,8 @@ async def get_cached_tickers() -> Dict[str, Any]:
             "tickers": cached_tickers
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         error_msg = f"Error retrieving cached tickers: {str(e)}"
         logger.error(error_msg, exc_info=True)
@@ -540,7 +567,7 @@ async def get_cached_tickers() -> Dict[str, Any]:
 
 
 @app.get("/analyze/{ticker}/stream")
-async def analyze_stock_stream(ticker: str, request: Request):
+async def analyze_stock_stream(ticker: str, request: Request, authorization: Optional[str] = Header(None)):
     """
     Stream analysis using Server-Sent Events (SSE).
     
@@ -554,12 +581,13 @@ async def analyze_stock_stream(ticker: str, request: Request):
     - error: If something goes wrong
     """
     from stocksense.orchestration.streaming import run_streaming_analysis
+    user = await optional_research_user(authorization)
     
     # Rate limiting
     client_ip = get_client_ip(request)
     if not rate_limiter.is_allowed(client_ip):
         async def error_response():
-            yield f"data: {json.dumps({'type': 'error', 'message': 'Rate limit exceeded'})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Too many requests. Please wait a moment and try again.'})}\n\n"
         return StreamingResponse(
             error_response(),
             media_type="text/event-stream",
@@ -572,7 +600,7 @@ async def analyze_stock_stream(ticker: str, request: Request):
     
     # Validate ticker
     ticker = ticker.upper().strip()
-    is_valid, error_msg = validate_ticker(ticker)
+    is_valid, error_msg = validate_ticker(ticker, check_exists=False)
     if not is_valid:
         async def error_response():
             yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
@@ -586,22 +614,33 @@ async def analyze_stock_stream(ticker: str, request: Request):
     async def event_generator():
         """Generate SSE events from streaming analysis."""
         import json
-        
+        iterator = run_streaming_analysis(ticker).__aiter__()
+        next_event = None
         try:
-            async for event in run_streaming_analysis(ticker):
-                yield event.to_sse()
-                
+            next_event = asyncio.create_task(anext(iterator))
+            while True:
+                done, _ = await asyncio.wait({next_event}, timeout=STREAM_HEARTBEAT_SECONDS)
+                if not done:
+                    # SSE comments keep intermediaries from closing an idle stream.
+                    yield ': keep-alive\n\n'
+                    continue
+                try:
+                    event = next_event.result()
+                except StopAsyncIteration:
+                    break
+                # Persist before the terminal event: clients close the stream on completion.
                 # If completed, also save to cache
                 if event.event_type.value == "completed" and event.data:
                     try:
                         from stocksense.db.database import save_analysis
-                        save_analysis(
+                        saved = await asyncio.to_thread(save_analysis,
+                            **({'user_id': user['id'], 'access_token': user['access_token']} if user else {}),
                             ticker=ticker,
                             summary=event.data.get("summary", ""),
                             sentiment_report=event.data.get("sentiment_report", ""),
                             price_data=event.data.get("price_data", []),
                             headlines=event.data.get("headlines", []),
-                            reasoning_steps=[],
+                            reasoning_steps=event.data.get("reasoning_steps", []),
                             tools_used=event.data.get("tools_used", []),
                             iterations=1,
                             # Structured sentiment
@@ -609,14 +648,34 @@ async def analyze_stock_stream(ticker: str, request: Request):
                             overall_confidence=event.data.get("overall_confidence", 0.0),
                             # Fundamentals
                             fundamental_data=event.data.get("fundamental_data", {}),
+                            **{key: event.data[key] for key in (
+                                "confidence_reasoning", "headline_analyses", "key_themes",
+                                "potential_impact", "risks_identified", "information_gaps",
+                                "skeptic_report", "skeptic_sentiment", "skeptic_confidence",
+                                "primary_disagreement", "critiques", "bear_cases",
+                                "hidden_risks", "would_change_mind",
+                            ) if key in event.data},
                         )
+                        if not saved:
+                            raise RuntimeError("The database did not return a saved analysis")
+                        event.data["cache_saved"] = True
                         logger.info(f"Streaming analysis saved to cache for {ticker}")
                     except Exception as e:
+                        event.data["cache_saved"] = False
+                        event.data["cache_warning"] = "Analysis completed, but could not be saved. Please retry saving later."
                         logger.warning(f"Failed to save streaming analysis: {e}")
+                yield event.to_sse()
+                next_event = asyncio.create_task(anext(iterator))
                         
         except Exception as e:
             logger.error(f"Streaming error: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Analysis was interrupted. Please retry.'})}\n\n"
+        finally:
+            if next_event and not next_event.done():
+                next_event.cancel()
+                with suppress(asyncio.CancelledError, StopAsyncIteration):
+                    await next_event
+            await iterator.aclose()
     
     return StreamingResponse(
         event_generator(),
@@ -632,6 +691,22 @@ async def analyze_stock_stream(ticker: str, request: Request):
 # ============================================================================
 # Phase 3: Adversarial Collaboration (Debate Analysis)
 # ============================================================================
+
+@app.get("/debate/{ticker}")
+async def get_debate_result(ticker: str, authorization: Optional[str] = Header(None)):
+    ticker = ticker.upper().strip()
+    valid, error = validate_ticker(ticker, check_exists=False)
+    if not valid:
+        raise HTTPException(status_code=400, detail=error)
+    user = await optional_research_user(authorization)
+    from stocksense.db.database import get_saved_debate
+    try:
+        result = await asyncio.to_thread(get_saved_debate, ticker, user['access_token'] if user else None)
+    except Exception:
+        logger.exception("Could not load saved debate for %s", ticker)
+        raise HTTPException(status_code=503, detail="Saved debate is temporarily unavailable.")
+    return JSONResponse({"data": result}, headers={"Cache-Control": "private, no-store", "Vary": "Authorization"})
+
 
 @app.get(
     "/analyze/debate/{ticker}",
@@ -666,7 +741,7 @@ async def analyze_stock_debate(ticker: str, request: Request) -> Dict[str, Any]:
     
     # Validate ticker
     ticker = ticker.upper().strip()
-    is_valid, error_msg = validate_ticker(ticker)
+    is_valid, error_msg = validate_ticker(ticker, check_exists=False)
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_msg)
     
@@ -705,7 +780,7 @@ async def analyze_stock_debate(ticker: str, request: Request) -> Dict[str, Any]:
     summary="Stream debate analysis via SSE",
     description="Real-time streaming of Bull/Bear debate phases using Server-Sent Events."
 )
-async def analyze_stock_debate_stream(ticker: str, request: Request):
+async def analyze_stock_debate_stream(ticker: str, request: Request, authorization: Optional[str] = Header(None)):
     """
     Stream adversarial debate analysis using Server-Sent Events (SSE).
     
@@ -723,6 +798,7 @@ async def analyze_stock_debate_stream(ticker: str, request: Request):
     - error: If something goes wrong
     """
     from stocksense.orchestration.streaming import run_streaming_debate_analysis
+    user = await optional_research_user(authorization)
     
     # Rate limiting
     client_ip = get_client_ip(request)
@@ -741,7 +817,7 @@ async def analyze_stock_debate_stream(ticker: str, request: Request):
     
     # Validate ticker
     ticker = ticker.upper().strip()
-    is_valid, error_msg = validate_ticker(ticker)
+    is_valid, error_msg = validate_ticker(ticker, check_exists=False)
     if not is_valid:
         async def error_response():
             yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
@@ -756,21 +832,59 @@ async def analyze_stock_debate_stream(ticker: str, request: Request):
         )
     
     logger.info(f"Streaming debate analysis for {ticker} from {client_ip}")
+
+    # Bind the run to the existing snapshot so deleting/recreating research
+    # during a long debate cannot attach an old result to a new snapshot.
+    try:
+        from stocksense.db.database import get_research_id
+        research_id = await asyncio.to_thread(get_research_id, ticker, user['access_token'] if user else None)
+    except Exception:
+        logger.exception('Could not locate research for debate %s', ticker)
+        research_id = None
     
     async def event_generator():
         """Generate SSE events from streaming debate analysis."""
+        iterator = run_streaming_debate_analysis(ticker).__aiter__()
+        next_event = None
         try:
-            async for event in run_streaming_debate_analysis(ticker):
+            next_event = asyncio.create_task(anext(iterator))
+            while True:
+                done, _ = await asyncio.wait({next_event}, timeout=STREAM_HEARTBEAT_SECONDS)
+                if not done:
+                    yield ': keep-alive\n\n'
+                    continue
+                try:
+                    event = next_event.result()
+                except StopAsyncIteration:
+                    break
+                if event.event_type.value == 'debate_completed' and event.data:
+                    try:
+                        from stocksense.db.database import save_debate
+                        saved = bool(research_id) and await asyncio.to_thread(save_debate, ticker, event.data, research_id, user['access_token'] if user else None)
+                        event.data['cache_saved'] = saved
+                        if not saved:
+                            event.data['cache_warning'] = 'The debate could not be saved because the research is no longer available.'
+                    except Exception:
+                        logger.exception('Could not save debate for %s', ticker)
+                        event.data['cache_saved'] = False
+                        event.data['cache_warning'] = 'The debate completed, but could not be saved. Your previous saved debate is unchanged.'
                 yield event.to_sse()
-        except Exception as e:
-            logger.error(f"Streaming debate error: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                next_event = asyncio.create_task(anext(iterator))
+        except Exception:
+            logger.exception('Streaming debate error for %s', ticker)
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Debate was interrupted. Please retry.'})}\n\n"
+        finally:
+            if next_event and not next_event.done():
+                next_event.cancel()
+                with suppress(asyncio.CancelledError, StopAsyncIteration):
+                    await next_event
+            await iterator.aclose()
     
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-store",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no"
         }

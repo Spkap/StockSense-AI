@@ -14,6 +14,7 @@ import type {
   ThesisComparison
 } from '../types/thesis';
 import { supabase } from '../utils/supabase';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -21,6 +22,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
  * Get authorization header with current session token
  */
 async function getAuthHeader(): Promise<{ Authorization: string } | {}> {
+  if (!supabase) return {};
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token) {
     return { Authorization: `Bearer ${session.access_token}` };
@@ -53,8 +55,10 @@ export const thesisKeys = {
  * Hook to fetch all user theses
  */
 export function useTheses(ticker?: string) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ticker ? thesisKeys.byTicker(ticker) : thesisKeys.all,
+    queryKey: [...(ticker ? thesisKeys.byTicker(ticker) : thesisKeys.all), user?.id],
+    enabled: !!user,
     queryFn: async () => {
       const client = await createThesisClient();
       const params = ticker ? { ticker: ticker.toUpperCase() } : {};
@@ -69,8 +73,9 @@ export function useTheses(ticker?: string) {
  * Hook to check if user has thesis for a specific ticker
  */
 export function useThesisForTicker(ticker: string | null) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: thesisKeys.byTicker(ticker || ''),
+    queryKey: [...thesisKeys.byTicker(ticker || ''), user?.id],
     queryFn: async () => {
       if (!ticker) return { theses: [], count: 0 };
       const client = await createThesisClient();
@@ -79,7 +84,7 @@ export function useThesisForTicker(ticker: string | null) {
       });
       return data;
     },
-    enabled: !!ticker,
+    enabled: !!ticker && !!user,
     staleTime: 1000 * 60 * 2,
   });
 }
@@ -100,6 +105,8 @@ export function useCreateThesis() {
       // Invalidate queries to refetch
       queryClient.invalidateQueries({ queryKey: thesisKeys.all });
       queryClient.invalidateQueries({ queryKey: thesisKeys.byTicker(data.ticker) });
+      queryClient.invalidateQueries({ queryKey: thesisKeys.history(data.id) });
+      queryClient.invalidateQueries({ queryKey: ['thesis-comparison', data.id] });
     },
   });
 }
@@ -119,6 +126,8 @@ export function useUpdateThesis() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: thesisKeys.all });
       queryClient.invalidateQueries({ queryKey: thesisKeys.byTicker(data.ticker) });
+      queryClient.invalidateQueries({ queryKey: thesisKeys.history(data.id) });
+      queryClient.invalidateQueries({ queryKey: ['thesis-comparison', data.id] });
     },
   });
 }
@@ -127,15 +136,16 @@ export function useUpdateThesis() {
  * Hook to get thesis history
  */
 export function useThesisHistory(thesisId: string | null) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: thesisKeys.history(thesisId || ''),
+    queryKey: [...thesisKeys.history(thesisId || ''), user?.id],
     queryFn: async () => {
       if (!thesisId) return { history: [], count: 0 };
       const client = await createThesisClient();
       const { data } = await client.get<ThesisHistoryResponse>(`/api/theses/${thesisId}/history`);
       return data;
     },
-    enabled: !!thesisId,
+    enabled: !!thesisId && !!user,
   });
 }
 
@@ -143,15 +153,16 @@ export function useThesisHistory(thesisId: string | null) {
  * Hook to compare thesis with current analysis (Stage 4)
  */
 export function useThesisComparison(thesisId: string | null) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ['thesis-comparison', thesisId],
+    queryKey: ['thesis-comparison', thesisId, user?.id],
     queryFn: async () => {
       if (!thesisId) return null;
       const client = await createThesisClient();
       const { data } = await client.get<ThesisComparison>(`/api/theses/${thesisId}/compare`);
       return data;
     },
-    enabled: !!thesisId,
+    enabled: !!thesisId && !!user,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }

@@ -114,7 +114,7 @@ const SentimentCard = ({ data, report }: SentimentCardProps) => {
   return (
     <div className="flex flex-col border border-border-base bg-surface-1 rounded-sm w-full overflow-hidden">
       {/* Header with sentiment and score */}
-      <div className="flex items-center justify-between border-b border-border-base px-5 py-4 bg-surface-2/50">
+      <div className="flex flex-wrap gap-3 items-center justify-between border-b border-border-base px-5 py-4 bg-surface-2/50">
         <div className="flex items-center gap-3">
           <div className={cn("flex h-8 w-8 items-center justify-center rounded-sm border", config.bgColor, config.borderColor, config.color)}>
             <Icon className="h-4 w-4" />
@@ -124,7 +124,7 @@ const SentimentCard = ({ data, report }: SentimentCardProps) => {
               {config.label}
             </h4>
             <span className="text-micro font-mono text-txt-muted uppercase tracking-widest mt-1.5">
-              {hasStructuredData ? 'SYS_ANALYSIS' : 'EST_ANALYSIS'}
+              {hasStructuredData ? 'Model assessment' : 'EST_ANALYSIS'}
             </span>
           </div>
         </div>
@@ -133,7 +133,7 @@ const SentimentCard = ({ data, report }: SentimentCardProps) => {
             {Math.round(confidence * 100)}%
           </span>
           <span className="text-micro font-mono text-txt-muted uppercase tracking-widest mt-1.5">
-            CONF_LVL
+            Confidence
           </span>
         </div>
       </div>
@@ -149,20 +149,21 @@ const SentimentCard = ({ data, report }: SentimentCardProps) => {
       <div className="p-4 flex flex-col gap-5">
         {/* Confidence reasoning */}
         {hasStructuredData && confidenceReasoning && (
-          <div className="border border-border-base/50 bg-surface-2 p-3 rounded-sm">
-            <div className="flex items-start gap-3">
+          <details className="border border-border-base/50 bg-surface-2 p-3 rounded-sm">
+            <summary className="text-sm text-txt-secondary cursor-pointer">Why this confidence?</summary>
+            <div className="flex items-start gap-3 mt-3">
               <Info className="h-3 w-3 text-txt-muted mt-0.5 shrink-0" />
-              <p className="text-micro font-mono text-txt-secondary leading-relaxed uppercase tracking-wider">
+              <p className="research-copy text-txt-secondary">
                 {confidenceReasoning}
               </p>
             </div>
-          </div>
+          </details>
         )}
         
         {/* Market Impact */}
         {potentialImpact && potentialImpact !== '' && (
           <div className="flex items-center justify-between border border-border-base/50 bg-surface-2 px-3 py-2 rounded-sm">
-            <span className="text-micro font-mono text-txt-muted uppercase tracking-widest">EXP_IMPACT</span>
+            <span className="text-micro font-mono text-txt-muted uppercase tracking-widest">Potential impact</span>
             <span className="text-micro font-mono text-txt-primary uppercase tracking-widest">{potentialImpact}</span>
           </div>
         )}
@@ -170,11 +171,11 @@ const SentimentCard = ({ data, report }: SentimentCardProps) => {
         {/* Key Themes */}
         {hasStructuredData && keyThemes.length > 0 && (
           <div className="flex flex-col gap-3">
-            <h5 className="text-micro font-mono font-bold text-txt-primary uppercase tracking-widest border-b border-border-base/50 pb-1">MARKET_THEMES</h5>
+            <h5 className="text-micro font-mono font-bold text-txt-primary uppercase tracking-widest border-b border-border-base/50 pb-1">Market themes</h5>
             <div className="flex flex-col gap-2">
-              {keyThemes.slice(0, 3).map((theme, index) => (
-                <div key={index} className="flex items-start justify-between gap-4 py-1">
-                  <span className="text-micro font-mono text-txt-secondary leading-relaxed uppercase tracking-widest">{theme.theme}</span>
+              {keyThemes.map((theme, index) => (
+                <div key={index} className="flex flex-wrap items-start justify-between gap-2 py-2">
+                  <div className="min-w-0 flex-1"><p className="research-copy text-txt-primary">{theme.theme}</p>{theme.summary && <p className="research-copy text-txt-secondary mt-1">{theme.summary}</p>}<span className="text-micro text-txt-muted">{theme.headline_count} headlines</span></div>
                   <span className={cn(
                     "text-micro font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm shrink-0 border",
                     theme.sentiment_direction === 'Bullish' && "bg-bull/10 text-bull border-bull/30",
@@ -194,13 +195,13 @@ const SentimentCard = ({ data, report }: SentimentCardProps) => {
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2 border-b border-border-base/50 pb-1">
               <AlertTriangle className="h-3 w-3 text-bear" />
-              <h5 className="text-micro font-mono font-bold text-bear uppercase tracking-widest">IDENTIFIED_RISKS</h5>
+              <h5 className="text-micro font-mono font-bold text-bear uppercase tracking-widest">Identified risks</h5>
             </div>
             <ul className="flex flex-col gap-2">
-              {risksIdentified.slice(0, 3).map((risk, index) => (
+              {risksIdentified.map((risk, index) => (
                 <li key={index} className="flex gap-3">
                   <span className="text-bear text-micro mt-0.5 font-bold">{`>`}</span>
-                  <span className="text-micro font-mono text-txt-secondary leading-relaxed uppercase tracking-widest">{risk}</span>
+                  <span className="research-copy text-txt-secondary">{risk}</span>
                 </li>
               ))}
             </ul>
@@ -212,13 +213,13 @@ const SentimentCard = ({ data, report }: SentimentCardProps) => {
           <div className="flex flex-col gap-3 pt-4 border-t border-border-base/50">
             <div className="flex items-center gap-2 border-b border-border-base/50 pb-1">
               <HelpCircle className="h-3 w-3 text-txt-muted" />
-              <h5 className="text-micro font-mono text-txt-muted uppercase tracking-widest">BLIND_SPOTS</h5>
+              <h5 className="text-micro font-mono text-txt-muted uppercase tracking-widest">Information gaps</h5>
             </div>
             <ul className="flex flex-col gap-2 mt-1">
-              {informationGaps.slice(0, 2).map((gap, index) => (
+              {informationGaps.map((gap, index) => (
                 <li key={index} className="flex gap-3">
                   <span className="text-txt-muted text-micro mt-0.5">{`>`}</span>
-                  <span className="text-micro font-mono text-txt-muted uppercase tracking-widest leading-relaxed">{gap}</span>
+                  <span className="research-copy text-txt-secondary">{gap}</span>
                 </li>
               ))}
             </ul>

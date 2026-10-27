@@ -60,6 +60,9 @@ async def check_all_active_theses():
                 # This is a synchronous function effectively (calls LLM), so we run it directly.
                 # In a heavy load, we might offload this to a thread pool executor.
                 analysis_result = await asyncio.to_thread(run_react_analysis, ticker)
+                if analysis_result.get('error'):
+                    logger.warning('Skipping thesis checks for %s because analysis did not complete', ticker)
+                    continue
                 
                 # 4. Check kill criteria for each user interested in this ticker
                 # We need to act on behalf of each user. 

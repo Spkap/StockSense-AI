@@ -16,10 +16,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create Supabase client
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase: SupabaseClient | null = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
+
+const configurationError = () => new Error("Login is unavailable until Supabase is configured.");
 
 // Auth helper functions
 export async function signInWithGoogle() {
+  if (!supabase) return { data: null, error: configurationError() };
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -30,6 +35,7 @@ export async function signInWithGoogle() {
 }
 
 export async function signInWithEmail(email: string, password: string) {
+  if (!supabase) return { data: null, error: configurationError() };
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -38,6 +44,7 @@ export async function signInWithEmail(email: string, password: string) {
 }
 
 export async function signUpWithEmail(email: string, password: string) {
+  if (!supabase) return { data: null, error: configurationError() };
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -46,16 +53,19 @@ export async function signUpWithEmail(email: string, password: string) {
 }
 
 export async function signOut() {
+  if (!supabase) return { error: null };
   const { error } = await supabase.auth.signOut();
   return { error };
 }
 
 export async function getSession() {
+  if (!supabase) return { session: null, error: null };
   const { data, error } = await supabase.auth.getSession();
   return { session: data.session, error };
 }
 
 export async function getCurrentUser() {
+  if (!supabase) return { user: null, error: null };
   const { data, error } = await supabase.auth.getUser();
   return { user: data.user, error };
 }

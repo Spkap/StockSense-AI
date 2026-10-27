@@ -22,6 +22,9 @@ export interface HeadlineAnalysis {
   confidence: number; // 0.0 to 1.0
   reasoning: string;
   key_entities: string[];
+  source?: string | null;
+  url?: string | null;
+  published_at?: string | null;
 }
 
 /**
@@ -56,6 +59,9 @@ export interface BearCase {
  * Core analysis data returned by the API
  */
 export interface AnalysisData {
+  warnings?: string[];
+  cache_warning?: string;
+  cache_saved?: boolean;
   id?: number;
   ticker: string;
   summary: string;
@@ -74,8 +80,8 @@ export interface AnalysisData {
   iterations: number;
   timestamp: string;
   cache_age_hours?: number | null;
-  source: 'cache' | 'react_analysis';
-  agent_type: 'ReAct';
+  source: 'cache' | 'react_analysis' | 'streaming_analysis';
+  agent_type: 'ReAct' | 'staged' | 'unknown';
   // Structured sentiment analysis (Stage 1: Epistemic Foundation)
   overall_sentiment?: 'Bullish' | 'Bearish' | 'Neutral' | 'Insufficient Data' | '';
   overall_confidence?: number; // 0.0 to 1.0
@@ -153,7 +159,7 @@ export interface HealthResponse {
   timestamp: string;
   version: string;
   checks: {
-    google_api_key: HealthCheckStatus;
+    fireworks_api_key: HealthCheckStatus;
     newsapi_key: HealthCheckStatus;
     database: HealthCheckStatus;
   };

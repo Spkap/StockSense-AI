@@ -16,14 +16,14 @@ const popularTickers = [
 
 const QuickSelect = ({ onSelect, disabled = false }: QuickSelectProps) => {
   return (
-    <div className="flex h-12 w-full items-center gap-2 overflow-x-auto px-4 no-scrollbar border border-border-base rounded-sm bg-surface-1">
+    <div className="flex min-h-12 w-full flex-wrap items-center gap-2 p-3 no-scrollbar border border-border-base rounded-sm bg-surface-1">
       <div className="flex items-center gap-2 border-r border-border-base/50 pr-4 mr-2">
           <div className="w-1 h-3 bg-accent" />
           <span className="text-micro font-mono text-txt-muted uppercase tracking-widest shrink-0">
-            QUICK_SEL
+            Quick picks
           </span>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {popularTickers.map(({ symbol }) => (
           <Button
             key={symbol}

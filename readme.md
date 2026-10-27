@@ -62,7 +62,7 @@ Most AI stock analysis tools send a single prompt and return a response. StockSe
 
 | Layer            | Technology                                     | Purpose                             |
 | ---------------- | ---------------------------------------------- | ----------------------------------- |
-| **LLM / AI**     | Google Gemini 2.5 Flash Lite (LangChain)       | Sentiment & reasoning               |
+| **LLM / AI**     | DeepSeek V4.1 Flash 1017 via Fireworks (LangChain)       | Sentiment & reasoning               |
 | **Agent Graph**  | LangGraph 1.0 (StateGraph)                     | Iterative reasoning & tool routing  |
 | **Tool Layer**   | LangChain `@tool` functions                    | News, price, sentiment, persistence |
 | **Backend**      | FastAPI 0.135 + Uvicorn 0.41                   | REST API (analysis, cache, health)  |
@@ -112,7 +112,7 @@ StockSense-Agent/
 │   │   └── skeptic_agent.py # Contrarian skeptic analysis
 │   ├── core/                # 🔧 Data & validation utilities
 │   │   ├── data_collectors.py  # NewsAPI + yfinance helpers
-│   │   ├── analyzer.py      # Sentiment analysis (Gemini)
+│   │   ├── analyzer.py      # Sentiment analysis (Fireworks)
 │   │   ├── validation.py    # Ticker validation
 │   │   ├── config.py        # LLM/Chat factories
 │   │   ├── schemas.py       # Pydantic schemas
@@ -222,9 +222,13 @@ Investment theses are first-class citizens, not just analysis outputs:
 
 - Python 3.12+
 - Node.js 20+ and [pnpm](https://pnpm.io/) (recommended) or npm
-- [Google Gemini API Key](https://aistudio.google.com/app/apikey)
+- [Fireworks AI API Key](https://app.fireworks.ai/settings/users/api-keys)
 - [NewsAPI Key](https://newsapi.org/register)
 - [Supabase Project](https://supabase.com/) (required for all features)
+
+### Local setup (recommended)
+
+Run `./scripts/setup.sh` to install Python 3.12 and frontend dependencies and create missing env files. Fill in `.env` and `frontend/.env`, then run `./scripts/dev.sh` to start both services. Without credentials, `cd frontend && npm run dev` opens the dashboard; analysis and account features require the services below. See [local setup](docs/LOCAL_SETUP.md) for the database steps.
 
 ### Installation
 
@@ -262,7 +266,7 @@ python -m stocksense.main  # http://127.0.0.1:8000
 
 # Terminal 2 – Frontend
 cd frontend
-pnpm run dev  # http://localhost:5173
+pnpm run dev  # http://localhost:3000
 ```
 
 ### Quick API Test
@@ -368,7 +372,7 @@ Deploy the FastAPI backend to Render using the included `render.yaml`:
 ```bash
 # render.yaml is pre-configured
 # Set these environment variables in the Render dashboard:
-# GOOGLE_API_KEY, NEWSAPI_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY
+# FIREWORKS_API_KEY, NEWSAPI_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY
 ```
 
 ### Frontend (Vercel / Netlify)
@@ -408,7 +412,7 @@ Please ensure your code:
 ## Acknowledgments
 
 - [LangChain](https://python.langchain.com/) & [LangGraph](https://langchain-ai.github.io/langgraph/) for the agent framework
-- [Google Gemini](https://deepmind.google/technologies/gemini/) for LLM capabilities
+- [Fireworks AI](https://fireworks.ai/) for LLM capabilities
 - [Supabase](https://supabase.com/) for authentication and database
 - [NewsAPI](https://newsapi.org/) for news headlines
 - [yfinance](https://github.com/ranaroussi/yfinance) for market data
@@ -421,11 +425,11 @@ Please ensure your code:
 - **State Management**: Tracks tools used, reasoning steps, iterations, messages
 - **Deduplication**: Prevents redundant tool invocations (sentiment/news/price)
 - **Epistemic Honesty**: Confidence scores, information gaps, skeptic critique
-- **Rate Limit Handling**: Gemini rate limits produce user-friendly summaries
+- **Rate Limit Handling**: Fireworks rate limits produce user-friendly summaries
 
 ### Disclaimer
 
-> Example outputs are illustrative; actual results depend on live NewsAPI & yfinance data plus Gemini responses. This tool is for educational and research purposes only—not financial advice.
+> Example outputs are illustrative; actual results depend on live NewsAPI & yfinance data plus Fireworks responses. This tool is for educational and research purposes only—not financial advice.
 
 ---
 

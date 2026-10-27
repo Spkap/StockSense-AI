@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosInstance } from 'axios';
 import type { AnalysisResponse, CachedTickersResponse, HealthResponse } from '../types/api';
 import { API_BASE_URL } from '../config/env';
+import { supabase } from '../utils/supabase';
 
 // Create axios instance with default config
 const apiClient: AxiosInstance = axios.create({
@@ -11,6 +12,12 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
+async function researchHeaders(owner: string | null) {
+  const { data: { session }, error } = supabase ? await supabase.auth.getSession() : { data: { session: null }, error: null };
+  if (error || (session?.user.id || null) !== owner) throw new Error('Your session changed. Please try again.');
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
+
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => response,
@@ -18,19 +25,24 @@ apiClient.interceptors.response.use(
     if (error.response) {
       // Server responded with error status
       const status = error.response.status;
-      const detail = (error.response.data as { detail?: string })?.detail || error.message;
+      const rawDetail = (error.response.data as { detail?: unknown })?.detail;
+      const detail = typeof rawDetail === 'string' ? rawDetail : 'The request could not be completed. Please try again.';
       
       if (status === 404) {
-        throw new Error(`Not found: ${detail}`);
+        throw new Error(detail);
+      } else if (status === 401) {
+        throw new Error('Please sign in again to continue.');
+      } else if (status === 403) {
+        throw new Error('You do not have access to this action.');
       } else if (status === 429) {
         throw new Error('Rate limit exceeded. Please try again later.');
       } else if (status >= 500) {
-        throw new Error(`Server error: ${detail}`);
+        throw new Error('The service is temporarily unavailable. Please try again.');
       }
       throw new Error(detail);
     } else if (error.request) {
       // Request made but no response
-      throw new Error('Unable to connect to server. Please check if the backend is running.');
+      throw new Error('Could not connect to StockSense. Check your connection and try again.');
     }
     throw error;
   }
@@ -62,21 +74,21 @@ export const api = {
   },
 
   // Get cached analysis results
-  async getResults(ticker: string): Promise<AnalysisResponse> {
-    const { data } = await apiClient.get<AnalysisResponse>(`/results/${ticker.toUpperCase()}`);
+  async getResults(ticker: string, owner: string | null): Promise<AnalysisResponse> {
+    const { data } = await apiClient.get<AnalysisResponse>(`/results/${ticker.toUpperCase()}`, { headers: await researchHeaders(owner) });
     return data;
   },
 
   // Get list of cached tickers
-  async getCachedTickers(): Promise<CachedTickersResponse> {
-    const { data } = await apiClient.get<CachedTickersResponse>('/cached-tickers');
+  async getCachedTickers(owner: string | null): Promise<CachedTickersResponse> {
+    const { data } = await apiClient.get<CachedTickersResponse>('/cached-tickers', { headers: await researchHeaders(owner) });
     return data;
   },
 
   // Delete cached analysis
-  async deleteAnalysis(ticker: string): Promise<{ message: string; ticker: string }> {
+  async deleteAnalysis(ticker: string, owner: string | null): Promise<{ message: string; ticker: string }> {
     const { data } = await apiClient.delete<{ message: string; ticker: string }>(
-      `/results/${ticker.toUpperCase()}`
+      `/results/${ticker.toUpperCase()}`, { headers: await researchHeaders(owner) }
     );
     return data;
   },

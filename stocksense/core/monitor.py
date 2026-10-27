@@ -16,7 +16,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
 from stocksense.core.config import get_chat_llm, ConfigurationError
-from stocksense.db.supabase_client import get_supabase_client
+from stocksense.db.supabase_client import get_supabase_client, get_user_supabase_client
 
 logger = logging.getLogger("stocksense.kill_monitor")
 
@@ -241,8 +241,7 @@ def create_kill_alert(
     Create a kill alert in the database.
     """
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
         # Truncate summary for storage
         summary_excerpt = analysis_summary[:500] if len(analysis_summary) > 500 else analysis_summary
@@ -283,15 +282,18 @@ def create_kill_alert(
         return None
 
 
-def get_pending_alerts(user_id: str, access_token: str, ticker: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_pending_alerts(user_id: str, access_token: str, ticker: Optional[str] = None, status: str = "pending") -> List[Dict[str, Any]]:
     """
     Get pending kill alerts for a user.
     """
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
-        query = client.table("alert_history").select("*").eq("user_id", user_id).eq("is_read", False)
+        query = client.table("alert_history").select("*").eq("user_id", user_id)
+        if status == "pending":
+            query = query.eq("is_read", False)
+        elif status != "all":
+            query = query.eq("status", status)
         
         if ticker:
             query = query.eq("ticker", ticker.upper())
@@ -317,17 +319,16 @@ def update_alert_status(
     Status can be: pending, dismissed, acknowledged, acted
     """
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(access_token)
+        client = get_user_supabase_client(access_token)
         
-        update_data = {"status": status, "is_read": True}
+        update_data = {"status": status, "is_read": status != "pending", "resolved_at": None}
         if user_action:
             update_data["user_action"] = user_action
         if status != "pending":
             update_data["resolved_at"] = datetime.now(timezone.utc).isoformat()
         
-        client.table("alert_history").update(update_data).eq("id", alert_id).eq("user_id", user_id).execute()
-        return True
+        response = client.table("alert_history").update(update_data).eq("id", alert_id).eq("user_id", user_id).execute()
+        return bool(response.data)
         
     except Exception as e:
         logger.error(f"Failed to update alert status: {e}")

@@ -36,12 +36,18 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         : await signUpWithEmail(email, password);
 
       if (result.error) {
-        setError(result.error.message);
+        const code = 'code' in result.error ? String(result.error.code) : '';
+        setError(code === 'invalid_credentials' ? 'Incorrect email or password.' :
+          code === 'email_not_confirmed' ? 'Please confirm your email before signing in.' :
+          code === 'user_already_exists' ? 'An account with this email already exists. Try signing in.' :
+          code === 'weak_password' ? 'Choose a stronger password and try again.' :
+          mode === 'login' ? 'Could not sign in. Please check your details and try again.' :
+          'Could not create your account. Please check your details and try again.');
       } else {
         onClose();
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError('Could not connect to sign-in. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -59,7 +65,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div role="dialog" aria-modal="true" aria-label="Sign in to StockSense" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="w-full max-w-md border border-border-base bg-canvas shadow-none rounded-sm overflow-hidden flex flex-col relative">
         
         {/* Terminal-like Header */}
@@ -71,6 +77,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </span>
             </div>
             <button 
+                aria-label="Close sign in"
                 onClick={onClose}
                 className="p-1 hover:bg-surface-2 hover:text-kill text-txt-muted transition-colors rounded-sm outline-none"
             >
@@ -137,6 +144,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </label>
                 <div className="relative">
                   <input
+                    aria-label="Email address"
+                    autoComplete="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -154,6 +163,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </label>
                 <div className="relative">
                   <input
+                    aria-label="Password"
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -167,7 +178,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
               {error && (
                 <div className="p-2 border border-kill/30 bg-kill/10 rounded-sm">
-                    <p className="text-micro font-mono text-kill uppercase tracking-widest text-center">ERR: {error}</p>
+                    <p className="text-micro font-mono text-kill text-center" role="alert">{error}</p>
                 </div>
               )}
 

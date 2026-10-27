@@ -26,6 +26,7 @@ data/
 
 # Supabase local development
 .supabase/
+supabase/.temp/
 
 # =============================================================================
 # -- Python --
@@ -162,3 +163,7 @@ $RECYCLE.BIN/
 .fuse_hidden*
 .Trash-*
 .nfs*
+
+# Local deployment state and release archives
+deploy/aws/.state/
+.vercel/

@@ -92,7 +92,7 @@ class BearAnalyst(BaseAnalystAgent):
         Construct the strongest possible bear case for caution.
         """
         if not self.llm:
-            return self._fallback_analysis(ticker, fundamentals)
+            raise RuntimeError("Bear analysis is unavailable. Please retry.")
         
         # Prepare data with risk-weighted emphasis
         prioritized_fundamentals = self.prepare_fundamentals(fundamentals)
@@ -108,7 +108,7 @@ class BearAnalyst(BaseAnalystAgent):
         )
         
         try:
-            response = self.llm.invoke(prompt)
+            response = await self.llm.bind(response_format={"type": "json_object"}).ainvoke(prompt)
             content = response.content.strip()
             
             # Parse JSON response
@@ -118,6 +118,8 @@ class BearAnalyst(BaseAnalystAgent):
                     content = content[4:]
             
             analysis = json.loads(content)
+            if not analysis.get("thesis") or "confidence" not in analysis or "key_claims" not in analysis:
+                raise ValueError("Analyst response is missing required evidence fields")
             
             return BearCase(
                 ticker=ticker,
@@ -150,7 +152,7 @@ class BearAnalyst(BaseAnalystAgent):
             
         except Exception as e:
             logger.error(f"Bear analysis failed: {e}")
-            return self._fallback_analysis(ticker, fundamentals)
+            raise RuntimeError("Bear analysis is unavailable. Please retry.")
     
     async def generate_rebuttal(
         self,
@@ -164,7 +166,7 @@ class BearAnalyst(BaseAnalystAgent):
         This is the Anti-Sycophancy mechanism.
         """
         if not self.llm:
-            return []
+            raise RuntimeError("Bear rebuttal is unavailable. Please retry.")
         
         prompt = f"""You are the Bear Analyst reviewing the Bull Analyst's case.
 
@@ -193,10 +195,10 @@ Return a JSON array of rebuttals:
 ]
 
 Be HONEST. If the Bull's points are valid, acknowledge them with lower strength scores.
-Only return the JSON array."""
+Return at most 3 concise rebuttals in a JSON object with a "rebuttals" key containing this array."""
 
         try:
-            response = self.llm.invoke(prompt)
+            response = await self.llm.bind(response_format={"type": "json_object"}).ainvoke(prompt)
             content = response.content.strip()
             
             if content.startswith("```"):
@@ -204,7 +206,7 @@ Only return the JSON array."""
                 if content.startswith("json"):
                     content = content[4:]
             
-            rebuttals_data = json.loads(content)
+            rebuttals_data = json.loads(content)["rebuttals"]
             
             return [
                 Rebuttal(
@@ -218,7 +220,7 @@ Only return the JSON array."""
             
         except Exception as e:
             logger.error(f"Bear rebuttal generation failed: {e}")
-            return []
+            raise RuntimeError("Bear rebuttal is unavailable. Please retry.")
     
     def _build_analysis_prompt(
         self,
@@ -287,7 +289,7 @@ Return a JSON object with this structure:
   ]
 }}
 
-Return ONLY the JSON object."""
+Keep the response concise: at most 3 claims and 3 catalysts or risks, with one sentence per explanation. Return ONLY the JSON object."""
     
     def _fallback_analysis(self, ticker: str, fundamentals: Dict[str, Any]) -> BearCase:
         """Fallback when LLM is unavailable."""

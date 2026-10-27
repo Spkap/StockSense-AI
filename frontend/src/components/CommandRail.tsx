@@ -13,9 +13,9 @@ const menuItems: Array<{
   label: string;
   viewId: ViewType;
 }> = [
-  { icon: LayoutDashboard, label: 'ANALYSIS', viewId: 'dashboard' },
-  { icon: BookOpen, label: 'THESES', viewId: 'theses' },
-  { icon: Bell, label: 'SYS_ALERTS', viewId: 'alerts' },
+  { icon: LayoutDashboard, label: 'Research', viewId: 'dashboard' },
+  { icon: BookOpen, label: 'Theses', viewId: 'theses' },
+  { icon: Bell, label: 'Alerts', viewId: 'alerts' },
 ];
 
 export default function CommandRail({ currentView, onNavigate }: CommandRailProps) {

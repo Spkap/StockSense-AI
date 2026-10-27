@@ -24,7 +24,7 @@ const STATUS_STYLES = {
 
 function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) {
   const [expanded, setExpanded] = useState(false);
-  const { data: historyData } = useThesisHistory(expanded ? thesis.id : null);
+  const { data: historyData, isLoading: historyLoading, error: historyError } = useThesisHistory(expanded ? thesis.id : null);
 
   const statusStyle = STATUS_STYLES[thesis.status] || STATUS_STYLES.active;
 
@@ -46,25 +46,25 @@ function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) 
             {thesis.ticker}
           </span>
           <span className="text-micro font-mono text-txt-muted uppercase tracking-widest mt-1">
-            TICKER_ID
+            Stock ticker
           </span>
         </div>
 
         {/* Center: Details & Summary */}
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-3">
-             <div className="flex items-center gap-3 text-micro font-mono text-txt-tertiary uppercase tracking-widest">
+             <div className="flex flex-wrap items-center gap-3 text-micro font-mono text-txt-tertiary uppercase tracking-widest">
                <div className="flex items-center gap-1.5">
                  <Clock className="h-3 w-3 text-txt-muted" />
-                 <span>UPDATED: {new Date(thesis.updated_at).toLocaleDateString()}</span>
+                 <span>Updated: {new Date(thesis.updated_at).toLocaleDateString()}</span>
                </div>
                <span className="text-border-strong">|</span>
                <span>v{(thesis as any).version || '1.0'}</span>
              </div>
 
-             <div className="flex items-center gap-2">
+             <div className="flex flex-wrap items-center gap-2">
                <span className={cn("inline-flex items-center rounded-sm border px-2 py-1 text-micro font-mono font-bold uppercase tracking-widest", CONVICTION_STYLES[thesis.conviction_level])}>
-                 {thesis.conviction_level}_CONVIC
+                 {thesis.conviction_level} conviction
                </span>
                <span className={cn("inline-flex items-center rounded-sm border px-2 py-1 text-micro font-mono font-bold uppercase tracking-widest", statusStyle)}>
                  {thesis.status}
@@ -81,22 +81,22 @@ function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) 
           </p>
 
           {!expanded && (
-             <div className="mt-4 flex gap-4 text-micro font-mono uppercase tracking-widest">
-                <span className="text-txt-muted">KILL_CRI: {thesis.kill_criteria.length}</span>
-                <span className="text-txt-muted">REV_LOGS: {historyData?.history?.length || 0}</span>
+             <div className="mt-4 flex flex-wrap gap-4 text-micro font-mono uppercase tracking-widest">
+                <span className="text-txt-muted">Conditions: {thesis.kill_criteria.length}</span>
+                <span className="text-txt-muted">Revisions: {historyData?.history?.length ?? 'View details'}</span>
              </div>
           )}
         </div>
       
         {/* Right Side: Actions */}
-        <div className="flex md:flex-col gap-2 shrink-0 md:border-l md:border-border-base/50 md:pl-5">
+        <div className="flex w-full flex-col sm:flex-row md:w-auto md:flex-col gap-2 shrink-0 md:border-l md:border-border-base/50 md:pl-5">
            <Button
             variant="ghost"
             size="sm"
             onClick={() => setExpanded(!expanded)}
             className="flex-1 md:flex-none justify-center rounded-sm text-micro font-mono font-bold uppercase tracking-widest text-accent border border-transparent hover:border-accent hover:bg-accent-dim h-8 px-3"
           >
-            {expanded ? 'COLLAPSE_VIEW' : 'EXPAND_VIEW'}
+            {expanded ? 'Hide details' : 'View details'}
           </Button>
           
           <Button 
@@ -105,7 +105,7 @@ function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) 
             onClick={onEdit} 
             className="flex-1 md:flex-none justify-center rounded-sm text-micro font-mono tracking-widest uppercase text-txt-secondary border border-border-base hover:bg-surface-2 hover:text-txt-primary h-8 px-3"
           >
-            EDIT_THESIS
+            Edit thesis
           </Button>
         </div>
       </div>
@@ -125,7 +125,7 @@ function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) 
               <div className="space-y-4">
                 <h4 className="flex items-center gap-2 text-micro font-mono font-bold uppercase tracking-widest text-accent border-b border-accent/20 pb-2">
                   <Target className="h-3 w-3" />
-                  DEF_KILL_CRITERIA
+                  Review conditions
                 </h4>
                 
                 {thesis.kill_criteria.length > 0 ? (
@@ -139,7 +139,7 @@ function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) 
                   </ul>
                 ) : (
                   <div className="text-micro font-mono text-txt-muted uppercase tracking-widest p-4 border border-dashed border-border-base text-center">
-                    NO_KILL_CRITERIA_DEFINED
+                    No review conditions defined
                   </div>
                 )}
               </div>
@@ -148,10 +148,10 @@ function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) 
               <div className="space-y-4">
                 <h4 className="flex items-center gap-2 text-micro font-mono font-bold uppercase tracking-widest text-txt-primary border-b border-border-base/50 pb-2">
                   <Clock className="h-3 w-3 text-txt-muted" />
-                  REVISION_LOGS
+                  Revision history
                 </h4>
                 
-                {historyData && historyData.history.length > 0 ? (
+                {historyLoading ? <p role="status" className="text-sm text-txt-secondary">Loading revision history…</p> : historyError ? <p role="alert" className="text-sm text-bear">Unable to load revision history.</p> : historyData && historyData.history.length > 0 ? (
                   <div className="flex flex-col pl-2 border-l border-border-base">
                     {historyData.history.slice(0, 5).map((entry) => (
                       <div key={entry.id} className="relative pl-5 py-2 group">
@@ -179,11 +179,14 @@ function ThesisCard({ thesis, onEdit }: { thesis: Thesis; onEdit: () => void }) 
                   </div>
                 ) : (
                   <div className="text-micro font-mono text-txt-muted uppercase tracking-widest p-4 border border-dashed border-border-base text-center">
-                    NO_REVISION_HISTORY
+                    No revision history
                   </div>
                 )}
               </div>
 
+            </div>
+            <div className="mt-6 border-t border-border-base pt-4 text-sm text-txt-secondary">
+              {thesis.origin_analysis_snapshot ? <p>Research when this thesis was created: {thesis.origin_analysis_snapshot.sentiment} sentiment · {new Date(thesis.origin_analysis_snapshot.timestamp).toLocaleDateString()}. This snapshot stays with your thesis when research is refreshed.</p> : <p>No research snapshot was saved with this thesis. Refreshing or removing research does not change your thesis.</p>}
             </div>
           </motion.div>
         )}
@@ -228,14 +231,14 @@ export default function ThesesPage({ onBack }: { onBack: () => void }) {
           onClick={onBack}
         >
           <ArrowLeft className="h-3 w-3 group-hover:-translate-x-1 transition-transform" />
-          <span className="text-micro font-mono uppercase tracking-widest font-bold">RTN_DASHBOARD</span>
+          <span className="text-micro font-mono uppercase tracking-widest font-bold">Back to research</span>
         </div>
         
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-2xl font-mono font-bold tracking-tighter text-txt-primary uppercase">THESIS_REPOSITORY</h1>
+            <h1 className="text-xl md:text-2xl font-mono font-bold tracking-tighter text-txt-primary uppercase">Thesis repository</h1>
             <p className="text-micro font-mono text-txt-muted uppercase tracking-widest">
-              MANAGED_CONVICTION_LOGS // KILL_CRITERIA_MONITORING
+              Your research views and the conditions that would change them
             </p>
           </div>
           
@@ -243,7 +246,7 @@ export default function ThesesPage({ onBack }: { onBack: () => void }) {
             onClick={onBack} 
             className="rounded-sm font-mono text-micro font-bold uppercase tracking-widest bg-accent text-canvas hover:bg-accent/90 h-8 px-4"
           >
-            [+] NEW_ANALYSIS_RUN
+            New research
           </Button>
         </div>
       </div>
@@ -251,7 +254,7 @@ export default function ThesesPage({ onBack }: { onBack: () => void }) {
       {/* Error State */}
       {error && (
         <div className="rounded-sm border border-bear/30 bg-bear/10 p-4 text-bear font-mono text-micro uppercase tracking-widest">
-          ERR_LOAD_FAILED: {error.message}
+          Could not load your theses. Please try again.
         </div>
       )}
 
@@ -266,7 +269,7 @@ export default function ThesesPage({ onBack }: { onBack: () => void }) {
             <div className="mb-4 text-txt-muted/50">
                  <BookOpen className="h-8 w-8" />
             </div>
-            <h3 className="text-sm font-mono font-bold tracking-widest uppercase text-txt-primary">NO_THESIS_LOGS_FOUND</h3>
+            <h3 className="text-sm font-mono font-bold tracking-widest uppercase text-txt-primary">No theses yet</h3>
             <p className="max-w-md text-micro font-mono text-txt-muted mt-2 mb-6 uppercase tracking-widest leading-relaxed">
               REPOSITORY_EMPTY. INITIATE_TICKER_ANALYSIS_TO_GENERATE_AND_STORE_CONVICTION_LOGS.
             </p>
@@ -275,7 +278,7 @@ export default function ThesesPage({ onBack }: { onBack: () => void }) {
               variant="ghost"
               className="rounded-sm font-mono text-micro font-bold uppercase tracking-widest border border-accent text-accent hover:bg-accent-dim h-8 px-6"
             >
-              INITIATE_ANALYSIS
+              Start research
             </Button>
           </div>
         ) : (

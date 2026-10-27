@@ -1,10 +1,13 @@
-import { RefreshCw, Trash2, Clock, Terminal } from 'lucide-react';
+import { useState } from 'react';
+import { RefreshCw, Clock, Terminal, Trash2 } from 'lucide-react';
 import { ListSkeleton } from './ui/skeleton';
 import { useCachedTickers, useDeleteAnalysis } from '../api/hooks';
+import { useAuth } from '../context/AuthContext';
 import type { CachedTickerItem } from '../types/api';
 
 interface AnalysisHistoryProps {
   onSelectHistory: (ticker: string) => void;
+  onRemoved: (ticker: string) => void;
 }
 
 function formatRelativeTime(timestamp: string | null): string {
@@ -46,9 +49,11 @@ function formatFullDateTime(timestamp: string | null): string {
   }
 }
 
-const AnalysisHistory = ({ onSelectHistory }: AnalysisHistoryProps) => {
-  const { data, isLoading, refetch } = useCachedTickers();
-  const deleteMutation = useDeleteAnalysis();
+const AnalysisHistory = ({ onSelectHistory, onRemoved }: AnalysisHistoryProps) => {
+  const { data, isLoading, isError, refetch } = useCachedTickers();
+  const { user } = useAuth();
+  const remove = useDeleteAnalysis();
+  const [confirmTicker, setConfirmTicker] = useState<string | null>(null);
   
   // Handle case where item might be just a string from old cache
   const rawTickers = data?.tickers || [];
@@ -59,25 +64,18 @@ const AnalysisHistory = ({ onSelectHistory }: AnalysisHistoryProps) => {
     return item;
   });
 
-  const handleDelete = (e: React.MouseEvent, symbol: string) => {
-    e.stopPropagation();
-    deleteMutation.mutate(symbol, {
-      onSuccess: () => refetch(),
-    });
-  };
-
   return (
     <div className="flex flex-col h-full border border-border-base bg-surface-1 rounded-sm overflow-hidden">
       {/* Terminal Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-base bg-surface-2/30">
         <div className="flex items-center gap-2 text-txt-secondary">
           <Terminal className="h-3 w-3" />
-          <span className="text-micro font-mono uppercase tracking-widest text-txt-muted">CACHE_LOG</span>
+          <span className="text-micro font-mono uppercase tracking-widest text-txt-muted">{user ? 'My saved research' : 'Shared guest research'}</span>
         </div>
         <button 
           className="p-1 text-txt-muted hover:text-txt-primary hover:bg-surface-2 transition-colors rounded-sm outline-none" 
           onClick={() => refetch()}
-          title="REFRESH_CACHE"
+          title="Refresh saved research"
         >
           <RefreshCw className="h-3 w-3" />
         </button>
@@ -88,44 +86,36 @@ const AnalysisHistory = ({ onSelectHistory }: AnalysisHistoryProps) => {
            <div className="space-y-2 p-2">
               <ListSkeleton items={4} />
            </div>
+        ) : isError ? (
+          <p role="alert" className="p-3 text-sm text-bear">Could not load saved research. Try refreshing.</p>
         ) : tickers.length === 0 ? (
            <div className="flex flex-col items-center justify-center py-12 text-center h-full">
               <Clock className="mb-3 h-4 w-4 text-txt-muted/30" />
-              <p className="text-micro font-mono tracking-widest text-txt-muted uppercase">CACHE_EMPTY</p>
+              <p className="text-micro font-mono tracking-widest text-txt-muted uppercase">No saved research yet</p>
            </div>
         ) : (
           <div className="flex flex-col gap-1">
             {tickers.map((item) => (
-              <div
-                key={item.symbol}
-                className="group relative flex items-center justify-between bg-surface-2 border border-border-base/50 hover:border-border-strong hover:bg-surface-3 p-2 transition-colors cursor-pointer rounded-sm"
-                onClick={() => onSelectHistory(item.symbol)}
-                title={formatFullDateTime(item.timestamp)}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-3">
+              <div key={item.symbol} className="group flex items-center bg-surface-2 border border-border-base/50 hover:border-border-strong hover:bg-surface-3 rounded-sm">
+                <button type="button" aria-label={`Open saved research for ${item.symbol}`} onClick={() => onSelectHistory(item.symbol)} title={formatFullDateTime(item.timestamp)} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-left">
                     <span className="font-mono text-micro font-bold tracking-widest text-txt-primary">
                       {item.symbol}
                     </span>
                     <span className="font-mono text-micro tracking-widest text-txt-muted uppercase">
                       {formatRelativeTime(item.timestamp)}
                     </span>
-                  </div>
-                  
-                  <button
-                    className="opacity-0 group-hover:opacity-100 p-1 text-txt-muted hover:bg-kill hover:text-canvas transition-all rounded-sm"
-                    onClick={(e) => handleDelete(e, item.symbol)}
-                    disabled={deleteMutation.isPending}
-                    title="PURGE_RECORD"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
+                </button>
+                <button type="button" aria-label={`Remove saved research for ${item.symbol}`} className="p-2 text-txt-muted hover:text-kill" onClick={() => { remove.reset(); setConfirmTicker(item.symbol); }}><Trash2 className="h-3.5 w-3.5" /></button>
               </div>
             ))}
           </div>
         )}
       </div>
+      {confirmTicker && <div role="dialog" aria-label="Remove saved research" className="border-t border-border-base p-3 text-sm text-txt-secondary">
+        <p>Remove {confirmTicker} research and its saved debate? {user ? 'This removes only your copy.' : 'This removes the shared guest copy for all guests.'} Theses are not deleted.</p>
+        {remove.isError && <p role="alert" className="mt-2 text-bear">Could not remove research. Please try again.</p>}
+        <div className="mt-3 flex gap-4"><button type="button" disabled={remove.isPending} className="text-kill underline" onClick={async () => { try { await remove.mutateAsync(confirmTicker); onRemoved(confirmTicker); setConfirmTicker(null); } catch { /* mutation displays its error */ } }}>Remove research</button><button type="button" className="text-txt-secondary underline" onClick={() => { remove.reset(); setConfirmTicker(null); }}>Cancel</button></div>
+      </div>}
     </div>
   );
 };

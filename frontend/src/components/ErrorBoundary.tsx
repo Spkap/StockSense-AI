@@ -48,24 +48,18 @@ class ErrorBoundary extends Component<Props, State> {
                 </div>
                 
                 <h2 className="mb-2 text-lg font-mono font-bold tracking-widest uppercase text-txt-primary">
-                  FATAL_ERROR
+                  Something went wrong
                 </h2>
                 
                 <p className="mb-6 text-micro font-mono text-txt-muted uppercase tracking-widest">
                   An unexpected error occurred. Please refresh.
                 </p>
                 
-                <div className="mb-8 w-full rounded-sm bg-canvas p-4 border border-kill/20">
-                  <p className="font-mono text-micro text-kill break-all uppercase tracking-wider">
-                    {this.state.error?.message || 'Unknown error'}
-                  </p>
-                </div>
-                
                 <Button 
                   onClick={this.handleRefresh} 
                   className="w-full font-mono text-micro uppercase tracking-widest border border-kill bg-kill/10 text-kill hover:bg-kill/20 rounded-sm h-9"
                 >
-                  [REFRESH_PAGE]
+                  Refresh page
                 </Button>
               </div>
             </div>

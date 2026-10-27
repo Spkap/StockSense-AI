@@ -1,6 +1,4 @@
 /* Obsidian Terminal Design Tokens */
-@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -24,9 +22,9 @@
 
     /* Text hierarchy — 4 opacity levels */
     --text-primary: rgba(255, 255, 255, 0.92);
-    --text-secondary: rgba(255, 255, 255, 0.60);
-    --text-tertiary: rgba(255, 255, 255, 0.35);
-    --text-muted: rgba(255, 255, 255, 0.18);
+    --text-secondary: rgba(255, 255, 255, 0.75);
+    --text-tertiary: rgba(255, 255, 255, 0.60);
+    --text-muted: rgba(255, 255, 255, 0.55);
 
     /* Semantic — used as signals only */
     --bull: #22C55E;
@@ -55,8 +53,8 @@
     --radius-lg: 6px;
 
     /* Typography scale */
-    --type-micro: 11px;
-    --type-sm: 12px;
+    --type-micro: 12px;
+    --type-sm: 14px;
     --type-base: 14px;
     --type-md: 16px;
     --type-lg: 20px;
@@ -87,3 +85,27 @@
     font-family: 'Lora', serif;
   }
 }
+
+button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* Shared reading and numeric rhythm across research views. */
+.research-copy { font-family: 'Lora', serif; font-size: 1rem; line-height: 1.7; letter-spacing: normal; text-transform: none; overflow-wrap: anywhere; }
+/* Keep editable text comfortably readable and avoid mobile browser zoom on focus. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]), textarea, select { font-size: 1rem; }
+}
+table { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* Reading rhythm for model-generated research and expandable evidence. */
+.research-markdown > * + * { margin-top: 1em; }
+.research-markdown h1, .research-markdown h2, .research-markdown h3, .research-markdown h4 { color: var(--text-primary); font-family: 'Geist Mono', monospace; font-size: 1em; font-weight: 600; line-height: 1.5; }
+.research-markdown ul, .research-markdown ol { padding-left: 1.4em; }
+.research-markdown ul { list-style: disc; }
+.research-markdown ol { list-style: decimal; }
+.research-markdown li + li { margin-top: .45em; }
+.research-markdown strong { color: var(--text-primary); }
+.research-markdown a { color: var(--accent); text-decoration: underline; overflow-wrap: anywhere; }
+.news-disclosure summary { list-style: none; }
+.news-disclosure summary::-webkit-details-marker { display: none; }
+.news-disclosure[open] .news-chevron { transform: rotate(45deg); }

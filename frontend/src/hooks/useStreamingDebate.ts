@@ -180,7 +180,7 @@ export function useStreamingDebate() {
       setState(prev => ({
         ...prev,
         isStreaming: false,
-        error: 'Connection to server lost',
+        error: 'Connection lost. Check your connection and try again.',
       }));
       eventSource.close();
     };

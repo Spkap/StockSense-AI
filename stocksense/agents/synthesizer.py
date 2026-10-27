@@ -9,6 +9,7 @@ Implements the Evidence Grader protocol to prevent sycophancy.
 """
 
 import json
+import math
 import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
@@ -164,7 +165,7 @@ class Synthesizer:
         timestamp = datetime.now(timezone.utc).isoformat()
         
         if not self.llm:
-            return self._fallback_synthesis(ticker, bull_case, bear_case, analysis_id, timestamp)
+            raise RuntimeError("Debate synthesis is unavailable. Please retry.")
         
         # Step 1: Grade evidence for both cases
         evidence_grades = await self._grade_evidence(
@@ -349,7 +350,7 @@ The three probabilities should sum to approximately 1.0.
 Return ONLY the JSON object."""
 
         try:
-            response = self.llm.invoke(prompt)
+            response = await self.llm.bind(response_format={"type": "json_object"}).ainvoke(prompt)
             content = response.content.strip()
             
             if content.startswith("```"):
@@ -357,20 +358,27 @@ Return ONLY the JSON object."""
                 if content.startswith("json"):
                     content = content[4:]
             
-            return json.loads(content)
+            result = json.loads(content)
+            required = {"bull_probability", "base_probability", "bear_probability", "recommendation",
+                        "conviction", "decisive_factors", "unresolved_questions", "reasoning"}
+            if not required.issubset(result):
+                raise ValueError("Synthesis response is missing required fields")
+            values = [result[key] for key in ("bull_probability", "base_probability", "bear_probability", "conviction")]
+            if any(not isinstance(value, (int, float)) or isinstance(value, bool)
+                   or not math.isfinite(value) or not 0 <= value <= 1 for value in values):
+                raise ValueError("Synthesis probabilities and conviction must be finite values between 0 and 1")
+            if not math.isclose(sum(values[:3]), 1.0, abs_tol=.01):
+                raise ValueError("Synthesis scenario probabilities must sum to 1")
+            if result["recommendation"] not in {"Strong Buy", "Buy", "Hold", "Sell", "Strong Sell"}:
+                raise ValueError("Synthesis recommendation is invalid")
+            if not isinstance(result["decisive_factors"], list) or not isinstance(result["unresolved_questions"], list) or not result["reasoning"]:
+                raise ValueError("Synthesis explanations are missing or invalid")
+            return result
             
         except Exception as e:
             logger.error(f"Synthesis generation failed: {e}")
-            return {
-                "bull_probability": 0.33,
-                "base_probability": 0.34,
-                "bear_probability": 0.33,
-                "recommendation": "Hold",
-                "conviction": 0.5,
-                "decisive_factors": ["LLM synthesis failed"],
-                "unresolved_questions": ["Full analysis unavailable"],
-                "reasoning": "Unable to generate synthesis - manual review required."
-            }
+            raise RuntimeError("Debate synthesis could not be completed. Please retry.") from e
+
     
     def _fallback_synthesis(
         self,

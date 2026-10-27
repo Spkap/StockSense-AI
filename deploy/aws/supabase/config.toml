@@ -1,0 +1,10 @@
+# Only declare the hosted Auth return URLs. Other remote settings are untouched.
+project_id = "stocksense"
+
+[auth]
+site_url = "https://stocksense-agent.vercel.app"
+additional_redirect_urls = [
+  "https://stocksense-agent.vercel.app",
+  "https://stock-sense-ai-spkaps-projects.vercel.app",
+  "http://localhost:3000",
+]

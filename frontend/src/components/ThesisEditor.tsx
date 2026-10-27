@@ -11,12 +11,14 @@ import { Button } from './ui/button';
 import { useAuth } from '../context/AuthContext';
 import { useCreateThesis, useUpdateThesis } from '../api/theses';
 import type { Thesis, CreateThesisRequest } from '../types/thesis';
+import type { AnalysisData } from '../types/api';
 
 interface ThesisEditorProps {
   isOpen: boolean;
   onClose: () => void;
   ticker: string;
   existingThesis?: Thesis | null;
+  analysis?: AnalysisData | null;
 }
 
 const CONVICTION_LEVELS = [
@@ -25,7 +27,7 @@ const CONVICTION_LEVELS = [
   { value: 'high', label: 'HIGH', description: 'Strong' },
 ] as const;
 
-export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }: ThesisEditorProps) {
+export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis, analysis }: ThesisEditorProps) {
   const { user } = useAuth();
   const createThesis = useCreateThesis();
   const updateThesis = useUpdateThesis();
@@ -46,13 +48,14 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
       setConvictionLevel('medium');
       setKillCriteria('');
     }
+    setError(null);
   }, [existingThesis, isOpen]);
 
   if (!isOpen) return null;
 
   if (!user) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div role="dialog" aria-modal="true" aria-label="Investment thesis editor" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
         <div className="w-full max-w-md mx-4 border border-border-base bg-surface-1 rounded-sm overflow-hidden">
           <div className="p-6 text-center">
             <AlertTriangle className="h-12 w-12 text-accent mx-auto mb-4" />
@@ -100,6 +103,15 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
           thesis_summary: thesisSummary.trim(),
           conviction_level: convictionLevel,
           kill_criteria: killCriteriaList,
+          ...(analysis && analysis.ticker.toUpperCase() === ticker.toUpperCase() ? {
+            origin_analysis_snapshot: {
+              sentiment: analysis.overall_sentiment || 'Unavailable',
+              confidence: analysis.overall_confidence ?? 0,
+              skeptic_verdict: analysis.skeptic_sentiment || undefined,
+              key_themes: (analysis.key_themes || []).map(item => item.theme),
+              timestamp: analysis.timestamp,
+            },
+          } : {}),
         };
         await createThesis.mutateAsync(newThesis);
       }
@@ -112,11 +124,12 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
   const isLoading = createThesis.isPending || updateThesis.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div role="dialog" aria-modal="true" aria-label="Investment thesis editor" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="w-full max-w-lg mx-4 border border-border-base bg-surface-1 rounded-sm max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="relative border-b border-border-base bg-surface-2 px-4 py-3">
           <button
+            aria-label="Close thesis editor"
             onClick={onClose}
             className="absolute right-3 top-3 p-1 rounded-sm text-txt-muted hover:text-txt-primary hover:bg-surface-3 transition-colors"
           >
@@ -128,6 +141,7 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
           <p className="text-micro font-mono text-txt-muted uppercase tracking-widest mt-1">
             Record why you care about this asset
           </p>
+          {!existingThesis && analysis && <p className="mt-2 text-sm text-txt-secondary">A snapshot of the current research will be saved with your thesis. Refreshing research will not change it.</p>}
         </div>
 
         {/* Form */}
@@ -139,6 +153,7 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
                 THESIS_SUMMARY
               </label>
               <textarea
+                aria-label="Thesis summary"
                 value={thesisSummary}
                 onChange={(e) => setThesisSummary(e.target.value)}
                 placeholder="I believe this company will... because..."
@@ -184,6 +199,7 @@ export default function ThesisEditor({ isOpen, onClose, ticker, existingThesis }
                 What conditions would make you exit? One per line.
               </p>
               <textarea
+                aria-label="Kill criteria"
                 value={killCriteria}
                 onChange={(e) => setKillCriteria(e.target.value)}
                 placeholder="Revenue growth slows below 10%&#10;CEO leaves the company&#10;Major competitor enters market"

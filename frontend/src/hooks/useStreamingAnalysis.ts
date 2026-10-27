@@ -3,9 +3,11 @@
  * Stage 4: Progressive rendering of analysis results using SSE
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { AnalysisData } from '../types/api';
 import { API_BASE_URL } from '../config/env';
+import { supabase } from '../utils/supabase';
+import { useAuth } from '../context/AuthContext';
 
 export type StreamEventType = 
   | 'started'
@@ -45,27 +47,46 @@ const initialState: StreamingState = {
 };
 
 export function useStreamingAnalysis() {
+  const { user } = useAuth();
   const [state, setState] = useState<StreamingState>(initialState);
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const eventSourceRef = useRef<AbortController | null>(null);
+  useEffect(() => () => { eventSourceRef.current?.abort(); }, []);
 
-  const startAnalysis = useCallback((ticker: string) => {
+  const startAnalysis = useCallback(async (ticker: string) => {
     // Reset state
     setState({ ...initialState, isStreaming: true });
 
     // Close any existing connection
     if (eventSourceRef.current) {
-      eventSourceRef.current.close();
+      eventSourceRef.current.abort();
     }
 
-    const url = `${API_BASE_URL}/analyze/${ticker.toUpperCase()}/stream`;
-    const eventSource = new EventSource(url);
-    eventSourceRef.current = eventSource;
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data: StreamEvent = JSON.parse(event.data);
-        
+    const controller = new AbortController();
+    eventSourceRef.current = controller;
+    try {
+      const { data: { session }, error: sessionError } = supabase ? await supabase.auth.getSession() : { data: { session: null }, error: null };
+      if (sessionError || (session?.user.id || null) !== (user?.id || null)) throw new Error('Session unavailable');
+      if (controller.signal.aborted) return;
+      const response = await fetch(`${API_BASE_URL}/analyze/${encodeURIComponent(ticker.toUpperCase())}/stream`, {
+        signal: controller.signal,
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      });
+      if (!response.ok || !response.body) throw new Error('Connection failed');
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let terminal = false;
+      while (!terminal) {
+        const chunk = await reader.read();
+        if (controller.signal.aborted || eventSourceRef.current !== controller) return;
+        buffer += decoder.decode(chunk.value, { stream: !chunk.done });
+        const blocks = buffer.split(/\r?\n\r?\n/);
+        buffer = blocks.pop() || '';
+        for (const block of blocks) {
+          const line = block.split(/\r?\n/).find(item => item.startsWith('data:'));
+          if (!line) continue;
+          const data: StreamEvent = JSON.parse(line.slice(5).trim());
+          if (data.type === 'completed' || data.type === 'error') terminal = true;
         setState(prev => {
           const newState = {
             ...prev,
@@ -97,47 +118,42 @@ export function useStreamingAnalysis() {
             case 'completed':
               newState.isStreaming = false;
               newState.currentTool = null;
-              if (data.data) {
+              if (data.data && typeof data.data.ticker === 'string' && data.data.ticker.toUpperCase() === ticker.toUpperCase()
+                  && typeof data.data.summary === 'string' && data.data.summary.trim()
+                  && Array.isArray(data.data.headlines) && Array.isArray(data.data.price_data)) {
                 newState.finalData = data.data as AnalysisData;
                 newState.partialData = data.data;
+              } else {
+                newState.error = 'The server returned an incomplete analysis. Please retry.';
               }
-              eventSource.close();
               break;
             
             case 'error':
               newState.isStreaming = false;
               newState.error = data.message;
-              eventSource.close();
               break;
           }
 
           return newState;
         });
-      } catch (e) {
-        console.error('Failed to parse SSE event:', e);
+        }
+        if (chunk.done) break;
       }
-    };
+      if (!terminal && !controller.signal.aborted) throw new Error('Stream ended early');
+      if (eventSourceRef.current === controller) eventSourceRef.current = null;
+    } catch (error) {
+      if (controller.signal.aborted || eventSourceRef.current !== controller) return;
+      console.error('Analysis stream failed:', error);
+      eventSourceRef.current = null;
+      setState(prev => ({ ...prev, isStreaming: false, error: 'Connection lost. Check your connection and try again.' }));
+    }
 
-    eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
-      setState(prev => ({
-        ...prev,
-        isStreaming: false,
-        error: 'Connection to server lost',
-      }));
-      eventSource.close();
-    };
-
-  }, []);
+  }, [user?.id]);
 
   const stopAnalysis = useCallback(() => {
     if (eventSourceRef.current) {
-      eventSourceRef.current.close();
+      eventSourceRef.current.abort();
       eventSourceRef.current = null;
-    }
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
     }
     setState(prev => ({
       ...prev,

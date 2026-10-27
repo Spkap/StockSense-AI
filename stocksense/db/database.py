@@ -6,10 +6,11 @@ All analysis results are stored in Supabase's `analysis_cache` table.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional, List, Any
 
-from stocksense.db.supabase_client import get_supabase_client, SupabaseAuthError
+from stocksense.core.data_collectors import json_safe_data
+from stocksense.db.supabase_client import get_supabase_client, get_supabase_admin_client, get_user_supabase_client, SupabaseAuthError
 
 logger = logging.getLogger("stocksense.database")
 
@@ -63,10 +64,15 @@ def save_analysis(
     would_change_mind: Optional[List[str]] = None,
     # Fundamental data
     fundamental_data: Optional[Dict] = None,
+    user_id: Optional[str] = None,
+    access_token: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Save analysis results to Supabase analysis_cache table."""
     try:
-        client = get_supabase_client()
+        if bool(user_id) != bool(access_token):
+            raise ValueError("User identity and access token must be supplied together")
+        client = get_user_supabase_client(access_token) if user_id and access_token else get_supabase_admin_client()
+        table = "user_analysis_cache" if user_id and access_token else "analysis_cache"
         
         data = {
             "ticker": ticker.upper(),
@@ -99,7 +105,16 @@ def save_analysis(
             "fundamental_data": fundamental_data or {},
         }
         
-        response = client.table("analysis_cache").insert(data).execute()
+        # Existing projects enforce one cache row per ticker; refresh it in place.
+        data = json_safe_data(data)
+        data["created_at"] = datetime.now(timezone.utc).isoformat()
+        if user_id and access_token:
+            data["user_id"] = user_id
+            response = client.table(table).upsert(data, on_conflict="user_id,ticker").execute()
+            return response.data[0] if response.data else None
+        response = client.table(table).update(data).eq("ticker", ticker.upper()).execute()
+        if not response.data:
+            response = client.table("analysis_cache").insert(data).execute()
         
         if response.data:
             logger.info(f"Analysis saved to Supabase for {ticker}")
@@ -111,13 +126,13 @@ def save_analysis(
         raise
 
 
-def get_latest_analysis(ticker: str) -> Optional[Dict[str, Any]]:
+def get_latest_analysis(ticker: str, access_token: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Retrieve the most recent analysis for a given ticker from Supabase."""
     try:
-        client = get_supabase_client()
+        client = get_user_supabase_client(access_token) if access_token else get_supabase_client()
         
         response = (
-            client.table("analysis_cache")
+            client.table("user_analysis_cache" if access_token else "analysis_cache")
             .select("*")
             .eq("ticker", ticker.upper())
             .order("created_at", desc=True)
@@ -163,16 +178,40 @@ def get_latest_analysis(ticker: str) -> Optional[Dict[str, Any]]:
         
     except Exception as e:
         logger.error(f"Error getting latest analysis from Supabase: {e}")
-        return None
+        raise
 
 
-def delete_cached_analysis(ticker: str) -> bool:
+def get_saved_debate(ticker: str, access_token: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Read the debate attached to this owner's saved research."""
+    client = get_user_supabase_client(access_token) if access_token else get_supabase_client()
+    response = (client.table("user_analysis_cache" if access_token else "analysis_cache")
+                .select("debate_result").eq("ticker", ticker.upper()).limit(1).execute())
+    return response.data[0].get("debate_result") if response.data else None
+
+
+def get_research_id(ticker: str, access_token: Optional[str] = None) -> Optional[int]:
+    client = get_user_supabase_client(access_token) if access_token else get_supabase_client()
+    response = (client.table("user_analysis_cache" if access_token else "analysis_cache")
+                .select("id").eq("ticker", ticker.upper()).limit(1).execute())
+    return response.data[0]["id"] if response.data else None
+
+
+def save_debate(ticker: str, result: Dict[str, Any], research_id: int, access_token: Optional[str] = None) -> bool:
+    """Update an existing research snapshot; never recreate one deleted during a run."""
+    client = get_user_supabase_client(access_token) if access_token else get_supabase_admin_client()
+    response = (client.table("user_analysis_cache" if access_token else "analysis_cache")
+                .update({"debate_result": json_safe_data(result)})
+                .eq("ticker", ticker.upper()).eq("id", research_id).execute())
+    return bool(response.data)
+
+
+def delete_cached_analysis(ticker: str, access_token: Optional[str] = None) -> bool:
     """Delete all cached analyses for a given ticker. Returns True if any were deleted."""
     try:
-        client = get_supabase_client()
+        client = get_user_supabase_client(access_token) if access_token else get_supabase_admin_client()
         
         response = (
-            client.table("analysis_cache")
+            client.table("user_analysis_cache" if access_token else "analysis_cache")
             .delete()
             .eq("ticker", ticker.upper())
             .execute()
@@ -185,7 +224,7 @@ def delete_cached_analysis(ticker: str) -> bool:
         
     except Exception as e:
         logger.error(f"Error deleting cached analysis from Supabase: {e}")
-        return False
+        raise
 
 
 def get_all_cached_tickers() -> List[str]:
@@ -218,17 +257,17 @@ def get_all_cached_tickers() -> List[str]:
         return []
 
 
-def get_all_cached_tickers_with_timestamps() -> List[Dict[str, Any]]:
+def get_all_cached_tickers_with_timestamps(access_token: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Get a list of all tickers with their most recent analysis timestamps.
     Returns list of dicts with 'symbol' and 'timestamp' keys.
     """
     try:
-        client = get_supabase_client()
+        client = get_user_supabase_client(access_token) if access_token else get_supabase_client()
         
         # Fetch all analyses ordered by time
         response = (
-            client.table("analysis_cache")
+            client.table("user_analysis_cache" if access_token else "analysis_cache")
             .select("ticker, created_at")
             .order("created_at", desc=True)
             .execute()
@@ -251,7 +290,7 @@ def get_all_cached_tickers_with_timestamps() -> List[Dict[str, Any]]:
         
     except Exception as e:
         logger.error(f"Error getting cached tickers with timestamps from Supabase: {e}")
-        return []
+        raise RuntimeError("Cached analyses are temporarily unavailable. Please retry.") from e
 
 
 if __name__ == '__main__':

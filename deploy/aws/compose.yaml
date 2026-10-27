@@ -1,0 +1,47 @@
+services:
+  api:
+    image: stocksense-backend:${RELEASE_ID:?set RELEASE_ID}
+    build:
+      context: ../..
+      dockerfile: deploy/aws/Dockerfile
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      AWS_REGION: ${AWS_REGION:?set AWS_REGION}
+      STOCKSENSE_SECRET_ID: ${STOCKSENSE_SECRET_ID:?set STOCKSENSE_SECRET_ID}
+    mem_limit: 1400m
+    cpus: 1.75
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:size=134217728,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      API_HOST: ${API_HOST:?set API_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+volumes:
+  caddy_data:
+  caddy_config:

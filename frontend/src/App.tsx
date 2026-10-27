@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from './api/hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import CommandRail from './components/CommandRail';
@@ -19,12 +21,14 @@ import { useHealthCheck, useAnalysisResults } from './api/hooks';
 import { useStreamingAnalysis } from './hooks/useStreamingAnalysis';
 import type { AnalysisData, KillAlert } from './types/api';
 import { AlertCircle } from 'lucide-react';
-import { cn } from './utils/cn';
+import { useAuth } from './context/AuthContext';
 
 function AppContent() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'dashboard' | 'theses' | 'alerts'>('dashboard');
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
+  const { user, loading: authLoading } = useAuth();
   const tickerInputRef = useRef<TickerInputRef>(null);
   
   // Keyboard shortcuts (Cmd/Ctrl+K to focus search)
@@ -33,25 +37,30 @@ function AppContent() {
   });
   
   // Health check
-  const { data: health, isError: isHealthError } = useHealthCheck();
-  const backendStatus = health?.status === 'ok' || health?.status === 'degraded' 
-    ? 'online' 
-    : isHealthError 
-      ? 'offline' 
-      : 'checking...';
+  const { isError: isHealthError } = useHealthCheck();
   
   // Streaming Analysis (Stage 4)
   const streaming = useStreamingAnalysis();
   const [killAlerts, setKillAlerts] = useState<KillAlert[]>([]);
+  const owner = user?.id || 'guest';
+  const previousOwner = useRef(owner);
+  useEffect(() => {
+    if (!authLoading && previousOwner.current !== owner) {
+      streaming.reset();
+      setSelectedTicker(null);
+      previousOwner.current = owner;
+    }
+  }, [owner, authLoading, streaming.reset]);
   
   // Fetch cached results when ticker changes
-  const { data: resultsData, refetch: refetchResults } = useAnalysisResults(selectedTicker);
+  const { data: resultsData, refetch: refetchResults, isLoading: isResultsLoading, error: resultsError } = useAnalysisResults(streaming.isStreaming ? null : selectedTicker);
   
   // Use streaming final data or cached results
-  const analysisData: AnalysisData | null = 
-    streaming.finalData || resultsData?.data || null;
+  const analysisData: AnalysisData | null =
+    !authLoading && previousOwner.current === owner ? (streaming.finalData || resultsData?.data || null) : null;
 
   const handleAnalyze = (ticker: string, _force: boolean = false) => {
+    if (authLoading) return;
     setSelectedTicker(ticker);
     setKillAlerts([]);
     streaming.startAnalysis(ticker);
@@ -82,11 +91,12 @@ function AppContent() {
   useEffect(() => {
     if (streaming.finalData && selectedTicker) {
       refetchResults();
+      queryClient.invalidateQueries({ queryKey: queryKeys.cachedTickers });
     }
-  }, [streaming.finalData, selectedTicker, refetchResults]);
+  }, [streaming.finalData, selectedTicker, refetchResults, queryClient]);
 
   const isLoading = streaming.isStreaming;
-  const error = streaming.error;
+  const error = streaming.error || (!streaming.isStreaming && selectedTicker && !streaming.finalData && resultsError ? resultsError.message : null);
 
   // Show toast notification for errors
   useEffect(() => {
@@ -129,7 +139,7 @@ function AppContent() {
       <div className="flex min-h-screen bg-canvas font-mono text-txt-primary selection:bg-accent selection:text-canvas antialiased relative">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
         <CommandRail onNavigate={setCurrentView} currentView={currentView} />
-        <main className="flex flex-1 flex-col ml-14 relative z-10">
+        <main className="flex min-w-0 flex-1 flex-col ml-14 relative z-10">
           <Header />
           <ThesesPage onBack={() => setCurrentView('dashboard')} />
         </main>
@@ -143,7 +153,7 @@ function AppContent() {
       <div className="flex min-h-screen bg-canvas font-mono text-txt-primary selection:bg-accent selection:text-canvas antialiased relative">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
         <CommandRail onNavigate={setCurrentView} currentView={currentView} />
-        <main className="flex flex-1 flex-col ml-14 p-6 relative z-10">
+        <main className="flex min-w-0 flex-1 flex-col ml-14 p-6 relative z-10">
           <Header />
           <div className="flex-1 mt-6">
              <AlertsCenter />
@@ -160,12 +170,12 @@ function AppContent() {
       <CommandRail onNavigate={setCurrentView} currentView={currentView} />
 
       {/* Main Content Area */}
-      <main className="flex flex-1 flex-col ml-14 relative z-10">
+      <main className="flex min-w-0 flex-1 flex-col ml-14 relative z-10">
         {/* Top Bar */}
         <Header />
 
         {/* Dashboard Content Padded Area */}
-        <div className="p-4 md:p-6 lg:p-8">
+        <div className="w-full max-w-[1440px] mx-auto p-4 md:p-6 lg:p-8">
           
           {/* Control Bar (Input & Quick Select) */}
           <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
@@ -189,15 +199,22 @@ function AppContent() {
               >
                 <div className="flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
-                  <span className="font-mono text-sm uppercase tracking-widest font-bold">ANALYSIS_FAILED</span>
+                  <span className="font-mono text-sm uppercase tracking-widest font-bold">Analysis unavailable</span>
                 </div>
-                <p className="mt-2 text-micro font-mono tracking-wider">{error}</p>
+                <p className="mt-2 text-sm font-mono">{error}</p>
+                <div className="mt-3 flex gap-4 text-sm">
+                  {selectedTicker && <button className="underline" onClick={() => handleAnalyze(selectedTicker)}>Retry analysis</button>}
+                  {resultsData?.data?.ticker?.toUpperCase() === selectedTicker?.toUpperCase() && <button className="underline" onClick={() => streaming.reset()}>View saved research</button>}
+                  <button className="underline" onClick={() => { streaming.reset(); setSelectedTicker(null); }}>Back to dashboard</button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
           
           <AnimatePresence mode="wait">
-            {isLoading && selectedTicker ? (
+            {isResultsLoading && selectedTicker && !isLoading ? (
+              <div role="status" className="py-16 text-center text-txt-secondary">Loading saved research for {selectedTicker}…</div>
+            ) : isLoading && selectedTicker ? (
               <motion.div
                 key="loading"
                 initial={{ opacity: 0 }}
@@ -216,7 +233,7 @@ function AppContent() {
                   onCancel={handleCancel}
                 />
               </motion.div>
-            ) : !isLoading && analysisData ? (
+            ) : !isLoading && !error && analysisData ? (
               <motion.div
                 key="results"
                 initial={{ opacity: 0 }}
@@ -243,6 +260,7 @@ function AppContent() {
                   onRefresh={handleRefresh}
                   isRefreshing={isLoading}
                 />
+                <AnalysisHistory onSelectHistory={handleSelectHistory} onRemoved={ticker => { if (selectedTicker === ticker) { streaming.reset(); setSelectedTicker(null); } }} />
               </motion.div>
             ) : !isLoading && !error ? (
               <motion.div
@@ -257,7 +275,7 @@ function AppContent() {
                      <EmptyState type="welcome" />
                   </div>
                   <div className="lg:col-span-4">
-                     <AnalysisHistory onSelectHistory={handleSelectHistory} />
+                     <AnalysisHistory onSelectHistory={handleSelectHistory} onRemoved={ticker => { if (selectedTicker === ticker) { streaming.reset(); setSelectedTicker(null); } }} />
                   </div>
                 </div>
               </motion.div>
@@ -266,21 +284,7 @@ function AppContent() {
         </div>
       </main>
 
-      {/* Status Indicator (Fixed Bottom Right) */}
-      <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6 mix-blend-difference opacity-80 hover:opacity-100 transition-opacity">
-        <div className={cn(
-          "flex items-center gap-2 rounded-sm px-3 py-1.5 text-micro uppercase font-mono tracking-widest border bg-canvas/80 backdrop-blur-sm",
-          backendStatus === 'online' 
-            ? 'text-bull border-bull/30' 
-            : 'text-bear border-bear/30'
-        )}>
-           <div className={cn(
-             "h-1.5 w-1.5 rounded-sm",
-             backendStatus === 'online' ? 'bg-bull' : 'bg-bear animate-pulse'
-           )} />
-           {backendStatus === 'online' ? 'SYS_ONLINE' : 'SYS_OFFLINE'}
-        </div>
-      </div>
+
     </div>
   );
 }

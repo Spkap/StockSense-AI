@@ -2,86 +2,57 @@ import os
 from typing import Optional
 from dotenv import load_dotenv
 
-# Optional import: minimal deployment may not include backend LLM deps
-try:
-    from langchain_google_genai import GoogleGenerativeAI, ChatGoogleGenerativeAI  # type: ignore
-    _GENAI_AVAILABLE = True
-except ModuleNotFoundError:
-    GoogleGenerativeAI = None  # type: ignore
-    ChatGoogleGenerativeAI = None  # type: ignore
-    _GENAI_AVAILABLE = False
+from pathlib import Path
 
-load_dotenv()
+try:
+    from langchain_fireworks import ChatFireworks
+except ModuleNotFoundError:
+    ChatFireworks = None
+
+# Resolve from the repository rather than the caller's working directory.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
+DEFAULT_MODEL = "accounts/fireworks/models/deepseek-v4p1-flash-1017"
+DEFAULT_TEMPERATURE = 0.3
+DEFAULT_MAX_TOKENS = 2048
+DEFAULT_CHAT_TEMPERATURE = 0.1
+DEFAULT_CHAT_MAX_TOKENS = 4096
 
 
 class ConfigurationError(Exception):
     pass
 
 
-def get_google_api_key() -> str:
-    """Get Google API key from environment variables."""
-    api_key = os.getenv('GOOGLE_API_KEY')
-
-    if not api_key:
-        raise ConfigurationError(
-            "Google API key not found. Please set GOOGLE_API_KEY environment variable."
-        )
-
-    if api_key == "your_actual_google_api_key_here":
-        raise ConfigurationError(
-            "Google API key is still set to placeholder value. Please configure with your actual API key."
-        )
-
+def get_fireworks_api_key() -> str:
+    api_key = os.getenv("FIREWORKS_API_KEY", "").strip()
+    if not api_key or api_key.startswith("your_"):
+        raise ConfigurationError("Set FIREWORKS_API_KEY in the backend .env file.")
     return api_key
 
 
-def get_llm(model: str = "gemini-2.5-flash-lite",
-           temperature: float = 0.3,
-           max_output_tokens: int = 2048):  # return type conditional
-    """Get configured Google Generative AI LLM instance.
-
-    This function is safe to call even if langchain-google-genai is not installed.
-    In that case it raises a ConfigurationError with a clear message instead of
-    causing an immediate ModuleNotFoundError during import of this module.
-    """
-    if not _GENAI_AVAILABLE or GoogleGenerativeAI is None:  # type: ignore
-        raise ConfigurationError(
-            "langchain-google-genai dependency not installed. Install backend requirements or add 'langchain-google-genai' to requirements.txt for LLM features."
-        )
-
-    api_key = get_google_api_key()
-
-    return GoogleGenerativeAI(  # type: ignore
-        model=model,
-        google_api_key=api_key,
+def get_chat_llm(model: Optional[str] = None,
+                 temperature: float = DEFAULT_CHAT_TEMPERATURE,
+                 max_output_tokens: int = DEFAULT_CHAT_MAX_TOKENS):
+    """Create the shared Fireworks chat model for all analysis agents."""
+    if ChatFireworks is None:
+        raise ConfigurationError("Install backend dependencies: langchain-fireworks is missing.")
+    selected_model = model or os.getenv("FIREWORKS_MODEL", "").strip() or DEFAULT_MODEL
+    return ChatFireworks(
+        model=selected_model,
+        fireworks_api_key=get_fireworks_api_key(),
         temperature=temperature,
-        max_output_tokens=max_output_tokens
+        max_tokens=max_output_tokens,
+        max_retries=2,
+        request_timeout=90,
     )
 
 
-def get_chat_llm(model: str = "gemini-2.5-flash-lite",
-                temperature: float = 0.1,
-                max_output_tokens: int = 1024):  # return type conditional
-    """Get configured Google Generative AI Chat LLM instance.
-
-    Raises ConfigurationError with guidance if dependency missing.
-    """
-    if not _GENAI_AVAILABLE or ChatGoogleGenerativeAI is None:  # type: ignore
-        raise ConfigurationError(
-            "langchain-google-genai dependency not installed. Install backend requirements or add 'langchain-google-genai' to requirements.txt for chat LLM features."
-        )
-
-    api_key = get_google_api_key()
-
-    return ChatGoogleGenerativeAI(  # type: ignore
-        model=model,
-        google_api_key=api_key,
-        temperature=temperature,
-        max_output_tokens=max_output_tokens,
-        max_retries=3,
-        timeout=30
-        # Removed requests_per_minute - deprecated parameter
-    )
+def get_llm(model: Optional[str] = None,
+            temperature: float = DEFAULT_TEMPERATURE,
+            max_output_tokens: int = DEFAULT_MAX_TOKENS):
+    """Text-output adapter retained for callers of the legacy LLM factory."""
+    from langchain_core.output_parsers import StrOutputParser
+    return get_chat_llm(model, temperature, max_output_tokens) | StrOutputParser()
 
 
 def get_newsapi_key() -> str:
@@ -93,7 +64,7 @@ def get_newsapi_key() -> str:
             "NewsAPI key not found. Please set NEWSAPI_KEY environment variable."
         )
 
-    if api_key == "your_actual_newsapi_key_here":
+    if api_key.strip().startswith("your_"):
         raise ConfigurationError(
             "NewsAPI key is still set to placeholder value. Please configure with your actual API key."
         )
@@ -119,13 +90,6 @@ def get_supabase_key() -> str:
 
 def validate_configuration() -> bool:
     """Validate all required configuration is present and valid."""
-    get_google_api_key()
+    get_fireworks_api_key()
     get_newsapi_key()
     return True
-
-
-DEFAULT_MODEL = "gemini-2.5-flash-lite"
-DEFAULT_TEMPERATURE = 0.3
-DEFAULT_MAX_TOKENS = 2048
-DEFAULT_CHAT_TEMPERATURE = 0.1
-DEFAULT_CHAT_MAX_TOKENS = 1024

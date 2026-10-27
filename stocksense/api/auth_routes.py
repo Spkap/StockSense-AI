@@ -95,7 +95,7 @@ class ThesisResponse(BaseModel):
 # Auth Dependency
 # ============================================
 
-async def get_current_user(authorization: Optional[str] = Header(None)):
+def get_current_user(authorization: Optional[str] = Header(None)):
     """
     Extract and verify user from Authorization header.
     
@@ -124,7 +124,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
 # ============================================
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_profile(user = Depends(get_current_user)):
+def get_current_user_profile(user = Depends(get_current_user)):
     """Get the current user's profile."""
     profile = get_user_profile(user["id"], user["access_token"])
     
@@ -149,14 +149,14 @@ async def get_current_user_profile(user = Depends(get_current_user)):
 # ============================================
 
 @router.get("/positions")
-async def list_positions(user = Depends(get_current_user)):
+def list_positions(user = Depends(get_current_user)):
     """Get all positions for the current user."""
     positions = get_user_positions(user["id"], user["access_token"])
     return {"positions": positions, "count": len(positions)}
 
 
 @router.post("/positions", response_model=PositionResponse)
-async def add_position(position: PositionCreate, user = Depends(get_current_user)):
+def add_position(position: PositionCreate, user = Depends(get_current_user)):
     """Add a new position to track."""
     result = create_position(user["id"], user["access_token"], position.model_dump())
     
@@ -167,7 +167,7 @@ async def add_position(position: PositionCreate, user = Depends(get_current_user
 
 
 @router.delete("/positions/{position_id}")
-async def remove_position(position_id: str, user = Depends(get_current_user)):
+def remove_position(position_id: str, user = Depends(get_current_user)):
     """Remove a position."""
     success = delete_position(user["id"], user["access_token"], position_id)
     
@@ -182,14 +182,14 @@ async def remove_position(position_id: str, user = Depends(get_current_user)):
 # ============================================
 
 @router.get("/theses")
-async def list_theses(ticker: Optional[str] = None, user = Depends(get_current_user)):
+def list_theses(ticker: Optional[str] = None, user = Depends(get_current_user)):
     """Get all theses, optionally filtered by ticker."""
     theses = get_user_theses(user["id"], user["access_token"], ticker)
     return {"theses": theses, "count": len(theses)}
 
 
 @router.post("/theses", response_model=ThesisResponse)
-async def add_thesis(thesis: ThesisCreate, user = Depends(get_current_user)):
+def add_thesis(thesis: ThesisCreate, user = Depends(get_current_user)):
     """Create a new investment thesis with kill criteria."""
     result = create_thesis(user["id"], user["access_token"], thesis.model_dump())
     
@@ -200,13 +200,13 @@ async def add_thesis(thesis: ThesisCreate, user = Depends(get_current_user)):
 
 
 @router.patch("/theses/{thesis_id}", response_model=ThesisResponse)
-async def modify_thesis(thesis_id: str, updates: ThesisUpdate, user = Depends(get_current_user)):
+def modify_thesis(thesis_id: str, updates: ThesisUpdate, user = Depends(get_current_user)):
     """Update a thesis. Changes are tracked in history."""
     # Filter out None values
     update_data = {k: v for k, v in updates.model_dump().items() if v is not None}
     
-    if not update_data:
-        raise HTTPException(status_code=400, detail="No updates provided")
+    if not any(key != "change_reason" for key in update_data):
+        raise HTTPException(status_code=400, detail="No thesis changes provided")
     
     result = update_thesis(user["id"], user["access_token"], thesis_id, update_data)
     
@@ -217,26 +217,25 @@ async def modify_thesis(thesis_id: str, updates: ThesisUpdate, user = Depends(ge
 
 
 @router.get("/theses/{thesis_id}/history")
-async def get_thesis_evolution(thesis_id: str, user = Depends(get_current_user)):
+def get_thesis_evolution(thesis_id: str, user = Depends(get_current_user)):
     """Get the history of changes for a thesis (belief evolution)."""
     history = get_thesis_history(user["id"], user["access_token"], thesis_id)
     return {"history": history, "count": len(history)}
 
 
 @router.get("/theses/{thesis_id}/compare")
-async def compare_thesis_with_current(thesis_id: str, user = Depends(get_current_user)):
+def compare_thesis_with_current(thesis_id: str, user = Depends(get_current_user)):
     """
     Compare thesis origin analysis with current analysis for the same ticker.
     
     Returns diff showing what has changed since thesis was created.
     Stage 4: Analysis-Thesis Linkage
     """
-    from stocksense.db.supabase_client import get_supabase_client
+    from stocksense.db.supabase_client import get_user_supabase_client
     from stocksense.db.database import get_latest_analysis
     
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(user["access_token"])
+        client = get_user_supabase_client(user["access_token"])
         
         # Get the thesis with its origin snapshot
         response = client.table("theses").select("*").eq("id", thesis_id).eq("user_id", user["id"]).single().execute()
@@ -257,7 +256,7 @@ async def compare_thesis_with_current(thesis_id: str, user = Depends(get_current
             }
         
         # Get current analysis
-        current_analysis = get_latest_analysis(ticker)
+        current_analysis = get_latest_analysis(ticker, user['access_token'])
         
         if not current_analysis:
             return {
@@ -344,7 +343,7 @@ class KillAlertResponse(BaseModel):
 
 
 @router.get("/kill-alerts")
-async def list_kill_alerts(
+def list_kill_alerts(
     ticker: Optional[str] = None,
     status: str = "pending",
     user = Depends(get_current_user)
@@ -352,27 +351,22 @@ async def list_kill_alerts(
     """Get kill alerts for the current user."""
     from stocksense.core.monitor import get_pending_alerts
     
-    # For now, get_pending_alerts only gets pending; we could extend this
-    alerts = get_pending_alerts(user["id"], user["access_token"], ticker)
-    
-    # Filter by status if not pending
-    if status != "pending":
-        # Need to fetch all and filter (or extend the query function)
-        pass
-    
+    if status not in {"pending", "dismissed", "acknowledged", "acted", "all"}:
+        raise HTTPException(status_code=400, detail="Invalid alert status")
+    alerts = get_pending_alerts(user["id"], user["access_token"], ticker, status)
+
     return {"alerts": alerts, "count": len(alerts)}
 
 
 @router.get("/kill-alerts/{alert_id}")
-async def get_kill_alert(alert_id: str, user = Depends(get_current_user)):
+def get_kill_alert(alert_id: str, user = Depends(get_current_user)):
     """Get a specific kill alert."""
-    from stocksense.db.supabase_client import get_supabase_client
+    from stocksense.db.supabase_client import get_user_supabase_client
     
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(user["access_token"])
+        client = get_user_supabase_client(user["access_token"])
         
-        response = client.table("kill_alerts").select("*").eq("id", alert_id).eq("user_id", user["id"]).single().execute()
+        response = client.table("alert_history").select("*").eq("id", alert_id).eq("user_id", user["id"]).single().execute()
         
         if not response.data:
             raise HTTPException(status_code=404, detail="Alert not found")
@@ -383,7 +377,7 @@ async def get_kill_alert(alert_id: str, user = Depends(get_current_user)):
 
 
 @router.patch("/kill-alerts/{alert_id}")
-async def update_kill_alert(
+def update_kill_alert(
     alert_id: str,
     update: AlertStatusUpdate,
     user = Depends(get_current_user)
@@ -413,16 +407,19 @@ async def update_kill_alert(
 
 
 @router.delete("/kill-alerts/{alert_id}")
-async def delete_kill_alert(alert_id: str, user = Depends(get_current_user)):
+def delete_kill_alert(alert_id: str, user = Depends(get_current_user)):
     """Delete a kill alert."""
-    from stocksense.db.supabase_client import get_supabase_client
+    from stocksense.db.supabase_client import get_user_supabase_client
     
     try:
-        client = get_supabase_client()
-        client.postgrest.auth(user["access_token"])
+        client = get_user_supabase_client(user["access_token"])
         
-        client.table("kill_alerts").delete().eq("id", alert_id).eq("user_id", user["id"]).execute()
+        response = client.table("alert_history").delete().eq("id", alert_id).eq("user_id", user["id"]).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Alert not found")
         return {"message": "Alert deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to delete alert: {e}")
 

@@ -7,8 +7,10 @@ services:
     runtime: python
     plan: free
     envVars:
-      - key: GOOGLE_API_KEY
+      - key: FIREWORKS_API_KEY
         sync: false
+      - key: FIREWORKS_MODEL
+        value: accounts/fireworks/models/deepseek-v4p1-flash-1017
       - key: NEWSAPI_KEY
         sync: false
       - key: SUPABASE_URL
@@ -27,7 +29,7 @@ services:
       name: analysis-cache
       mountPath: /var/data
       sizeGB: 1
-    buildCommand: pip install --no-cache-dir -r requirements-backend.txt
+    buildCommand: pip install --no-cache-dir -r requirements.lock
     startCommand: uvicorn stocksense.main:app --host 0.0.0.0 --port $PORT
 
 # NOTE: React frontend should be deployed to Vercel, Netlify, or similar static hosting.

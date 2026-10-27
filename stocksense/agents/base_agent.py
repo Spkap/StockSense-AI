@@ -110,7 +110,7 @@ class BaseAnalystAgent(ABC):
         self.sentiment_focus = config["sentiment_focus"]
         
         try:
-            self.llm = get_chat_llm(temperature=0.2)
+            self.llm = get_chat_llm(temperature=0.2, max_output_tokens=8192)
         except ConfigurationError as e:
             logger.warning(f"LLM not available for {self.name}: {e}")
             self.llm = None

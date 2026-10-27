@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from './client';
+import { useAuth } from '../context/AuthContext';
 
 // Query keys for cache management
 export const queryKeys = {
@@ -25,9 +26,11 @@ export function useHealthCheck() {
  * Hook to get list of cached tickers
  */
 export function useCachedTickers() {
+  const { user, loading } = useAuth();
   return useQuery({
-    queryKey: queryKeys.cachedTickers,
-    queryFn: api.getCachedTickers,
+    queryKey: [...queryKeys.cachedTickers, user?.id || 'guest'],
+    queryFn: () => api.getCachedTickers(user?.id || null),
+    enabled: !loading,
   });
 }
 
@@ -35,10 +38,11 @@ export function useCachedTickers() {
  * Hook to get cached analysis results for a ticker
  */
 export function useAnalysisResults(ticker: string | null) {
+  const { user, loading } = useAuth();
   return useQuery({
-    queryKey: queryKeys.results(ticker || ''),
-    queryFn: () => api.getResults(ticker!),
-    enabled: !!ticker,
+    queryKey: [...queryKeys.results(ticker || ''), user?.id || 'guest'],
+    queryFn: () => api.getResults(ticker!, user?.id || null),
+    enabled: !!ticker && !loading,
   });
 }
 
@@ -65,9 +69,10 @@ export function useAnalyzeStock() {
  */
 export function useDeleteAnalysis() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
-    mutationFn: (ticker: string) => api.deleteAnalysis(ticker),
+    mutationFn: (ticker: string) => api.deleteAnalysis(ticker, user?.id || null),
     onSuccess: (_, ticker) => {
       // Remove from results cache
       queryClient.removeQueries({ queryKey: queryKeys.results(ticker) });

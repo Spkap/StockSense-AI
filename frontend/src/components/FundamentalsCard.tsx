@@ -24,7 +24,7 @@ const KeyStat = ({ label, value, format = 'text' }: { label: string; value: any;
 
   return (
     <div className="flex flex-col gap-1 p-3 border border-border-base bg-surface-1 rounded-sm">
-      <span className="text-micro font-mono text-txt-muted uppercase tracking-widest font-bold">{label.replace(' ', '_')}</span>
+      <span className="text-micro font-mono text-txt-muted uppercase tracking-widest font-bold">{label}</span>
       <span className="text-sm font-mono font-bold text-txt-primary tracking-widest">{displayValue}</span>
     </div>
   );
@@ -41,14 +41,19 @@ const FinancialTable = ({ data, title }: { data?: Record<string, any>; title: st
 
   // Get dates (columns) and metrics (rows)
   const dates = Object.keys(data).sort().reverse();
-  const metrics = Object.keys(data[dates[0]] || {});
+  const priority = ['Total Revenue', 'Gross Profit', 'Operating Income', 'Net Income', 'Basic EPS', 'Diluted EPS', 'Total Assets', 'Total Liabilities Net Minority Interest', 'Stockholders Equity', 'Operating Cash Flow', 'Investing Cash Flow', 'Financing Cash Flow', 'Free Cash Flow'];
+  const metrics = [...new Set(dates.slice(0, 4).flatMap(date => Object.keys(data[date] || {})))].sort((a, b) => {
+    const rankA = priority.indexOf(a), rankB = priority.indexOf(b);
+    return (rankA < 0 ? priority.length : rankA) - (rankB < 0 ? priority.length : rankB) || a.localeCompare(b);
+  });
 
   return (
-    <div className="border border-border-base bg-surface-1 rounded-sm overflow-x-auto">
-      <table className="w-full text-left border-collapse font-mono">
+    <div role="region" aria-label={`${title} data, scroll horizontally to compare years`} tabIndex={0} className="border border-border-base bg-surface-1 rounded-sm overflow-x-auto focus-visible:outline-accent">
+      <table className="w-full min-w-[680px] table-fixed text-left border-collapse font-mono">
+        <colgroup><col className="w-[160px] sm:w-[240px]" />{dates.slice(0, 4).map(date => <col key={date} className="w-[130px]" />)}</colgroup>
         <thead>
           <tr className="bg-surface-2/50 border-b border-border-base">
-            <th className="p-2 px-3 font-bold text-txt-primary uppercase tracking-widest text-micro">METRIC_ID</th>
+            <th className="sticky left-0 z-20 bg-surface-2 p-3 font-bold text-txt-primary text-micro">Metric</th>
             {dates.slice(0, 4).map(date => (
               <th key={date} className="p-2 px-3 font-bold text-txt-primary uppercase tracking-widest text-micro text-right border-l border-border-base/50">
                 {date}
@@ -59,7 +64,7 @@ const FinancialTable = ({ data, title }: { data?: Record<string, any>; title: st
         <tbody>
           {metrics.map((metric, idx) => (
             <tr key={metric} className={cn("border-b border-border-base/30 hover:bg-surface-2 transition-colors", idx % 2 === 0 ? "bg-transparent" : "bg-surface-1")}>
-              <td className="p-2 px-3 text-txt-secondary whitespace-nowrap text-micro tracking-widest uppercase">{metric}</td>
+              <td className="sticky left-0 z-10 bg-surface-1 p-3 text-txt-secondary whitespace-normal break-words text-sm tracking-normal">{metric}</td>
               {dates.slice(0, 4).map(date => {
                 const val = data[date]?.[metric];
                 let displayVal = val;
@@ -70,8 +75,8 @@ const FinancialTable = ({ data, title }: { data?: Record<string, any>; title: st
                     }).format(val);
                 }
                 return (
-                  <td key={`${date}-${metric}`} className="p-2 px-3 text-right whitespace-nowrap border-l border-border-base/50 text-txt-primary font-bold text-micro tracking-wider">
-                    {displayVal ?? '-'}
+                  <td key={`${date}-${metric}`} className="p-3 text-right whitespace-nowrap border-l border-border-base/50 text-txt-primary text-sm tracking-normal">
+                    {displayVal ?? '—'}
                   </td>
                 );
               })}
@@ -88,15 +93,15 @@ export default function FundamentalsCard({ data }: FundamentalsCardProps) {
   const [activeTab, setActiveTab] = useState<'income' | 'balance' | 'cashflow'>('income');
 
   const tabs = [
-    { id: 'income', label: 'INCOME_STATEMENT' },
-    { id: 'balance', label: 'BALANCE_SHEET' },
-    { id: 'cashflow', label: 'CASH_FLOW' },
+    { id: 'income', label: 'Income statement' },
+    { id: 'balance', label: 'Balance sheet' },
+    { id: 'cashflow', label: 'Cash flow' },
   ] as const;
 
   return (
     <div className="space-y-6">
       {/* Key Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <KeyStat label="Market Cap" value={info.market_cap} format="currency" />
         <KeyStat label="P/E Ratio" value={info.pe_ratio} format="number" />
         <KeyStat label="Forward P/E" value={info.forward_pe} format="number" />
@@ -105,20 +110,22 @@ export default function FundamentalsCard({ data }: FundamentalsCardProps) {
         <KeyStat label="Price/Book" value={info.price_to_book} format="number" />
         <KeyStat label="Debt/Equity" value={info.debt_to_equity} format="number" />
         <KeyStat label="Target High" value={info.target_high} format="currency" />
-        <KeyStat label="Analyst Rec" value={info.recommendation_mean} format="number" />
+        <KeyStat label="Analyst score" value={info.recommendation_mean} format="number" />
       </div>
 
+<p className="text-sm text-txt-secondary">Annual statements · newest reporting periods first · large values abbreviated as K, M, B or T. Missing values appear as —. Scroll tables horizontally to compare years.</p>
       {/* Financial Statements Custom Tabs */}
       <div className="flex flex-col gap-4">
-        <div className="flex w-full border-b border-border-base/50 gap-1 overflow-x-auto no-scrollbar pb-1">
+        <div className="flex flex-wrap w-full border-b border-border-base/50 gap-2 pb-2">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
+                aria-pressed={isActive}
                 onClick={() => setActiveTab(tab.id as 'income' | 'balance' | 'cashflow')}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 font-mono text-micro tracking-widest transition-colors outline-none rounded-sm border shrink-0 uppercase font-bold",
+                  "flex items-center gap-2 px-4 py-2 font-mono text-micro tracking-wide transition-colors outline-none rounded-sm border shrink-0 font-bold",
                   isActive 
                     ? "text-txt-primary bg-surface-2 border-border-strong" 
                     : "text-txt-muted hover:text-txt-secondary bg-surface-1 border-border-base hover:bg-surface-2"

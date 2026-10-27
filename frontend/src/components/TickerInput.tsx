@@ -67,17 +67,18 @@ const TickerInput = forwardRef<TickerInputRef, TickerInputProps>(({ onAnalyze, d
 
   const handleChange = (value: string) => {
     // Only allow letters and limit to 5 characters
-    const filtered = value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5);
-    setTicker(filtered);
+    setTicker(value.toUpperCase());
+    setTouched(true);
   };
 
   return (
     <div className="w-full">
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <div className="relative flex-1">
+      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
+        <div className="relative min-w-0 flex-1">
           <Input
             ref={inputRef}
-            placeholder="INPUT_TICKER"
+            aria-label="Stock ticker"
+            placeholder="Ticker, e.g. AAPL"
             value={ticker}
             onChange={(e) => handleChange(e.target.value)}
             onFocus={() => setIsFocused(true)}
@@ -86,9 +87,9 @@ const TickerInput = forwardRef<TickerInputRef, TickerInputProps>(({ onAnalyze, d
               setIsFocused(false);
             }}
             disabled={disabled}
-            maxLength={5}
+            maxLength={20}
             className={cn(
-              "h-12 bg-surface-1 border border-border-base font-mono text-sm uppercase tracking-widest text-txt-primary placeholder:text-txt-muted/50 rounded-sm pl-4 pr-16 outline-none transition-colors",
+              "h-12 bg-surface-1 border border-border-base font-mono text-sm uppercase tracking-wide text-txt-primary placeholder:text-txt-muted rounded-sm pl-4 pr-16 outline-none transition-colors",
               isFocused && "bg-surface-2 border-txt-secondary",
               showError && "border-bear text-bear"
             )}
@@ -116,7 +117,7 @@ const TickerInput = forwardRef<TickerInputRef, TickerInputProps>(({ onAnalyze, d
           disabled={disabled || !ticker.trim() || !validation.isValid}
           className="h-12 min-w-[120px] bg-accent text-canvas hover:bg-accent/90 font-mono font-bold text-micro uppercase tracking-widest rounded-sm disabled:opacity-50 disabled:bg-surface-2 disabled:text-txt-muted transition-colors border border-transparent disabled:border-border-base"
         >
-          EXECUTE
+          Analyze
         </Button>
       </form>
       

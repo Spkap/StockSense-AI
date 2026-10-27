@@ -20,8 +20,8 @@ interface EmptyStateProps {
 const emptyStateConfig = {
   welcome: {
     icon: Sparkles,
-    title: 'STOCKSENSE_SYS_V2.0',
-    description: 'AWAITING TICKER INPUT TO INITIALIZE INTELLIGENCE ROUTINES.',
+    title: 'Research a stock',
+    description: 'Enter a stock ticker or choose a quick pick to explore the news, financials, and independent risk review.',
     actionLabel: null,
     showFeatures: true,
   },
@@ -58,15 +58,15 @@ const emptyStateConfig = {
 const features = [
   {
     icon: Brain,
-    title: 'AI_SYNTHESIS',
+    title: 'AI review',
   },
   {
     icon: TrendingUp,
-    title: 'PRICE_ACTION',
+    title: 'Price history',
   },
   {
     icon: Clock,
-    title: 'REAL_TIME_FEED',
+    title: 'News evidence',
   },
 ];
 
@@ -91,11 +91,11 @@ const EmptyState = ({ type, onAction }: EmptyStateProps) => {
           <Icon className="h-5 w-5 text-accent animate-pulse" />
         </div>
         
-        <h3 className="mb-2 text-micro font-mono font-bold tracking-widest text-txt-primary uppercase">
+        <h3 className="mb-3 text-lg font-mono font-bold tracking-tight text-txt-primary">
           {config.title}
         </h3>
         
-        <p className="max-w-[360px] font-mono text-micro uppercase tracking-widest leading-relaxed text-txt-muted mb-8">
+        <p className="max-w-[360px] research-copy text-txt-secondary mb-6">
           {config.description}
         </p>
 
@@ -128,7 +128,7 @@ const EmptyState = ({ type, onAction }: EmptyStateProps) => {
                 <span>CTRL+K</span>
               )}
             </span>
-            <span>TO INITIATE SCAN</span>
+            <span>TO FOCUS SEARCH</span>
           </div>
         )}
 
